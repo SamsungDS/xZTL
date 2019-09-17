@@ -5,6 +5,8 @@
 
 static struct xapp_core core = {NULL};
 
+static xapp_register_fn *media_fn = NULL;
+
 int xapp_media_init (void)
 {
     if (!core.media)
@@ -31,11 +33,24 @@ static int xapp_media_check (struct xapp_media *media)
 {
     struct xapp_mgeo *g;
 
+    /* Check function pointers */
     if (!media->init_fn)
 	return XAPP_NOINIT;
 
     if (!media->init_fn)
 	return XAPP_NOEXIT;
+
+    if (!media->submit_io)
+	return XAPP_MEDIA_NOIO;
+
+    if (!media->zone_fn)
+	return XAPP_MEDIA_NOZONE;
+
+    if (!media->dma_alloc)
+	return XAPP_MEDIA_NOALLOC;
+
+    if (!media->dma_free)
+	return XAPP_MEDIA_NOFREE;
 
     /* Check the geometry */
     g = &media->geo;
@@ -43,17 +58,17 @@ static int xapp_media_check (struct xapp_media *media)
 	!g->pu_grp || g->pu_grp  > XAPP_MEDIA_MAX_PUGRP ||
 	!g->zn_pu  || g->zn_pu   > XAPP_MEDIA_MAX_ZNPU  ||
 	!g->sec_zn || g->sec_zn  > XAPP_MEDIA_MAX_SECZN ||
-        !g->sec_sz || g->sec_sz  > XAPP_MEDIA_MAX_SECSZ ||
-		      g->oob_sz  > XAPP_MEDIA_MAX_OOBSZ )
+        !g->nbytes || g->nbytes  > XAPP_MEDIA_MAX_SECSZ ||
+		      g->nbytes_oob  > XAPP_MEDIA_MAX_OOBSZ )
 	return XAPP_MEDIA_GEO;
 
     /* Fill up geometry fields */
     g->zn_grp  = g->pu_grp  * g->zn_pu;
     g->sec_grp = g->zn_grp  * g->sec_zn;
     g->sec_pu  = g->zn_pu   * g->sec_zn;
-    g->oob_grp = g->sec_grp * g->oob_sz;
-    g->oob_pu  = g->sec_pu  * g->oob_sz;
-    g->oob_zn  = g->sec_zn  * g->oob_sz;
+    g->oob_grp = g->sec_grp * g->nbytes_oob;
+    g->oob_pu  = g->sec_pu  * g->nbytes_oob;
+    g->oob_zn  = g->sec_zn  * g->nbytes_oob;
 
     return XAPP_OK;
 }
@@ -75,6 +90,11 @@ int xapp_media_set (struct xapp_media *media)
     return XAPP_OK;
 }
 
+void xapp_add_media (xapp_register_fn *fn)
+{
+    media_fn = fn;
+}
+
 int xapp_exit (void)
 {
     if (core.media) {
@@ -88,6 +108,13 @@ int xapp_exit (void)
 int xapp_init (void)
 {
     int ret;
+
+    if (!media_fn)
+	return XAPP_NOMEDIA;
+
+    ret = media_fn ();
+    if (ret)
+	return XAPP_MEDIA_ERROR | ret;
 
     ret = xapp_media_init ();
     if (ret)

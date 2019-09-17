@@ -17,7 +17,7 @@ add_definitions(-DXAPP_VERSION_MAJOR=${XAPP_VERSION_MAJOR})
 add_definitions(-DXAPP_VERSION_MINOR=${XAPP_VERSION_MINOR})
 add_definitions(-DXAPP_VERSION_PATCH=${XAPP_VERSION_PATCH})
 add_definitions(-DXAPP_VERSION=${XAPP_VERSION})
-add_definitions(-DXAPP_LABEL="X-App: User-space FTL Development Library")
+add_definitions(-DXAPP_LABEL="libxapp: Application-specific FTL Development Library")
 
 use_c11()
 enable_c_flag("-std=c11")
@@ -29,9 +29,11 @@ enable_c_flag("-fPIC")
 set(HEADER_FILES
     ${PROJECT_SOURCE_DIR}/include/xapp.h
     ${PROJECT_SOURCE_DIR}/include/xapp-media.h
-    ${PROJECT_SOURCE_DIR}/include/xapp-ftl.h
-    ${PROJECT_SOURCE_DIR}/include/xapp-front.h
+#    ${PROJECT_SOURCE_DIR}/include/xapp-mgmt.h
+#    ${PROJECT_SOURCE_DIR}/include/xapp-front.h
 )
+
+### XAPP CORE ###
 
 set(SOURCE_FILES
     ${PROJECT_SOURCE_DIR}/src/xapp-core.c
@@ -39,10 +41,11 @@ set(SOURCE_FILES
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
-set(LNAME "xapp")
+set(LXAPP "xapp")
 
-add_library(${LNAME} STATIC ${HEADER_FILES} ${SOURCE_FILES})
-set_target_properties(${LNAME} PROPERTIES OUTPUT_NAME ${LNAME})
+add_library(${LXAPP} STATIC ${HEADER_FILES} ${SOURCE_FILES})
+set_target_properties(${LXAPP} PROPERTIES OUTPUT_NAME ${LXAPP})
 
-set(TESTS)
+add_subdirectory(appzone)
+add_subdirectory(targets)
 add_subdirectory(tests)

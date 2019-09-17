@@ -3,6 +3,7 @@
 
 typedef int (xapp_init_fn) (void);
 typedef int (xapp_exit_fn) (void);
+typedef int (xapp_register_fn) (void);
 
 #include <xapp-media.h>
 
@@ -13,17 +14,26 @@ enum xapp_status {
     XAPP_NOINIT		= 0x3,
     XAPP_NOEXIT 	= 0x4,
     XAPP_MEDIA_NOGEO	= 0x5,
-    XAPP_MEDIA_GEO	= 0x6
+    XAPP_MEDIA_GEO	= 0x6,
+    XAPP_MEDIA_NOIO	= 0x7,
+    XAPP_MEDIA_NOZONE	= 0x8,
+    XAPP_MEDIA_NOALLOC	= 0x9,
+    XAPP_MEDIA_NOFREE	= 0xa,
+
+    XAPP_MEDIA_ERROR	= 0x100,
 };
 
 struct xapp_core {
     struct xapp_media *media;
 };
 
+/* Add media layer */
+void xapp_add_media (xapp_register_fn *fn);
+
 /* Set the media abstraction */
 int xapp_media_set (struct xapp_media *media);
 
-/* Initialize the application FTL */
+/* Initialize XApp instance */
 int xapp_init (void);
 
 /* Safe shut down */
