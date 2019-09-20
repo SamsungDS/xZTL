@@ -22,7 +22,7 @@ add_definitions(-DXAPP_LABEL="libxapp: Application-specific FTL Development Libr
 use_c11()
 enable_c_flag("-std=c11")
 enable_c_flag("-Wall")
-enable_c_flag("-Wextra")
+#enable_c_flag("-Wextra")
 enable_c_flag("-pedantic")
 enable_c_flag("-fPIC")
 enable_c_flag("-fopenmp")
@@ -135,6 +135,7 @@ set(SPDK_DEPS
 set(HEADER_FILES
     ${PROJECT_SOURCE_DIR}/include/xapp.h
     ${PROJECT_SOURCE_DIR}/include/xapp-media.h
+    ${PROJECT_SOURCE_DIR}/include/xapp-mempool.h
 #    ${PROJECT_SOURCE_DIR}/include/xapp-mgmt.h
 #    ${PROJECT_SOURCE_DIR}/include/xapp-front.h
 )
@@ -143,6 +144,7 @@ set(HEADER_FILES
 
 set(SOURCE_FILES
     ${PROJECT_SOURCE_DIR}/src/xapp-core.c
+    ${PROJECT_SOURCE_DIR}/src/xapp-mempool.c
 )
 
 include_directories("${PROJECT_SOURCE_DIR}/include")

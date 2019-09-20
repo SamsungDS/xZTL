@@ -27,6 +27,8 @@ struct xapp_core {
     struct xapp_media *media;
 };
 
+ 
+
 /* Add media layer */
 void xapp_add_media (xapp_register_fn *fn);
 

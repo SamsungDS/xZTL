@@ -10,7 +10,7 @@ int zrocks_exit (void)
 int zrocks_init (void)
 {
     /* Add libznd media layer */
-    xapp_add_media (zn_media_register);
+    xapp_add_media (znd_media_register);
 
     return xapp_init ();
 }

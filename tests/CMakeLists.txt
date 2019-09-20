@@ -21,7 +21,8 @@ endforeach()
 ### App Zoned Tests ###
 
 set(TEST_ZND_SRC_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/test-zn-media.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/test-znd-media.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/test-mempool.c
 )
 
 foreach(SRC_FN ${TEST_ZND_SRC_FILES})

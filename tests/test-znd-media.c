@@ -22,7 +22,7 @@ static int cunit_zn_media_exit (void)
 
 static void test_zn_media_register (void)
 {
-    cunit_zn_assert_int ("zn_media_register", zn_media_register ());
+    cunit_zn_assert_int ("zn_media_register", znd_media_register ());
 }
 
 static void test_zn_media_init (void)
