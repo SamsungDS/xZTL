@@ -1,7 +1,8 @@
 cmake_minimum_required(VERSION 2.8)
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
-include_directories("${PROJECT_SOURCE_DIR}/appzone/include")
+include_directories("${PROJECT_SOURCE_DIR}/appznd/include")
+include_directories("${PROJECT_SOURCE_DIR}/targets/include")
 
 ### XAPP Tests ###
 
@@ -17,17 +18,23 @@ foreach(SRC_FN ${TEST_SOURCE_FILES})
     target_link_libraries ( ${EXE_FN} cunit )
 endforeach()
 
-### App Zone Tests ###
+### App Zoned Tests ###
 
-set(TEST_ZN_SOURCE_FILES
+set(TEST_ZND_SRC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/test-zn-media.c
 )
 
-foreach(SRC_FN ${TEST_ZN_SOURCE_FILES})
+foreach(SRC_FN ${TEST_ZND_SRC_FILES})
     get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
-    set(EXE_FN "appzone-${SRC_FN_WE}")
+    set(EXE_FN "appznd-${SRC_FN_WE}")
     add_executable(${EXE_FN} ${SRC_FN})
     target_link_libraries ( ${EXE_FN} ${LXAPP} )
-    target_link_libraries ( ${EXE_FN} znd-media )
+    target_link_libraries ( ${EXE_FN} appznd )
     target_link_libraries ( ${EXE_FN} cunit )
+    target_link_libraries ( ${EXE_FN} xnvme )
+    target_link_libraries ( ${EXE_FN} pthread )
+
+    foreach(SPDK_DEP_I ${SPDK_DEPS})
+	target_link_libraries(${EXE_FN} ${SPDK_DEP_I})
+    endforeach()
 endforeach()

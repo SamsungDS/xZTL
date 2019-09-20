@@ -1,7 +1,14 @@
 #include <xapp.h>
 #include <xapp-media.h>
-#include <zn-media.h>
+#include <znd-media.h>
 #include "CUnit/Basic.h"
+
+static void cunit_zn_assert_int (char *fn, int status)
+{
+    CU_ASSERT (status == 0);
+    if (status)
+	printf (" %s: %x\n", fn, status);
+}
 
 static int cunit_zn_media_init (void)
 {
@@ -15,17 +22,17 @@ static int cunit_zn_media_exit (void)
 
 static void test_zn_media_register (void)
 {
-    CU_ASSERT (zn_media_register () == 0);
+    cunit_zn_assert_int ("zn_media_register", zn_media_register ());
 }
 
 static void test_zn_media_init (void)
 {
-    CU_ASSERT (xapp_media_init () == 0);
+    cunit_zn_assert_int ("xapp_media_init", xapp_media_init ());
 }
 
 static void test_zn_media_exit (void)
 {
-    CU_ASSERT (xapp_media_exit () == 0);
+    cunit_zn_assert_int ("xapp_media_exit", xapp_media_exit ());
 }
 
 int main (void)

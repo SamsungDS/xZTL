@@ -1,3 +1,6 @@
+#ifndef ZNMEDIA
+#define ZNMEDIA
+
 #include <libxnvme.h>
 #include <xapp.h>
 
@@ -14,3 +17,5 @@ struct zn_media {
 
 /* Registration function */
 int zn_media_register (void);
+
+#endif /* ZNMEDIA */

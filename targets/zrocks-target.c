@@ -1,6 +1,6 @@
 #include <xapp.h>
 #include <xapp-media.h>
-#include <zn-media.h>
+#include <znd-media.h>
 
 int zrocks_exit (void)
 {

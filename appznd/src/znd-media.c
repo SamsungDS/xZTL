@@ -1,6 +1,6 @@
 #include <xapp.h>
 #include <xapp-media.h>
-#include <zn-media.h>
+#include <znd-media.h>
 #include <libxnvme.h>
 
 static struct zn_media znmedia;
@@ -44,7 +44,7 @@ int zn_media_register (void)
     struct xnvme_dev *dev;
     struct xapp_media *m;
 
-    dev = xnvme_dev_open ("/dev/nvme0n1");
+    dev = xnvme_dev_open ("/dev/nvme0n2");
     if (!dev)
 	return ZN_MEDIA_NODEVICE;
 
