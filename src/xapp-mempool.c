@@ -61,6 +61,8 @@ int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
     if (pool->active)
 	return XAPP_MP_ACTIVE;
 
+    /* Create asynchronous context via xnvme */
+    //pool->asynch = xnvme_async_init (core, uint32_t depth, uint16_t flags);
     STAILQ_INIT (&pool->head);
 
     /* Allocate entries */

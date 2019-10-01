@@ -9,7 +9,9 @@ enum znd_media_error {
     ZND_MEDIA_NODEVICE 	 = 0x1,
     ZND_MEDIA_NOGEO	 = 0x2,
     ZND_INVALID_OPCODE	 = 0x3,
-    ZND_MEDIA_REPORT_ERR = 0x4
+    ZND_MEDIA_REPORT_ERR = 0x4,
+    ZND_MEDIA_OPEN_ERR	 = 0x5,
+    ZND_MEDIA_ASYNCH_ERR = 0x6
 };
 
 struct znd_media {

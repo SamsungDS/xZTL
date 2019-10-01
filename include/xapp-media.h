@@ -44,7 +44,11 @@ enum xapp_media_opcodes {
     XAPP_ZONE_MGMT_OPEN	  = 0x3,
     XAPP_ZONE_MGMT_RESET  = 0x4,
     XAPP_ZONE_MGMT_REPORT = 0xf,
-    XAPP_ZONE_ERASE_OCSSD = 0x90
+    XAPP_ZONE_ERASE_OCSSD = 0x90,
+
+    /* Media other commands */
+    XAPP_MISC_INIT_ASYNCH_CTX = 0x1,
+    XAPP_MISC_TERM_ASYNCH_CTX = 0x2
 };
 
 struct xapp_maddr {
@@ -77,9 +81,19 @@ struct xapp_zn_mcmd {
 };
 
 struct xapp_misc_cmd {
-    uint8_t 		 opcode;
-    uint8_t		 rsv[7];
-    uint64_t 		 rsv2[3];
+    uint8_t  opcode;
+    uint8_t  rsv[7];
+
+    union {
+	uint64_t rsv2[3];
+
+	struct {
+	    uint64_t ctx_ptr;
+	    uint32_t depth;
+	    uint32_t rsv3;
+	    uint64_t rsv4;
+	} asynch;
+    };
 };
 
 struct xapp_mgeo {

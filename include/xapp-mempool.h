@@ -2,6 +2,7 @@
 #define XAPPMEMPOOL
 
 #include <sys/queue.h>
+#include <libxnvme.h>
 
 #define XAPPMP_THREADS 		64
 #define XAPPMP_TYPES   		2
@@ -27,6 +28,7 @@ struct xapp_mp_entry {
 struct xapp_mp_pool_i {
     uint8_t active;
     uint16_t entries;
+    struct xnvme_asynch_ctx *asynch;
     STAILQ_HEAD (mp_head, xapp_mp_entry) head;
 };
 

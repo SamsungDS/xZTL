@@ -12,6 +12,11 @@ int xapp_media_submit_zn (struct xapp_zn_mcmd *cmd)
     return core.media->zone_fn (cmd);
 }
 
+int xapp_media_submit_misc (struct xapp_misc_cmd *cmd)
+{
+    return core.media->cmd_exec (cmd);
+}
+
 int xapp_media_init (void)
 {
     if (!core.media)

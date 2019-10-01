@@ -40,7 +40,8 @@ int xapp_init (void);
 int xapp_exit (void);
 
 /* Media functions */
-int xapp_media_submit_zn (struct xapp_zn_mcmd *cmd);
+int xapp_media_submit_misc (struct xapp_misc_cmd *cmd);
+int xapp_media_submit_zn   (struct xapp_zn_mcmd *cmd);
 
 /* Layer specific functions (for testing) */
 int xapp_media_init (void);
