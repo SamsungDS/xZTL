@@ -3,9 +3,14 @@
 #include <xapp.h>
 #include <xapp-media.h>
 
-static struct xapp_core core = {NULL};
+struct xapp_core core = {NULL};
 
 static xapp_register_fn *media_fn = NULL;
+
+int xapp_media_submit_zn (struct xapp_zn_mcmd *cmd)
+{
+    return core.media->zone_fn (cmd);
+}
 
 int xapp_media_init (void)
 {
@@ -64,8 +69,10 @@ static int xapp_media_check (struct xapp_media *media)
 
     /* Fill up geometry fields */
     g->zn_grp  = g->pu_grp  * g->zn_pu;
+    g->zn_dev  = g->zn_grp  * g->ngrps;
     g->sec_grp = g->zn_grp  * g->sec_zn;
     g->sec_pu  = g->zn_pu   * g->sec_zn;
+    g->sec_dev = g->sec_grp * g->ngrps;
     g->oob_grp = g->sec_grp * g->nbytes_oob;
     g->oob_pu  = g->sec_pu  * g->nbytes_oob;
     g->oob_zn  = g->sec_zn  * g->nbytes_oob;

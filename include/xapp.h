@@ -27,8 +27,6 @@ struct xapp_core {
     struct xapp_media *media;
 };
 
- 
-
 /* Add media layer */
 void xapp_add_media (xapp_register_fn *fn);
 
@@ -40,6 +38,9 @@ int xapp_init (void);
 
 /* Safe shut down */
 int xapp_exit (void);
+
+/* Media functions */
+int xapp_media_submit_zn (struct xapp_zn_mcmd *cmd);
 
 /* Layer specific functions (for testing) */
 int xapp_media_init (void);

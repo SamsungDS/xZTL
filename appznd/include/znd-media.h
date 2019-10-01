@@ -3,16 +3,28 @@
 
 #include <libxnvme.h>
 #include <xapp.h>
+#include <xapp-media.h>
 
 enum znd_media_error {
-    ZND_MEDIA_NODEVICE 	= 0x1,
-    ZND_MEDIA_NOGEO	= 0x2,
+    ZND_MEDIA_NODEVICE 	 = 0x1,
+    ZND_MEDIA_NOGEO	 = 0x2,
+    ZND_INVALID_OPCODE	 = 0x3,
+    ZND_MEDIA_REPORT_ERR = 0x4
 };
 
 struct znd_media {
     struct xnvme_dev 	   *dev;
     const struct xnvme_geo *devgeo;
     struct xapp_media 	    media;
+};
+
+struct znd_log_cmd {
+    uint8_t  opcode;
+    uint8_t  rsv[7];
+    void     *buf;
+    uint64_t lba;
+    uint32_t nlogs;
+
 };
 
 /* Registration function */

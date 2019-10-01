@@ -19,7 +19,7 @@
 #define XAPP_MEDIA_MAX_OOBSZ  128	/* bytes */
 
 enum xapp_media_opcodes {
-    /* Admin commands */ 
+    /* Admin commands */
     XAPP_ADM_IDENTIFY   = 0x06,
     XAPP_ADM_IDFY_OCSSD = 0xE2,
     XAPP_ADM_GET_LOG	= 0x02,
@@ -43,6 +43,7 @@ enum xapp_media_opcodes {
     XAPP_ZONE_MGMT_FINISH = 0x2,
     XAPP_ZONE_MGMT_OPEN	  = 0x3,
     XAPP_ZONE_MGMT_RESET  = 0x4,
+    XAPP_ZONE_MGMT_REPORT = 0xf,
     XAPP_ZONE_ERASE_OCSSD = 0x90
 };
 
@@ -69,9 +70,16 @@ struct xapp_io_mcmd {
 };
 
 struct xapp_zn_mcmd {
-    uint8_t		opcode;
-    struct xapp_maddr	addr;
-    uint8_t		media_ctx[XAPP_MCTX_SZ];
+    uint8_t		 opcode;
+    struct xapp_maddr	 addr;
+    uint32_t 		 nzones;
+    void		*opaque;
+};
+
+struct xapp_misc_cmd {
+    uint8_t 		 opcode;
+    uint8_t		 rsv[7];
+    uint64_t 		 rsv2[3];
 };
 
 struct xapp_mgeo {
@@ -83,7 +91,9 @@ struct xapp_mgeo {
     uint32_t	nbytes_oob; /* Per sector */
 
     /* Calculated values */
+    uint32_t    zn_dev;     /* Total zones in device */
     uint32_t	zn_grp;	    /* Zones per group */
+    uint32_t    sec_dev;    /* Toatl sectors in device */
     uint32_t	sec_grp;    /* Sectors per group */
     uint32_t	sec_pu;     /* Sectors per PU */
     uint32_t	oob_grp;    /* OOB size per group */
@@ -95,6 +105,7 @@ typedef int   (xapp_media_io_fn)     (struct xapp_io_mcmd *cmd);
 typedef int   (xapp_media_zn_fn)     (struct xapp_zn_mcmd *cmd);
 typedef void *(xapp_media_dma_alloc) (size_t size, uint64_t *phys);
 typedef void  (xapp_media_dma_free)  (void *ptr);
+typedef int   (xapp_media_cmd)	     (struct xapp_misc_cmd *cmd);
 
 struct xapp_media {
     struct xapp_mgeo       geo;
@@ -104,6 +115,7 @@ struct xapp_media {
     xapp_media_zn_fn	  *zone_fn;
     xapp_media_dma_alloc  *dma_alloc;
     xapp_media_dma_free   *dma_free;
+    xapp_media_cmd	  *cmd_exec;
 };
 
 #endif /* XAPP */

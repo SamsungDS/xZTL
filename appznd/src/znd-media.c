@@ -2,6 +2,7 @@
 #include <xapp-media.h>
 #include <znd-media.h>
 #include <libxnvme.h>
+#include <libznd.h>
 
 static struct znd_media zndmedia;
 
@@ -10,8 +11,41 @@ static int znd_media_submit_io (struct xapp_io_mcmd *cmd)
     return 0;
 }
 
+static int znd_media_zone_report (struct xapp_zn_mcmd *cmd)
+{
+    struct znd_report *rep;
+    size_t limit;
+    uint32_t lba;
+
+    /* TODO: Reading everything until libxnvme gets fixed */
+    lba = /*cmd->addr.g.zone * zndmedia.devgeo->nsect*/ 0;
+    limit = /*cmd->nzones;*/ 0;
+    rep = znd_report_from_dev (zndmedia.dev, lba, limit);
+    if (!rep)
+	return ZND_MEDIA_REPORT_ERR;
+
+    cmd->opaque = (void *) rep;
+
+    return 0;
+}
+
 static int znd_media_zone_mgmt (struct xapp_zn_mcmd *cmd)
 {
+    switch (cmd->opcode) {
+	case XAPP_ZONE_MGMT_CLOSE:
+	    return 0;
+	case XAPP_ZONE_MGMT_FINISH:
+	    return 0;
+	case XAPP_ZONE_MGMT_OPEN:
+	    return 0;
+	case XAPP_ZONE_MGMT_RESET:
+	    return 0;
+	case XAPP_ZONE_MGMT_REPORT:
+	    return znd_media_zone_report (cmd);
+	default:
+	    return ZND_INVALID_OPCODE;
+    }
+
     return 0;
 }
 
@@ -23,6 +57,14 @@ static void *znd_media_dma_alloc (size_t size, uint64_t *phys)
 static void znd_media_dma_free (void *ptr)
 {
     free (ptr);
+}
+
+static int znd_media_cmd_exec (struct xapp_misc_cmd *cmd)
+{
+    switch (cmd->opcode) {
+	default:
+	    return ZND_INVALID_OPCODE;
+    }
 }
 
 static int znd_media_init (void)
