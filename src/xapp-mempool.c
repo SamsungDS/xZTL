@@ -26,6 +26,8 @@ static void xapp_mempool_free (struct xapp_mp_pool_i *pool)
 int xapp_mempool_destroy (uint16_t type, uint16_t tid)
 {
     struct xapp_mp_pool_i *pool;
+    struct xapp_misc_cmd cmd;
+    int ret;
 
     if (type > XAPPMP_TYPES || tid > XAPPMP_THREADS)
 	 return XAPP_MP_OUTBOUNDS;
@@ -34,6 +36,17 @@ int xapp_mempool_destroy (uint16_t type, uint16_t tid)
 
     if (!pool->active)
 	return XAPP_OK;
+
+    /* TODO: Should we check oustanding commands and wait? */
+
+    /* Destroy asynchronous context via xnvme */
+    cmd.opcode = XAPP_MISC_ASYNCH_TERM;
+    cmd.asynch.depth   = pool->entries;
+    cmd.asynch.ctx_ptr = (uint64_t) pool->asynch;
+
+    ret = xapp_media_submit_misc (&cmd);
+    if (ret)
+	return XAPP_MP_ASYNCH_ERR;
 
     xapp_mempool_free (pool);
     pool->active = 0;
@@ -46,8 +59,9 @@ int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
 {
     struct xapp_mp_pool_i *pool;
     struct xapp_mp_entry *ent;
+    struct xapp_misc_cmd cmd;
     void *opaque;
-    uint16_t ent_i;
+    int ent_i, ret;
 
     if (type > XAPPMP_TYPES || tid > XAPPMP_THREADS)
 	return XAPP_MP_OUTBOUNDS;
@@ -61,20 +75,18 @@ int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
     if (pool->active)
 	return XAPP_MP_ACTIVE;
 
-    /* Create asynchronous context via xnvme */
-    //pool->asynch = xnvme_async_init (core, uint32_t depth, uint16_t flags);
     STAILQ_INIT (&pool->head);
 
     /* Allocate entries */
     for (ent_i = 0; ent_i < entries; ent_i++) {
 	ent = malloc (sizeof (struct xapp_mp_entry));
 	if (!ent)
-	    goto ERR;
+	    goto MEMERR;
 
 	opaque = malloc (sizeof (ent_sz));
 	if (!opaque) {
 	    free (ent);
-	    goto ERR;
+	    goto MEMERR;
 	}
 
 	ent->opaque = opaque;
@@ -82,11 +94,22 @@ int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
 	STAILQ_INSERT_TAIL (&pool->head, ent, entry);
     }
 
+    /* Create asynchronous context via xnvme */
+    cmd.opcode = XAPP_MISC_ASYNCH_INIT;
+    cmd.asynch.depth   = entries;
+    cmd.asynch.ctx_ptr = (uint64_t) &pool->asynch;
+
+    ret = xapp_media_submit_misc (&cmd);
+    if (ret || !pool->asynch) {
+	xapp_mempool_free (pool);
+	return XAPP_MP_ASYNCH_ERR;
+    }
+
     pool->active = 1;
 
     return XAPP_OK;
 
-ERR:
+MEMERR:
     xapp_mempool_free (pool);
 
     return XAPP_MP_MEMERROR;

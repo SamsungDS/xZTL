@@ -139,20 +139,55 @@ static void test_znd_asynch_ctx (void)
     void *ctx_ptr;
     int ret;
 
-    cmd.opcode = XAPP_MISC_INIT_ASYNCH_CTX;
+    cmd.opcode = XAPP_MISC_ASYNCH_INIT;
     cmd.asynch.depth   = 128;
+    /* This command takes a pointer to a pointer */
     cmd.asynch.ctx_ptr = (uint64_t) &ctx_ptr;
 
+    /* Create the context */
     ret = xapp_media_submit_misc (&cmd);
     cunit_znd_assert_int ("xapp_media_submit_misc:asynch-init", ret);
     cunit_znd_assert_ptr ("xapp_media_submit_misc:asynch-init:check",
 			   ctx_ptr);
 
     if (ctx_ptr) {
-	cmd.opcode = XAPP_MISC_TERM_ASYNCH_CTX;
+	/* Get outstanding commands */
+	cmd.opcode = XAPP_MISC_ASYNCH_OUTS;
+	/* This command takes a direct pointer */
 	cmd.asynch.ctx_ptr = (uint64_t) ctx_ptr;
 	ret = xapp_media_submit_misc (&cmd);
+	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-outs", ret);
+
+	/* Poke the context */
+	cmd.opcode = XAPP_MISC_ASYNCH_POKE;
+	cmd.asynch.limit  = cmd.asynch.depth;
+	ret = xapp_media_submit_misc (&cmd);
+	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-poke", ret);
+
+	/* Wait for completions (should be 0) */
+	cmd.opcode = XAPP_MISC_ASYNCH_WAIT;
+	ret = xapp_media_submit_misc (&cmd);
+	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-wait", ret);
+
+	/* Destroy the context */
+	cmd.opcode = XAPP_MISC_ASYNCH_TERM;
+	ret = xapp_media_submit_misc (&cmd);
 	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-term", ret);
+    }
+}
+
+static void test_znd_dma_memory (void)
+{
+    void *buf;
+    uint64_t phys;
+
+    buf = xapp_media_dma_alloc (1024, &phys);
+    cunit_znd_assert_ptr ("xapp_media_dma_alloc", buf);
+    cunit_znd_assert_ptr ("xapp_media_dma_alloc:check-phys", (void *) phys);
+
+    if (buf) {
+	xapp_media_dma_free (buf);
+	CU_PASS ("xapp_media_dma_free (buf);");
     }
 }
 
@@ -213,6 +248,8 @@ int main (void)
 		      test_znd_op_cl_fi_re) == NULL) ||
         (CU_add_test (pSuite, "Init/Term asynchronous context",
 		      test_znd_asynch_ctx) == NULL) ||
+        (CU_add_test (pSuite, "Allocate/Free DMA aligned buffer",
+		      test_znd_dma_memory) == NULL) ||
         (CU_add_test (pSuite, "Fill up a zone (APPEND)",
 		      test_znd_append_zone) == NULL) ||
 	(CU_add_test (pSuite, "Close media",

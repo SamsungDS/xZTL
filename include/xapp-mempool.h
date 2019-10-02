@@ -14,10 +14,11 @@ enum xapp_mp_types {
 };
 
 enum xapp_mp_status {
-    XAPP_MP_OUTBOUNDS = 0x1,
-    XAPP_MP_INVALID   = 0x2,
-    XAPP_MP_ACTIVE    = 0x3,
-    XAPP_MP_MEMERROR  = 0x4
+    XAPP_MP_OUTBOUNDS  = 0x1,
+    XAPP_MP_INVALID    = 0x2,
+    XAPP_MP_ACTIVE     = 0x3,
+    XAPP_MP_MEMERROR   = 0x4,
+    XAPP_MP_ASYNCH_ERR = 0x5
 };
 
 struct xapp_mp_entry {

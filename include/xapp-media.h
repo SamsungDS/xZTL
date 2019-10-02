@@ -1,5 +1,5 @@
-#ifndef XAPP
-#define XAPP
+#ifndef XAPP_MEDIA_H
+#define XAPP_MEDIA_H
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -47,8 +47,11 @@ enum xapp_media_opcodes {
     XAPP_ZONE_ERASE_OCSSD = 0x90,
 
     /* Media other commands */
-    XAPP_MISC_INIT_ASYNCH_CTX = 0x1,
-    XAPP_MISC_TERM_ASYNCH_CTX = 0x2
+    XAPP_MISC_ASYNCH_INIT = 0x1,
+    XAPP_MISC_ASYNCH_TERM = 0x2,
+    XAPP_MISC_ASYNCH_POKE = 0x3,
+    XAPP_MISC_ASYNCH_OUTS = 0x4,
+    XAPP_MISC_ASYNCH_WAIT = 0x5
 };
 
 struct xapp_maddr {
@@ -90,8 +93,9 @@ struct xapp_misc_cmd {
 	struct {
 	    uint64_t ctx_ptr;
 	    uint32_t depth;
-	    uint32_t rsv3;
-	    uint64_t rsv4;
+	    uint32_t limit;
+	    uint32_t count;
+	    uint32_t rsv4;
 	} asynch;
     };
 };
@@ -117,19 +121,19 @@ struct xapp_mgeo {
 
 typedef int   (xapp_media_io_fn)     (struct xapp_io_mcmd *cmd);
 typedef int   (xapp_media_zn_fn)     (struct xapp_zn_mcmd *cmd);
-typedef void *(xapp_media_dma_alloc) (size_t size, uint64_t *phys);
-typedef void  (xapp_media_dma_free)  (void *ptr);
-typedef int   (xapp_media_cmd)	     (struct xapp_misc_cmd *cmd);
+typedef void *(xapp_media_dma_alloc_fn) (size_t size, uint64_t *phys);
+typedef void  (xapp_media_dma_free_fn)  (void *ptr);
+typedef int   (xapp_media_cmd_fn)	     (struct xapp_misc_cmd *cmd);
 
 struct xapp_media {
-    struct xapp_mgeo       geo;
-    xapp_init_fn	  *init_fn;
-    xapp_exit_fn	  *exit_fn;
-    xapp_media_io_fn	  *submit_io;
-    xapp_media_zn_fn	  *zone_fn;
-    xapp_media_dma_alloc  *dma_alloc;
-    xapp_media_dma_free   *dma_free;
-    xapp_media_cmd	  *cmd_exec;
+    struct xapp_mgeo         geo;
+    xapp_init_fn	    *init_fn;
+    xapp_exit_fn	    *exit_fn;
+    xapp_media_io_fn	    *submit_io;
+    xapp_media_zn_fn	    *zone_fn;
+    xapp_media_dma_alloc_fn *dma_alloc;
+    xapp_media_dma_free_fn  *dma_free;
+    xapp_media_cmd_fn       *cmd_exec;
 };
 
-#endif /* XAPP */
+#endif /* XAPP_MEDIA_H */

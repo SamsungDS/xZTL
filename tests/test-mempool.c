@@ -2,6 +2,7 @@
 #include <omp.h>
 #include <xapp.h>
 #include <xapp-mempool.h>
+#include <znd-media.h>
 #include "CUnit/Basic.h"
 
 static void cunit_mempool_assert_int (char *fn, int status)
@@ -23,6 +24,18 @@ static int cunit_mempool_exit (void)
 
 static void test_mempool_init (void)
 {
+    int ret;
+
+    ret = znd_media_register ();
+    cunit_mempool_assert_int ("znd_media_register", ret);
+    if (ret)
+	return;
+
+    ret = xapp_media_init ();
+    cunit_mempool_assert_int ("xapp_media_init", ret);
+    if (ret)
+	return;
+
     cunit_mempool_assert_int ("xapp_mempool_init", xapp_mempool_init ());
 }
 
@@ -61,7 +74,7 @@ static void test_mempool_create_mult (void)
     ent_sz = 1024;
 
     #pragma omp parallel for
-    for (tid = 0; tid < 64; tid++) {
+    for (tid = 0; tid < 4; tid++) {
 	cunit_mempool_assert_int ("xapp_mempool_create",
 		xapp_mempool_create (type, tid, ents, ent_sz));
     }
@@ -70,6 +83,7 @@ static void test_mempool_create_mult (void)
 static void test_mempool_exit (void)
 {
     cunit_mempool_assert_int ("xapp_mempool_exit", xapp_mempool_exit ());
+    cunit_mempool_assert_int ("xapp_media_exit", xapp_media_exit ());
 }
 
 int main (void)

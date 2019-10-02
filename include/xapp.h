@@ -1,11 +1,16 @@
-#ifndef XAPP_MEDIA
-#define XAPP_MEDIA
+#ifndef XAPP_H
+#define XAPP_H
 
 typedef int (xapp_init_fn) (void);
 typedef int (xapp_exit_fn) (void);
 typedef int (xapp_register_fn) (void);
 
 #include <xapp-media.h>
+
+struct xapp_core {
+    struct xapp_media *media;
+};
+extern struct xapp_core core;
 
 enum xapp_status {
     XAPP_OK		= 0x0,
@@ -23,9 +28,6 @@ enum xapp_status {
     XAPP_MEDIA_ERROR	= 0x100,
 };
 
-struct xapp_core {
-    struct xapp_media *media;
-};
 
 /* Add media layer */
 void xapp_add_media (xapp_register_fn *fn);
@@ -40,11 +42,13 @@ int xapp_init (void);
 int xapp_exit (void);
 
 /* Media functions */
-int xapp_media_submit_misc (struct xapp_misc_cmd *cmd);
-int xapp_media_submit_zn   (struct xapp_zn_mcmd *cmd);
+void *xapp_media_dma_alloc   (size_t bytes, uint64_t *phys);
+void  xapp_media_dma_free    (void *ptr);
+int   xapp_media_submit_zn   (struct xapp_zn_mcmd *cmd);
+int   xapp_media_submit_misc (struct xapp_misc_cmd *cmd);
 
 /* Layer specific functions (for testing) */
 int xapp_media_init (void);
 int xapp_media_exit (void);
 
-#endif /* XAPP_MEDIA */
+#endif /* XAPP_H */

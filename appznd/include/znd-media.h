@@ -11,7 +11,10 @@ enum znd_media_error {
     ZND_INVALID_OPCODE	 = 0x3,
     ZND_MEDIA_REPORT_ERR = 0x4,
     ZND_MEDIA_OPEN_ERR	 = 0x5,
-    ZND_MEDIA_ASYNCH_ERR = 0x6
+    ZND_MEDIA_ASYNCH_ERR = 0x6,
+    ZND_MEDIA_POKE_ERR	 = 0x7,
+    ZND_MEDIA_OUTS_ERR   = 0x8,
+    ZND_MEDIA_WAIT_ERR   = 0x9
 };
 
 struct znd_media {
