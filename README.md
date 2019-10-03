@@ -1,2 +1,8 @@
 # xapp
-User-space FTL Development Library
+User-space ZTL Development Layout
+
+# appznd
+User-space Zoned Application Library
+
+# zrocks
+Zoned RocksDB Target
