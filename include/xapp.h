@@ -1,9 +1,11 @@
 #ifndef XAPP_H
 #define XAPP_H
 
-typedef int (xapp_init_fn) (void);
-typedef int (xapp_exit_fn) (void);
-typedef int (xapp_register_fn) (void);
+typedef int   (xapp_init_fn)     (void);
+typedef int   (xapp_exit_fn)     (void);
+typedef int   (xapp_register_fn) (void);
+typedef void *(xapp_thread)      (void *arg);
+typedef void  (xapp_callback)    (void *arg);
 
 #include <xapp-media.h>
 
@@ -24,6 +26,9 @@ enum xapp_status {
     XAPP_MEDIA_NOZONE	= 0x8,
     XAPP_MEDIA_NOALLOC	= 0x9,
     XAPP_MEDIA_NOFREE	= 0xa,
+    XAPP_MCTX_MEM_ERR   = 0xb,
+    XAPP_MCTX_ASYNC_ERR = 0xc,
+    XAPP_MCTX_MP_ERR    = 0xd,
 
     XAPP_MEDIA_ERROR	= 0x100,
 };
@@ -46,6 +51,11 @@ void *xapp_media_dma_alloc   (size_t bytes, uint64_t *phys);
 void  xapp_media_dma_free    (void *ptr);
 int   xapp_media_submit_zn   (struct xapp_zn_mcmd *cmd);
 int   xapp_media_submit_misc (struct xapp_misc_cmd *cmd);
+int   xapp_media_submit_io   (struct xapp_io_mcmd *cmd);
+
+/* Thread context functions */
+struct xapp_mthread_ctx *xapp_ctx_media_init (uint16_t tid, uint32_t depth);
+int                      xapp_ctx_media_exit (struct xapp_mthread_ctx *tctx);
 
 /* Layer specific functions (for testing) */
 int xapp_media_init (void);

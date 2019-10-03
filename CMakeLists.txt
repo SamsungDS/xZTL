@@ -26,6 +26,7 @@ enable_c_flag("-Wall")
 enable_c_flag("-pedantic")
 enable_c_flag("-fPIC")
 enable_c_flag("-fopenmp")
+enable_c_flag("-g")
 
 set(SPDK_DEPS
         spdk_nvme
@@ -145,6 +146,7 @@ set(HEADER_FILES
 set(SOURCE_FILES
     ${PROJECT_SOURCE_DIR}/src/xapp-core.c
     ${PROJECT_SOURCE_DIR}/src/xapp-mempool.c
+    ${PROJECT_SOURCE_DIR}/src/xapp-ctx.c
 )
 
 include_directories("${PROJECT_SOURCE_DIR}/include")

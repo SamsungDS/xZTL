@@ -12,9 +12,11 @@ enum znd_media_error {
     ZND_MEDIA_REPORT_ERR = 0x4,
     ZND_MEDIA_OPEN_ERR	 = 0x5,
     ZND_MEDIA_ASYNCH_ERR = 0x6,
-    ZND_MEDIA_POKE_ERR	 = 0x7,
-    ZND_MEDIA_OUTS_ERR   = 0x8,
-    ZND_MEDIA_WAIT_ERR   = 0x9
+    ZND_MEDIA_ASYNCH_MEM = 0x7,
+    ZND_MEDIA_ASYNCH_TH  = 0x8,
+    ZND_MEDIA_POKE_ERR	 = 0x9,
+    ZND_MEDIA_OUTS_ERR   = 0xa,
+    ZND_MEDIA_WAIT_ERR   = 0xb
 };
 
 struct znd_media {

@@ -5,6 +5,13 @@
 #include <znd-media.h>
 #include "CUnit/Basic.h"
 
+static void cunit_mempool_assert_ptr (char *fn, void *ptr)
+{
+    CU_ASSERT ((uint64_t) ptr != 0);
+    if (!ptr)
+	printf ("\n %s: ptr %p\n", fn, ptr);
+}
+
 static void cunit_mempool_assert_int (char *fn, int status)
 {
     CU_ASSERT (status == 0);
@@ -46,7 +53,7 @@ static void test_mempool_create (void)
 
     type = XAPP_MEMPOOL_MCMD;
     tid = 0;
-    ents = 128;
+    ents = 32;
     ent_sz = 1024;
 
     cunit_mempool_assert_int ("xapp_mempool_create",
@@ -70,13 +77,39 @@ static void test_mempool_create_mult (void)
     uint32_t ent_sz;
 
     type = XAPP_MEMPOOL_MCMD;
-    ents = 128;
+    ents = 32;
     ent_sz = 1024;
 
     #pragma omp parallel for
     for (tid = 0; tid < 4; tid++) {
 	cunit_mempool_assert_int ("xapp_mempool_create",
 		xapp_mempool_create (type, tid, ents, ent_sz));
+    }
+}
+
+static void test_mempool_get_put (void)
+{
+    uint16_t ent_i, ents = 30;
+    struct xapp_mp_entry *ent[ents];
+
+    for (ent_i = 0; ent_i < ents; ent_i++) {
+	ent[ent_i] = xapp_mempool_get (XAPP_MEMPOOL_MCMD, 0);
+	cunit_mempool_assert_ptr ("xapp_mempool_get", ent[ent_i]);
+    }
+
+    for (ent_i = 0; ent_i < 30; ent_i++) {
+	xapp_mempool_put (ent[ent_i], XAPP_MEMPOOL_MCMD, 0);
+	CU_PASS ("xapp_mempool_put");
+    }
+
+    for (ent_i = 0; ent_i < ents; ent_i++) {
+	ent[ent_i] = xapp_mempool_get (XAPP_MEMPOOL_MCMD, 0);
+	cunit_mempool_assert_ptr ("xapp_mempool_get", ent[ent_i]);
+    }
+
+    for (ent_i = 0; ent_i < 30; ent_i++) {
+	xapp_mempool_put (ent[ent_i], XAPP_MEMPOOL_MCMD, 0);
+	CU_PASS ("xapp_mempool_put");
     }
 }
 
@@ -100,12 +133,18 @@ int main (void)
 	return CU_get_error();
     }
 
-    if ((CU_add_test (pSuite, "Initialize", test_mempool_init) == NULL) ||
-        (CU_add_test (pSuite, "Create a mempool", test_mempool_create) == NULL) ||
-	(CU_add_test (pSuite, "Destroy a mempool", test_mempool_destroy) == NULL) ||
+    if ((CU_add_test (pSuite, "Initialize",
+		      test_mempool_init) == NULL) ||
+        (CU_add_test (pSuite, "Create a mempool",
+		      test_mempool_create) == NULL) ||
+	(CU_add_test (pSuite, "Destroy a mempool",
+		      test_mempool_destroy) == NULL) ||
 	(CU_add_test (pSuite, "Create parallel mempools",
-			       test_mempool_create_mult) == NULL) ||
-	(CU_add_test (pSuite, "Closes the module", test_mempool_exit) == NULL)){
+		      test_mempool_create_mult) == NULL) ||
+	(CU_add_test (pSuite, "Get and put entries",
+		      test_mempool_get_put) == NULL) ||
+	(CU_add_test (pSuite, "Closes the module",
+		      test_mempool_exit) == NULL)){
 	CU_cleanup_registry();
 	return CU_get_error();
     }

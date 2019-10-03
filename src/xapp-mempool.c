@@ -4,6 +4,7 @@
 #include <string.h>
 #include <xapp.h>
 #include <xapp-mempool.h>
+#include <pthread.h>
 
 static struct xapp_mempool xappmp;
 
@@ -26,8 +27,6 @@ static void xapp_mempool_free (struct xapp_mp_pool_i *pool)
 int xapp_mempool_destroy (uint16_t type, uint16_t tid)
 {
     struct xapp_mp_pool_i *pool;
-    struct xapp_misc_cmd cmd;
-    int ret;
 
     if (type > XAPPMP_TYPES || tid > XAPPMP_THREADS)
 	 return XAPP_MP_OUTBOUNDS;
@@ -37,31 +36,19 @@ int xapp_mempool_destroy (uint16_t type, uint16_t tid)
     if (!pool->active)
 	return XAPP_OK;
 
-    /* TODO: Should we check oustanding commands and wait? */
-
-    /* Destroy asynchronous context via xnvme */
-    cmd.opcode = XAPP_MISC_ASYNCH_TERM;
-    cmd.asynch.depth   = pool->entries;
-    cmd.asynch.ctx_ptr = (uint64_t) pool->asynch;
-
-    ret = xapp_media_submit_misc (&cmd);
-    if (ret)
-	return XAPP_MP_ASYNCH_ERR;
-
-    xapp_mempool_free (pool);
     pool->active = 0;
+    xapp_mempool_free (pool);
 
     return XAPP_OK;
 }
 
 int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
-						     uint32_t ent_sz)
+							uint32_t ent_sz)
 {
     struct xapp_mp_pool_i *pool;
     struct xapp_mp_entry *ent;
-    struct xapp_misc_cmd cmd;
     void *opaque;
-    int ent_i, ret;
+    uint32_t ent_i;
 
     if (type > XAPPMP_TYPES || tid > XAPPMP_THREADS)
 	return XAPP_MP_OUTBOUNDS;
@@ -79,32 +66,24 @@ int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
 
     /* Allocate entries */
     for (ent_i = 0; ent_i < entries; ent_i++) {
-	ent = malloc (sizeof (struct xapp_mp_entry));
+	ent = aligned_alloc (64, sizeof (struct xapp_mp_entry));
 	if (!ent)
 	    goto MEMERR;
 
-	opaque = malloc (sizeof (ent_sz));
+	opaque = aligned_alloc (64, sizeof (ent_sz));
 	if (!opaque) {
 	    free (ent);
 	    goto MEMERR;
 	}
 
+	ent->id = ent_i;
 	ent->opaque = opaque;
 
 	STAILQ_INSERT_TAIL (&pool->head, ent, entry);
     }
 
-    /* Create asynchronous context via xnvme */
-    cmd.opcode = XAPP_MISC_ASYNCH_INIT;
-    cmd.asynch.depth   = entries;
-    cmd.asynch.ctx_ptr = (uint64_t) &pool->asynch;
-
-    ret = xapp_media_submit_misc (&cmd);
-    if (ret || !pool->asynch) {
-	xapp_mempool_free (pool);
-	return XAPP_MP_ASYNCH_ERR;
-    }
-
+    pool->entries = entries;
+    pool->in_count = pool->out_count = 0;
     pool->active = 1;
 
     return XAPP_OK;
@@ -113,6 +92,51 @@ MEMERR:
     xapp_mempool_free (pool);
 
     return XAPP_MP_MEMERROR;
+}
+
+/* Only 1 thread is allowed to remove but a concurrent thread may insert */
+struct xapp_mp_entry *xapp_mempool_get (uint16_t type, uint16_t tid)
+{
+    struct xapp_mp_pool_i *pool;
+    struct xapp_mp_entry *ent;
+    uint16_t tmp, old;
+
+    pool = &xappmp.mp[type].pool[tid];
+
+    /* This guarantees that INSERT and REMOVE are not concurrent */
+    /* TODO: Make a timeout */
+    while (pool->entries - pool->out_count <= 2) {
+	tmp = pool->in_count;
+	pool->out_count -= tmp;
+	do {
+	    old = pool->in_count;
+	    if (old == old - tmp)
+		break;
+	} while (!__sync_bool_compare_and_swap(&pool->in_count, old, old - tmp));
+    }
+
+    ent = STAILQ_FIRST (&pool->head);
+    STAILQ_REMOVE_HEAD (&pool->head, entry);
+    pool->out_count++;
+
+    return ent;
+}
+
+/* Only 1 thread is allowed to insert but a concurrent thread may remove */
+void xapp_mempool_put (struct xapp_mp_entry *ent, uint16_t type, uint16_t tid)
+{
+    struct xapp_mp_pool_i *pool;
+    uint16_t old;
+
+    pool = &xappmp.mp[type].pool[tid];
+    STAILQ_INSERT_TAIL (&pool->head, ent, entry);
+
+    /* This guarantees that INSERT and REMOVE are not concurrent */
+    do {
+        old = pool->in_count;
+	if (old == old + 1)
+	    break;
+    } while (!__sync_bool_compare_and_swap(&pool->in_count, old, old + 1));
 }
 
 int xapp_mempool_exit (void)

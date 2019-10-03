@@ -1,3 +1,5 @@
+#include <unistd.h>
+#include <pthread.h>
 #include <xapp.h>
 #include <xapp-media.h>
 #include <znd-media.h>
@@ -137,12 +139,17 @@ static void test_znd_asynch_ctx (void)
 {
     struct xapp_misc_cmd cmd;
     void *ctx_ptr;
-    int ret;
+    int ret, comp_active;
+    pthread_t comp_tid;
 
+    comp_active = 1;
     cmd.opcode = XAPP_MISC_ASYNCH_INIT;
     cmd.asynch.depth   = 128;
+    cmd.asynch.active_ptr = (void *) &comp_active;
+    cmd.asynch.comp_tid_ptr = (void *) &comp_tid;
+
     /* This command takes a pointer to a pointer */
-    cmd.asynch.ctx_ptr = (uint64_t) &ctx_ptr;
+    cmd.asynch.ctx_ptr    = (void *) &ctx_ptr;
 
     /* Create the context */
     ret = xapp_media_submit_misc (&cmd);
@@ -152,24 +159,34 @@ static void test_znd_asynch_ctx (void)
 
     if (ctx_ptr) {
 	/* Get outstanding commands */
+	/* cmd.asynch.count will contain the number of outstanding commands */
 	cmd.opcode = XAPP_MISC_ASYNCH_OUTS;
 	/* This command takes a direct pointer */
-	cmd.asynch.ctx_ptr = (uint64_t) ctx_ptr;
+	cmd.asynch.ctx_ptr = (void *) ctx_ptr;
 	ret = xapp_media_submit_misc (&cmd);
 	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-outs", ret);
 
+
 	/* Poke the context */
+	/* cmd.asynch.count will contain the number of processed commands */
 	cmd.opcode = XAPP_MISC_ASYNCH_POKE;
+	cmd.asynch.ctx_ptr = (void *) ctx_ptr;
 	cmd.asynch.limit  = cmd.asynch.depth;
 	ret = xapp_media_submit_misc (&cmd);
 	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-poke", ret);
 
-	/* Wait for completions (should be 0) */
+
+	/* Wait for completions */
+	/* cmd.asynch.count will contain the number of processed commands */
 	cmd.opcode = XAPP_MISC_ASYNCH_WAIT;
+	cmd.asynch.ctx_ptr = (void *) ctx_ptr;
 	ret = xapp_media_submit_misc (&cmd);
 	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-wait", ret);
 
+
 	/* Destroy the context */
+	/* Stops the completion thread */
+	comp_active = 0;
 	cmd.opcode = XAPP_MISC_ASYNCH_TERM;
 	ret = xapp_media_submit_misc (&cmd);
 	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-term", ret);
@@ -191,36 +208,84 @@ static void test_znd_dma_memory (void)
     }
 }
 
+static int outstanding;
+static void test_znd_callback (void *arg)
+{
+   struct xapp_io_mcmd *cmd;
+
+   cmd = (struct xapp_io_mcmd *) arg;
+   cunit_znd_assert_int ("xapp_media_submit_io:cb", cmd->status);
+   outstanding--;
+}
+
 static void test_znd_append_zone (void)
 {
     int ret;
+    uint16_t tid, ents, nlbas, zone;
+    struct xapp_mthread_ctx *mctx;
+    uint64_t phys;
+    void *wbuf;
+    size_t bsize;
+    struct xapp_mp_entry *mp_cmd;
+    struct xapp_io_mcmd *cmd;
 
-    /* Create a command pool */
+    tid     = 0;
+    ents    = 128;
+    nlbas   = 64;
+    zone    = 510;
+    bsize = nlbas * core.media->geo.nbytes;
 
-    uint16_t type, tid, ents;
-    uint32_t ent_sz;
-
-    type = XAPP_MEMPOOL_MCMD;
-    tid = 0;
-    ents = 128;
-    ent_sz = sizeof (struct xapp_zn_mcmd);
-
+    /* Initialize mempool module */
     ret = xapp_mempool_init ();
     cunit_znd_assert_int ("xapp_mempool_init", ret);
     if (ret)
 	return;
 
-    ret = xapp_mempool_create (type, tid, ents, ent_sz);
-    cunit_znd_assert_int ("xapp_mempool_create", ret);
+    /* Initialize thread media context */
+    mctx = xapp_ctx_media_init (tid, ents);
+    cunit_znd_assert_ptr ("xapp_ctx_media_init", mctx);
     if (ret)
-	goto EXIT;
+	goto MP;
 
-    /* TODO: Send Append commands here*/
+    /* Allocate DMA memory */
+    wbuf = xapp_media_dma_alloc (bsize, &phys);
+    cunit_znd_assert_ptr ("xapp_media_dma_alloc", wbuf);
+    if (!wbuf)
+	goto CTX;
 
-//DESTROY:
-    ret = xapp_mempool_destroy (type, tid);
-    cunit_znd_assert_int ("xapp_mempool_destroy", ret);
-EXIT:
+    /* Get media command entry */
+    mp_cmd = xapp_mempool_get (XAPP_MEMPOOL_MCMD, tid);
+    cunit_znd_assert_ptr ("xapp_mempool_get", mp_cmd);
+    if (!mp_cmd)
+	goto DMA;
+
+    /* Fill up command structure */
+    cmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
+    cmd->opcode    = XAPP_ZONE_APPEND;
+    cmd->synch     = 0;
+    cmd->async_ctx = mctx->asynch;
+    cmd->prp[0]    = (uint64_t) wbuf;
+    cmd->nlba[0]   = nlbas;
+    cmd->callback  = test_znd_callback;
+
+    cmd->addr[0].g.zone = zone;
+
+    /* Submit append */
+    outstanding = 1;
+    ret = xapp_media_submit_io (cmd);
+    cunit_znd_assert_int ("xapp_media_submit_io", ret);
+
+    /* Wait for completions */
+    while (outstanding) {};
+
+    /* Clear up */
+    xapp_mempool_put (mp_cmd, XAPP_MEMPOOL_MCMD, tid);
+DMA:
+    xapp_media_dma_free (wbuf);
+CTX:
+    ret = xapp_ctx_media_exit (mctx);
+    cunit_znd_assert_int ("xapp_ctx_media_exit", ret);
+MP:
     ret = xapp_mempool_exit ();
     cunit_znd_assert_int ("xapp_mempool_exit", ret);
 }
@@ -250,7 +315,7 @@ int main (void)
 		      test_znd_asynch_ctx) == NULL) ||
         (CU_add_test (pSuite, "Allocate/Free DMA aligned buffer",
 		      test_znd_dma_memory) == NULL) ||
-        (CU_add_test (pSuite, "Fill up a zone (APPEND)",
+        (CU_add_test (pSuite, "Append 64 sectors to zone 510",
 		      test_znd_append_zone) == NULL) ||
 	(CU_add_test (pSuite, "Close media",
 		      test_znd_media_exit) == NULL)) {

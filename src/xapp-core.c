@@ -17,6 +17,11 @@ void xapp_media_dma_free (void *ptr)
     core.media->dma_free (ptr);
 }
 
+int xapp_media_submit_io (struct xapp_io_mcmd *cmd)
+{
+    return core.media->submit_io (cmd);
+}
+
 int xapp_media_submit_zn (struct xapp_zn_mcmd *cmd)
 {
     return core.media->zone_fn (cmd);

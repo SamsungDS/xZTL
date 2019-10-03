@@ -2,6 +2,7 @@
 #define XAPP_MEDIA_H
 
 #include <stdint.h>
+#include <libxnvme.h>
 #include <stdlib.h>
 #include <xapp.h>
 
@@ -9,7 +10,7 @@
  * this number in case of possible vectored I/Os */
 #define XAPP_MAX_MADDR  1
 
-#define XAPP_MCTX_SZ	64
+#define XAPP_MCTX_SZ	640
 
 #define XAPP_MEDIA_MAX_GRP    128	/* groups */
 #define XAPP_MEDIA_MAX_PUGRP  8		/* punits */
@@ -66,14 +67,20 @@ struct xapp_maddr {
     };
 };
 
+/* Structure aligned to 8 bytes */
 struct xapp_io_mcmd {
      uint8_t		opcode;
      uint8_t		synch;
      uint32_t 	      	naddr;
+     uint16_t 		status;
+     uint64_t 		nlba[XAPP_MAX_MADDR];
      struct xapp_maddr 	addr[XAPP_MAX_MADDR];
      uint64_t		prp[XAPP_MAX_MADDR];
-     uint64_t		dtsz[XAPP_MAX_MADDR];
-     uint8_t		media_ctx[XAPP_MCTX_SZ];
+     xapp_callback     *callback;
+     void	       *async_ctx;
+
+     /* change to pointer when xnvme is updated */
+     struct xnvme_ret media_ctx;
 };
 
 struct xapp_zn_mcmd {
@@ -88,14 +95,17 @@ struct xapp_misc_cmd {
     uint8_t  rsv[7];
 
     union {
-	uint64_t rsv2[3];
+	uint64_t rsv2[7];
 
 	struct {
-	    uint64_t ctx_ptr;
-	    uint32_t depth;
-	    uint32_t limit;
-	    uint32_t count;
-	    uint32_t rsv4;
+	    void   **ctx_ptr;      /* Pointer to store context pointer */
+	    void    *comp_tid_ptr; /* Pointer to store completion thread_t */
+	    void    *active_ptr;   /* Pointer to int (if 0, thread stops) */
+	    uint32_t depth;	   /* Context/queue depth */
+	    uint32_t limit;	   /* Max number of completions */
+	    uint32_t count;	   /* Processed completions */
+	    uint32_t rsv31;
+	    uint64_t rsv32[2];
 	} asynch;
     };
 };
@@ -119,11 +129,19 @@ struct xapp_mgeo {
     uint32_t	oob_zn;     /* OOB size per zone */
 };
 
-typedef int   (xapp_media_io_fn)     (struct xapp_io_mcmd *cmd);
-typedef int   (xapp_media_zn_fn)     (struct xapp_zn_mcmd *cmd);
+struct xapp_mthread_ctx {
+    uint16_t 	    tid;
+    xapp_thread    *comp_th;
+    pthread_t       comp_tid;
+    int             comp_active;
+    struct xnvme_asynch_ctx *asynch;
+};
+
+typedef int   (xapp_media_io_fn)        (struct xapp_io_mcmd *cmd);
+typedef int   (xapp_media_zn_fn)        (struct xapp_zn_mcmd *cmd);
 typedef void *(xapp_media_dma_alloc_fn) (size_t size, uint64_t *phys);
 typedef void  (xapp_media_dma_free_fn)  (void *ptr);
-typedef int   (xapp_media_cmd_fn)	     (struct xapp_misc_cmd *cmd);
+typedef int   (xapp_media_cmd_fn)	(struct xapp_misc_cmd *cmd);
 
 struct xapp_media {
     struct xapp_mgeo         geo;
