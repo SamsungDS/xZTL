@@ -75,7 +75,7 @@ static inline int znd_media_zone_manage (struct xapp_zn_mcmd *cmd, uint8_t op)
     ret = xnvme_cmd_zone_mgmt(zndmedia.dev, lba, op,
 			      zrms, NULL, 0, &devret);
 
-    return (ret) ? ZND_MEDIA_OPEN_ERR : XAPP_OK;
+    return (ret) ? op : XAPP_OK;
 }
 
 static int znd_media_zone_report (struct xapp_zn_mcmd *cmd)

@@ -58,10 +58,10 @@ enum xapp_media_opcodes {
 struct xapp_maddr {
     union {
 	struct {
-	    uint64_t grp;
-	    uint64_t punit;
-	    uint64_t zone;
-	    uint64_t sect;
+	    uint64_t grp   : 16;
+	    uint64_t punit : 16;
+	    uint64_t zone  : 16;
+	    uint64_t sect  : 16;
 	} g;
 	uint64_t addr;
     };
@@ -78,6 +78,7 @@ struct xapp_io_mcmd {
      uint64_t		prp[XAPP_MAX_MADDR];
      xapp_callback     *callback;
      void	       *async_ctx;
+     void	       *opaque;
 
      /* change to pointer when xnvme is updated */
      struct xnvme_ret media_ctx;

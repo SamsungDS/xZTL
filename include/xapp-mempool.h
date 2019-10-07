@@ -23,8 +23,9 @@ enum xapp_mp_status {
 };
 
 struct xapp_mp_entry {
-    uint32_t 	 id;
     void 	*opaque;
+    uint16_t 	 tid;
+    uint32_t 	 entry_id;
     STAILQ_ENTRY(xapp_mp_entry) entry;
 };
 
@@ -33,6 +34,7 @@ struct xapp_mp_pool_i {
     volatile uint16_t 	in_count;
     uint16_t 		out_count;
     uint16_t 		entries;
+    pthread_spinlock_t	spin;
     STAILQ_HEAD (mp_head, xapp_mp_entry) head;
 };
 

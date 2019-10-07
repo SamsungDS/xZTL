@@ -78,10 +78,10 @@ static void test_mempool_create_mult (void)
 
     type = XAPP_MEMPOOL_MCMD;
     ents = 32;
-    ent_sz = 1024;
+    ent_sz = 128;
 
     #pragma omp parallel for
-    for (tid = 0; tid < 4; tid++) {
+    for (tid = 0; tid < 8; tid++) {
 	cunit_mempool_assert_int ("xapp_mempool_create",
 		xapp_mempool_create (type, tid, ents, ent_sz));
     }
@@ -90,24 +90,33 @@ static void test_mempool_create_mult (void)
 static void test_mempool_get_put (void)
 {
     uint16_t ent_i, ents = 30;
+    uint32_t ent_sz = 128;
     struct xapp_mp_entry *ent[ents];
 
+    /* Get entries */
     for (ent_i = 0; ent_i < ents; ent_i++) {
 	ent[ent_i] = xapp_mempool_get (XAPP_MEMPOOL_MCMD, 0);
 	cunit_mempool_assert_ptr ("xapp_mempool_get", ent[ent_i]);
     }
 
-    for (ent_i = 0; ent_i < 30; ent_i++) {
+    /* Modify entry bytes */
+    for (ent_i = 0; ent_i < ents; ent_i++)
+	memset (ent[ent_i]->opaque, 0x0, ent_sz);
+
+    /* Put entries */
+    for (ent_i = 0; ent_i < ents; ent_i++) {
 	xapp_mempool_put (ent[ent_i], XAPP_MEMPOOL_MCMD, 0);
 	CU_PASS ("xapp_mempool_put");
     }
 
+    /* Repeat the process */
     for (ent_i = 0; ent_i < ents; ent_i++) {
 	ent[ent_i] = xapp_mempool_get (XAPP_MEMPOOL_MCMD, 0);
 	cunit_mempool_assert_ptr ("xapp_mempool_get", ent[ent_i]);
     }
-
-    for (ent_i = 0; ent_i < 30; ent_i++) {
+    for (ent_i = 0; ent_i < ents; ent_i++)
+	memset (ent[ent_i]->opaque, 0x0, ent_sz);
+    for (ent_i = 0; ent_i < ents; ent_i++) {
 	xapp_mempool_put (ent[ent_i], XAPP_MEMPOOL_MCMD, 0);
 	CU_PASS ("xapp_mempool_put");
     }

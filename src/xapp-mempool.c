@@ -1,3 +1,4 @@
+#include <unistd.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/queue.h>
@@ -5,6 +6,9 @@
 #include <xapp.h>
 #include <xapp-mempool.h>
 #include <pthread.h>
+
+/* Comment this macro for standard spinlock implementation */
+#define MP_LOCKFREE
 
 static struct xapp_mempool xappmp;
 
@@ -14,8 +18,8 @@ static void xapp_mempool_free (struct xapp_mp_pool_i *pool)
 
     while (!STAILQ_EMPTY (&pool->head)) {
 	ent = STAILQ_FIRST (&pool->head);
-	STAILQ_REMOVE_HEAD (&pool->head, entry);
 	if (ent) {
+	    STAILQ_REMOVE_HEAD (&pool->head, entry);
 	    if (ent->opaque)
 		free (ent->opaque);
 	    free (ent);
@@ -38,6 +42,7 @@ int xapp_mempool_destroy (uint16_t type, uint16_t tid)
 
     pool->active = 0;
     xapp_mempool_free (pool);
+    pthread_spin_destroy (&pool->spin);
 
     return XAPP_OK;
 }
@@ -59,8 +64,12 @@ int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
 
     pool = &xappmp.mp[type].pool[tid];
 
+
     if (pool->active)
 	return XAPP_MP_ACTIVE;
+
+    if (pthread_spin_init (&pool->spin, 0))
+	return XAPP_MP_MEMERROR;
 
     STAILQ_INIT (&pool->head);
 
@@ -70,14 +79,15 @@ int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
 	if (!ent)
 	    goto MEMERR;
 
-	opaque = aligned_alloc (64, sizeof (ent_sz));
+	opaque = aligned_alloc (64, ent_sz);
 	if (!opaque) {
 	    free (ent);
 	    goto MEMERR;
 	}
 
-	ent->id = ent_i;
-	ent->opaque = opaque;
+	ent->tid      = tid;
+	ent->entry_id = ent_i;
+	ent->opaque   = opaque;
 
 	STAILQ_INSERT_TAIL (&pool->head, ent, entry);
     }
@@ -90,6 +100,7 @@ int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
 
 MEMERR:
     xapp_mempool_free (pool);
+    pthread_spin_destroy (&pool->spin);
 
     return XAPP_MP_MEMERROR;
 }
@@ -103,6 +114,7 @@ struct xapp_mp_entry *xapp_mempool_get (uint16_t type, uint16_t tid)
 
     pool = &xappmp.mp[type].pool[tid];
 
+#ifdef MP_LOCKFREE
     /* This guarantees that INSERT and REMOVE are not concurrent */
     /* TODO: Make a timeout */
     while (pool->entries - pool->out_count <= 2) {
@@ -114,10 +126,28 @@ struct xapp_mp_entry *xapp_mempool_get (uint16_t type, uint16_t tid)
 		break;
 	} while (!__sync_bool_compare_and_swap(&pool->in_count, old, old - tmp));
     }
+#else
+
+RETRY:
+    pthread_spin_lock (&pool->spin);
+#endif /* MP_LOCKFREE */
 
     ent = STAILQ_FIRST (&pool->head);
+
+#ifndef MP_LOCKFREE
+    if (!ent) {
+	pthread_spin_unlock (&pool->spin);
+	usleep (1);
+	goto RETRY;
+    }
+#endif /* MP_LOCKFREE */
+
     STAILQ_REMOVE_HEAD (&pool->head, entry);
     pool->out_count++;
+
+#ifndef MP_LOCKFREE
+    pthread_spin_unlock (&pool->spin);
+#endif /* MP_LOCKFREE */
 
     return ent;
 }
@@ -129,14 +159,23 @@ void xapp_mempool_put (struct xapp_mp_entry *ent, uint16_t type, uint16_t tid)
     uint16_t old;
 
     pool = &xappmp.mp[type].pool[tid];
+
+#ifndef MP_LOCKFREE
+    pthread_spin_lock (&pool->spin);
+#endif /* MP_LOCKFREE */
+
     STAILQ_INSERT_TAIL (&pool->head, ent, entry);
 
+#ifndef MP_LOCKFREE
+    pthread_spin_unlock (&pool->spin);
+#else
     /* This guarantees that INSERT and REMOVE are not concurrent */
     do {
         old = pool->in_count;
 	if (old == old + 1)
 	    break;
     } while (!__sync_bool_compare_and_swap(&pool->in_count, old, old + 1));
+#endif /* MP_LOCKFREE */
 }
 
 int xapp_mempool_exit (void)
