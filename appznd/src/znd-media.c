@@ -29,26 +29,29 @@ static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
     uint16_t zone_i = 0;
     uint64_t zlba;
     const void *dbuf;
-    struct xnvme_async_ctx *async_ctx;
+    struct xapp_mthread_ctx *tctx;
     struct xnvme_ret *xret;
+    int ret;
 
-    async_ctx = (struct xnvme_async_ctx *) cmd->async_ctx;
-    xret      = (struct xnvme_ret *) &cmd->media_ctx;
+    tctx      = cmd->async_ctx;
+    xret      = &cmd->media_ctx;
 
     dbuf = (const void *) cmd->prp[zone_i];
     zlba = cmd->addr[zone_i].g.zone * zndmedia.devgeo->nsect;
 
-    xret->async.ctx    = async_ctx;
+    xret->async.ctx    = tctx->asynch;
     xret->async.cb     = znd_media_async_cb;
     xret->async.cb_arg = (void *) cmd;
 
-    return xnvme_cmd_zone_append (zndmedia.dev,
+    ret = xnvme_cmd_zone_append (zndmedia.dev,
+				     xnvme_dev_get_nsid (zndmedia.dev),
 				     zlba,
-			             cmd->nlba[zone_i],
+			             (uint16_t) cmd->nlba[zone_i] - 1,
 				     dbuf,
 				     NULL,
 				     XNVME_CMD_ASYNC,
 				     xret);
+    return ret;
 }
 
 static int znd_media_submit_io (struct xapp_io_mcmd *cmd)
@@ -72,8 +75,14 @@ static inline int znd_media_zone_manage (struct xapp_zn_mcmd *cmd, uint8_t op)
 
     lba = cmd->addr.g.zone * zndmedia.devgeo->nsect;
 
-    ret = xnvme_cmd_zone_mgmt(zndmedia.dev, lba, op,
-			      zrms, NULL, 0, &devret);
+    ret = xnvme_cmd_zone_mgmt (zndmedia.dev,
+			       xnvme_dev_get_nsid (zndmedia.dev),
+			       lba,
+			       op,
+			       zrms,
+			       NULL,
+			       0,
+			       &devret);
 
     return (ret) ? op : XAPP_OK;
 }
@@ -168,24 +177,27 @@ static int znd_media_async_wait (struct xnvme_async_ctx *ctx, uint32_t *c)
 
 static void *znd_media_asynch_comp_th (void *args)
 {
-    struct xapp_misc_cmd *cmd;
-    struct xnvme_async_ctx *ctx;
-    uint32_t processed;
+    struct xapp_misc_cmd    *cmd;
+    struct xapp_mthread_ctx *tctx;
+    uint32_t processed, outs;
     uint16_t limit;
-    int *active_ptr;
 
     cmd        = (struct xapp_misc_cmd *) args;
-    active_ptr = (int *) cmd->asynch.active_ptr;
-    ctx        = *(struct xnvme_async_ctx **) cmd->asynch.ctx_ptr;
+    tctx       = cmd->asynch.ctx_ptr;
 
     /* Set poke limit (we should tune) */
-    limit       = 4;
-    *active_ptr = 1;
+    limit = 0;
+    tctx->comp_active = 1;
 
-    while (*active_ptr) {
+    while (tctx->comp_active) {
 	/* TODO: Define polling time */
-	usleep (10);
-	znd_media_async_poke (ctx, &processed, limit);
+	usleep (1000);
+	znd_media_async_poke (tctx->asynch, &processed, limit);
+
+	if (!processed) {
+	    /* Check outs in case of hanging controller */
+	    znd_media_async_outs (tctx->asynch, &outs);
+	}
     }
 
     return XAPP_OK;
@@ -193,43 +205,43 @@ static void *znd_media_asynch_comp_th (void *args)
 
 static int znd_media_asynch_init (struct xapp_misc_cmd *cmd)
 {
-    struct xnvme_async_ctx *ctx;
-    struct xnvme_async_ctx **ctx_ptr;
-    pthread_t *comp_tid;
-    int *active_ptr;
+    struct xapp_mthread_ctx *tctx;
 
-    ctx_ptr = (struct xnvme_async_ctx **) cmd->asynch.ctx_ptr;
-    comp_tid = (pthread_t *) cmd->asynch.comp_tid_ptr;
+    tctx = cmd->asynch.ctx_ptr;
 
-    ctx = xnvme_async_init (zndmedia.dev, cmd->asynch.depth, 0);
-    if (!ctx) {
+    tctx->asynch = xnvme_async_init (zndmedia.dev, cmd->asynch.depth, 0);
+    if (!tctx->asynch) {
 	return ZND_MEDIA_ASYNCH_ERR;
     }
 
-    active_ptr  = (int *) cmd->asynch.active_ptr;
-    *active_ptr = 0;
-    *ctx_ptr    = ctx;
+    tctx->comp_active = 0;
 
-    if (pthread_create (comp_tid, NULL, znd_media_asynch_comp_th, (void *) cmd)) {
-	*ctx_ptr  = NULL;
-	xnvme_async_term (zndmedia.dev, ctx);
+    if (pthread_create (&tctx->comp_tid,
+			NULL,
+			znd_media_asynch_comp_th,
+			(void *) cmd)) {
+
+	xnvme_async_term (zndmedia.dev, tctx->asynch);
+	tctx->asynch = NULL;
 	return ZND_MEDIA_ASYNCH_TH;
     }
-    while (! (*active_ptr) ) {
+
+    /* Wait for the thread to start */
+    while (!tctx->comp_active) {
 	usleep (1);
     }
 
     return XAPP_OK;
 }
 
-static int znd_media_asynch_term (struct xnvme_async_ctx *ptr, pthread_t *comp)
+static int znd_media_asynch_term (struct xapp_misc_cmd *cmd)
 {
     int ret;
 
     /* Join the completion thread (should be terminated by the caller) */
-    pthread_join (*comp, NULL);
+    pthread_join (cmd->asynch.ctx_ptr->comp_tid, NULL);
 
-    ret = xnvme_async_term (zndmedia.dev, ptr);
+    ret = xnvme_async_term (zndmedia.dev, cmd->asynch.ctx_ptr->asynch);
     if (ret)
 	return ZND_MEDIA_ASYNCH_ERR;
 
@@ -244,24 +256,22 @@ static int znd_media_cmd_exec (struct xapp_misc_cmd *cmd)
 	    return znd_media_asynch_init (cmd);
 
 	case XAPP_MISC_ASYNCH_TERM:
-	    return znd_media_asynch_term (
-			    (struct xnvme_async_ctx *) cmd->asynch.ctx_ptr,
-			    (pthread_t *) cmd->asynch.comp_tid_ptr);
+	    return znd_media_asynch_term (cmd);
 
 	case XAPP_MISC_ASYNCH_POKE:
 	    return znd_media_async_poke (
-			    (struct xnvme_async_ctx *) cmd->asynch.ctx_ptr,
+			    cmd->asynch.ctx_ptr->asynch,
 			    &cmd->asynch.count,
 			    cmd->asynch.limit);
 
         case XAPP_MISC_ASYNCH_OUTS:
 	    return znd_media_async_outs (
-			    (struct xnvme_async_ctx *) cmd->asynch.ctx_ptr,
+			    cmd->asynch.ctx_ptr->asynch,
 			    &cmd->asynch.count);
 
 	case XAPP_MISC_ASYNCH_WAIT:
 	    return znd_media_async_wait (
-			    (struct xnvme_async_ctx *) cmd->asynch.ctx_ptr,
+			    cmd->asynch.ctx_ptr->asynch,
 			    &cmd->asynch.count);
 
 	default:
@@ -288,7 +298,7 @@ int znd_media_register (void)
     struct xnvme_dev *dev;
     struct xapp_media *m;
 
-    dev = xnvme_dev_open ("pci://0000:00:02.0/2");
+    dev = xnvme_dev_open ("pci://0000:00:04.0/2");
     if (!dev)
 	return ZND_MEDIA_NODEVICE;
 

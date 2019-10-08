@@ -67,6 +67,15 @@ struct xapp_maddr {
     };
 };
 
+struct xapp_mthread_ctx {
+    uint16_t 	    tid;
+    xapp_thread    *comp_th;
+    pthread_t       comp_tid;
+    int             comp_active;
+    pthread_spinlock_t       qpair_spin;
+    struct xnvme_async_ctx *asynch;
+};
+
 /* Structure aligned to 8 bytes */
 struct xapp_io_mcmd {
      uint8_t		opcode;
@@ -77,8 +86,8 @@ struct xapp_io_mcmd {
      struct xapp_maddr 	addr[XAPP_MAX_MADDR];
      uint64_t		prp[XAPP_MAX_MADDR];
      xapp_callback     *callback;
-     void	       *async_ctx;
      void	       *opaque;
+     struct xapp_mthread_ctx *async_ctx;
 
      /* change to pointer when xnvme is updated */
      struct xnvme_ret media_ctx;
@@ -99,14 +108,14 @@ struct xapp_misc_cmd {
 	uint64_t rsv2[7];
 
 	struct {
-	    void   **ctx_ptr;      /* Pointer to store context pointer */
-	    void    *comp_tid_ptr; /* Pointer to store completion thread_t */
-	    void    *active_ptr;   /* Pointer to int (if 0, thread stops) */
+	    struct xapp_mthread_ctx *ctx_ptr;
+
 	    uint32_t depth;	   /* Context/queue depth */
 	    uint32_t limit;	   /* Max number of completions */
 	    uint32_t count;	   /* Processed completions */
+
 	    uint32_t rsv31;
-	    uint64_t rsv32[2];
+	    uint64_t rsv32[4];
 	} asynch;
     };
 };
@@ -128,14 +137,6 @@ struct xapp_mgeo {
     uint32_t	oob_grp;    /* OOB size per group */
     uint32_t	oob_pu;     /* OOB size per PU */
     uint32_t	oob_zn;     /* OOB size per zone */
-};
-
-struct xapp_mthread_ctx {
-    uint16_t 	    tid;
-    xapp_thread    *comp_th;
-    pthread_t       comp_tid;
-    int             comp_active;
-    struct xnvme_asynch_ctx *asynch;
 };
 
 typedef int   (xapp_media_io_fn)        (struct xapp_io_mcmd *cmd);

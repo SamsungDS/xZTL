@@ -7,7 +7,7 @@
 
 #define XAPPMP_THREADS 		64
 #define XAPPMP_TYPES   		1
-#define XAPPMP_MAX_ENT 		128
+#define XAPPMP_MAX_ENT 		1024
 #define XAPPMP_MAX_ENT_SZ	(1024 * 1024)  /* 1 MB */
 
 enum xapp_mp_types {

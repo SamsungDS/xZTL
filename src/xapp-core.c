@@ -5,6 +5,24 @@
 
 struct xapp_core core = {NULL};
 
+void xapp_print_mcmd (struct xapp_io_mcmd *cmd)
+{
+    printf ("\n");
+    printf ("opcode : %d\n", cmd->opcode);
+    printf ("synch  : %d\n", cmd->synch);
+    printf ("naddr  : %d\n", cmd->naddr);
+    printf ("status : %d\n", cmd->status);
+    printf ("nlba0  : %lu\n", cmd->nlba[0]);
+    printf ("addr[0]: (%d/%d/%d/%d)\n", cmd->addr[0].g.grp,
+					    cmd->addr[0].g.punit,
+			                    cmd->addr[0].g.zone,
+				            cmd->addr[0].g.sect);
+    printf ("prp0   : 0x%lx\n", cmd->prp[0]);
+    printf ("callba : %s\n", (cmd->callback) ? "OK" : "NULL");
+    printf ("async_c: %p\n", (void *) cmd->async_ctx);
+    printf ("opaque : %p\n", cmd->opaque);
+}
+
 static xapp_register_fn *media_fn = NULL;
 
 void *xapp_media_dma_alloc (size_t bytes, uint64_t *phys)

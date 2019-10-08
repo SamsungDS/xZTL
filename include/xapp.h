@@ -1,6 +1,39 @@
 #ifndef XAPP_H
 #define XAPP_H
 
+#include <stdint.h>
+#include <unistd.h>
+
+#define GET_NANOSECONDS(ns,ts) do {                                     \
+            clock_gettime(CLOCK_REALTIME,&ts);                          \
+            (ns) = ((ts).tv_sec * 1000000000 + (ts).tv_nsec);           \
+} while ( 0 )
+
+#define GET_MICROSECONDS(us,ts) do {                                    \
+            clock_gettime(CLOCK_REALTIME,&ts);                          \
+            (us) = ( ((ts).tv_sec * 1000000) + ((ts).tv_nsec / 1000) ); \
+} while ( 0 )
+
+#define TV_ELAPSED_USEC(tvs,tve,usec) do {                              \
+            (usec) = ((tve).tv_sec*(uint64_t)1000000+(tve).tv_usec) -   \
+            ((tvs).tv_sec*(uint64_t)1000000+(tvs).tv_usec);             \
+} while ( 0 )
+
+#define TS_ADD_USEC(ts,tv,usec) do {                                     \
+            (ts).tv_sec = (tv).tv_sec;                                   \
+            gettimeofday (&tv, NULL);                                    \
+            (ts).tv_sec += ((tv).tv_usec + (usec) >= 1000000) ? 1 : 0;   \
+            (ts).tv_nsec = ((tv).tv_usec + (usec) >= 1000000) ?          \
+                            ((usec) - (1000000 - (tv).tv_usec)) * 1000 : \
+                            ((tv).tv_usec + (usec)) * 1000;              \
+} while ( 0 )
+
+#undef	MAX
+#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
+
+#undef	MIN
+#define MIN(a, b)  (((a) < (b)) ? (a) : (b))
+
 typedef int   (xapp_init_fn)     (void);
 typedef int   (xapp_exit_fn)     (void);
 typedef int   (xapp_register_fn) (void);
@@ -60,5 +93,7 @@ int                      xapp_ctx_media_exit (struct xapp_mthread_ctx *tctx);
 /* Layer specific functions (for testing) */
 int xapp_media_init (void);
 int xapp_media_exit (void);
+
+void xapp_print_mcmd (struct xapp_io_mcmd *cmd);
 
 #endif /* XAPP_H */
