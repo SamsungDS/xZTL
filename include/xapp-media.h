@@ -55,18 +55,6 @@ enum xapp_media_opcodes {
     XAPP_MISC_ASYNCH_WAIT = 0x5
 };
 
-struct xapp_maddr {
-    union {
-	struct {
-	    uint64_t grp   : 8;
-	    uint64_t punit : 4;
-	    uint64_t zone  : 20; /* 1M zones */
-	    uint64_t sect  : 32; /* 16TB for 4KB sectors */
-	} g;
-	uint64_t addr;
-    };
-};
-
 struct xapp_mthread_ctx {
     uint16_t 	    tid;
     xapp_thread    *comp_th;

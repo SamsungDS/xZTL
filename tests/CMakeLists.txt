@@ -39,8 +39,4 @@ foreach(SRC_FN ${TEST_ZND_SRC_FILES})
     target_link_libraries ( ${EXE_FN} cunit )
     target_link_libraries ( ${EXE_FN} xnvme )
     target_link_libraries ( ${EXE_FN} pthread )
-
-    foreach(SPDK_DEP_I ${SPDK_DEPS})
-	target_link_libraries(${EXE_FN} ${SPDK_DEP_I})
-    endforeach()
 endforeach()

@@ -117,7 +117,6 @@ struct xapp_mp_entry *xapp_mempool_get (uint16_t type, uint16_t tid)
     /* This guarantees that INSERT and REMOVE are not concurrent */
     /* TODO: Make a timeout */
     while (pool->entries - pool->out_count <= 2) {
-	usleep (1000);
 	tmp = pool->in_count;
 	pool->out_count -= tmp;
 	do {

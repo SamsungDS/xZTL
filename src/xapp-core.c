@@ -1,3 +1,4 @@
+#include <syslog.h>
 #include <stdlib.h>
 #include <string.h>
 #include <xapp.h>
@@ -142,17 +143,28 @@ void xapp_add_media (xapp_register_fn *fn)
 
 int xapp_exit (void)
 {
+    int ret;
+
     if (core.media) {
 	free (core.media);
 	core.media = NULL;
     }
 
-    return xapp_media_exit ();
+    ret = xapp_media_exit ();
+    if (ret)
+	log_err ("core: Could not exit media.");
+
+    log_info ("core: libztl is closed succesfully.");
+    return ret;
 }
 
 int xapp_init (void)
 {
     int ret;
+
+    openlog("ztl" , LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL0);
+
+    log_info ("core: Starting libztl...");
 
     if (!media_fn)
 	return XAPP_NOMEDIA;
