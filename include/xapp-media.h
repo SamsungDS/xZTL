@@ -58,10 +58,10 @@ enum xapp_media_opcodes {
 struct xapp_maddr {
     union {
 	struct {
-	    uint64_t grp   : 16;
-	    uint64_t punit : 16;
-	    uint64_t zone  : 16;
-	    uint64_t sect  : 16;
+	    uint64_t grp   : 8;
+	    uint64_t punit : 4;
+	    uint64_t zone  : 20; /* 1M zones */
+	    uint64_t sect  : 32; /* 16TB for 4KB sectors */
 	} g;
 	uint64_t addr;
     };

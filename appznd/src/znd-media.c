@@ -19,9 +19,44 @@ static void znd_media_async_cb (struct xnvme_ret *ret, void *cb_arg)
     cmd->callback (cmd);
 }
 
+static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
+{
+    return ZND_INVALID_OPCODE;
+}
+
+static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
+{
+    uint16_t sec_i = 0;
+    uint64_t slba;
+    void *dbuf;
+    struct xapp_mthread_ctx *tctx;
+    struct xnvme_ret *xret;
+    int ret;
+
+    tctx      = cmd->async_ctx;
+    xret      = &cmd->media_ctx;
+
+    dbuf = (void *) cmd->prp[sec_i];
+    slba = cmd->addr[sec_i].g.sect;
+
+    xret->async.ctx    = tctx->asynch;
+    xret->async.cb     = znd_media_async_cb;
+    xret->async.cb_arg = (void *) cmd;
+
+    ret = xnvme_cmd_read (zndmedia.dev,
+			    xnvme_dev_get_nsid (zndmedia.dev),
+			    slba,
+			    (uint16_t) cmd->nlba[sec_i] - 1,
+			    dbuf,
+			    NULL,
+			    XNVME_CMD_ASYNC,
+			    xret);
+    return ret;
+}
+
 static int znd_media_submit_append_synch (struct xapp_io_mcmd *cmd)
 {
-    return 0;
+    return ZND_INVALID_OPCODE;
 }
 
 static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
@@ -60,6 +95,9 @@ static int znd_media_submit_io (struct xapp_io_mcmd *cmd)
 	case XAPP_ZONE_APPEND:
 	    return (cmd->synch) ? znd_media_submit_append_synch (cmd) :
 				  znd_media_submit_append_asynch (cmd);
+	case XAPP_CMD_READ:
+	    return (cmd->synch) ? znd_media_submit_read_synch (cmd) :
+				  znd_media_submit_read_asynch (cmd);
 	default:
 	    return ZND_INVALID_OPCODE;
     }
@@ -191,7 +229,7 @@ static void *znd_media_asynch_comp_th (void *args)
 
     while (tctx->comp_active) {
 	/* TODO: Define polling time */
-	usleep (1000);
+	usleep (1);
 	znd_media_async_poke (tctx->asynch, &processed, limit);
 
 	if (!processed) {

@@ -85,7 +85,8 @@ static void test_znd_report (void)
     xnvme_buf_virt_free (cmd.opaque);
 }
 
-static void test_znd_manage_single (uint8_t op, uint8_t devop, char *name)
+static void test_znd_manage_single (uint8_t op, uint8_t devop,
+				    uint32_t zone, char *name)
 {
     struct xapp_zn_mcmd cmd;
     struct znd_report *report;
@@ -93,7 +94,7 @@ static void test_znd_manage_single (uint8_t op, uint8_t devop, char *name)
     int ret;
 
     cmd.opcode = op;
-    cmd.addr.g.zone = 10;
+    cmd.addr.g.zone = zone;
 
     ret = xapp_media_submit_zn (&cmd);
     cunit_znd_assert_int (name, ret);
@@ -121,17 +122,27 @@ static void test_znd_manage_single (uint8_t op, uint8_t devop, char *name)
 
 static void test_znd_op_cl_fi_re (void)
 {
+    uint32_t zone = 10;
+
+    test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
+			    XNVME_SPEC_ZONE_COND_EMPTY,
+			    zone,
+			    "xapp_media_submit_znm:reset");
     test_znd_manage_single (XAPP_ZONE_MGMT_OPEN,
 			    XNVME_SPEC_ZONE_COND_EOPEN,
+			    zone,
 			    "xapp_media_submit_znm:open");
     test_znd_manage_single (XAPP_ZONE_MGMT_CLOSE,
 			    XNVME_SPEC_ZONE_COND_CLOSED,
+			    zone,
 			    "xapp_media_submit_znm:close");
     test_znd_manage_single (XAPP_ZONE_MGMT_FINISH,
 			    XNVME_SPEC_ZONE_COND_FULL,
+			    zone,
 			    "xapp_media_submit_znm:finish");
     test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
 			    XNVME_SPEC_ZONE_COND_EMPTY,
+			    zone,
 			    "xapp_media_submit_znm:reset");
 }
 
@@ -243,6 +254,12 @@ static void test_znd_append_zone (void)
     if (ret)
 	goto MP;
 
+    /* Reset the zone before appending */
+    test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
+			    XNVME_SPEC_ZONE_COND_EMPTY,
+			    zone,
+			    "xapp_media_submit_znm:reset");
+
     /* Allocate DMA memory */
     wbuf = xapp_media_dma_alloc (bsize, &phys);
     cunit_znd_assert_ptr ("xapp_media_dma_alloc", wbuf);
@@ -265,6 +282,84 @@ static void test_znd_append_zone (void)
     cmd->callback  = test_znd_callback;
 
     cmd->addr[0].g.zone = zone;
+
+    /* Submit append */
+    outstanding = 1;
+    ret = xapp_media_submit_io (cmd);
+    cunit_znd_assert_int ("xapp_media_submit_io", ret);
+
+    /* Wait for completions */
+    while (outstanding) {};
+
+    /* Clear up */
+    xapp_mempool_put (mp_cmd, XAPP_MEMPOOL_MCMD, tid);
+DMA:
+    xapp_media_dma_free (wbuf);
+CTX:
+    ret = xapp_ctx_media_exit (tctx);
+    cunit_znd_assert_int ("xapp_ctx_media_exit", ret);
+MP:
+    ret = xapp_mempool_exit ();
+    cunit_znd_assert_int ("xapp_mempool_exit", ret);
+}
+
+static void test_znd_read_zone (void)
+{
+    struct xapp_mp_entry    *mp_cmd;
+    struct xapp_io_mcmd     *cmd;
+    struct xapp_mthread_ctx *tctx;
+    uint16_t tid, ents, nlbas, zone;
+    uint64_t phys, bsize;
+    void *wbuf;
+    int ret;
+
+    tid     = 0;
+    ents    = 128;
+    nlbas   = 64;
+    zone    = 510;
+    bsize = nlbas * core.media->geo.nbytes;
+
+    /* Initialize mempool module */
+    ret = xapp_mempool_init ();
+    cunit_znd_assert_int ("xapp_mempool_init", ret);
+    if (ret)
+	return;
+
+    /* Initialize thread media context */
+    tctx = xapp_ctx_media_init (tid, ents);
+    cunit_znd_assert_ptr ("xapp_ctx_media_init", tctx);
+    if (ret)
+	goto MP;
+
+    /* Reset the zone before appending */
+    test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
+			    XNVME_SPEC_ZONE_COND_EMPTY,
+			    zone,
+			    "xapp_media_submit_znm:reset");
+
+    /* Allocate DMA memory */
+    wbuf = xapp_media_dma_alloc (bsize, &phys);
+    cunit_znd_assert_ptr ("xapp_media_dma_alloc", wbuf);
+    if (!wbuf)
+	goto CTX;
+
+    /* Get media command entry */
+    mp_cmd = xapp_mempool_get (XAPP_MEMPOOL_MCMD, tid);
+    cunit_znd_assert_ptr ("xapp_mempool_get", mp_cmd);
+    if (!mp_cmd)
+	goto DMA;
+
+    /* Fill up command structure */
+    cmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
+    cmd->opcode    = XAPP_CMD_READ;
+    cmd->synch     = 0;
+    cmd->async_ctx = tctx;
+    cmd->prp[0]    = (uint64_t) wbuf;
+    cmd->nlba[0]   = nlbas;
+    cmd->callback  = test_znd_callback;
+
+    /* We currently use sector only read addresses */
+    cmd->addr[0].g.sect = zone * core.media->geo.sec_zn;
 
     /* Submit append */
     outstanding = 1;
@@ -313,6 +408,8 @@ int main (void)
 		      test_znd_dma_memory) == NULL) ||
         (CU_add_test (pSuite, "Append 64 sectors to zone 510",
 		      test_znd_append_zone) == NULL) ||
+        (CU_add_test (pSuite, "Read 64 sectors from zone 510",
+		      test_znd_read_zone) == NULL) ||
 	(CU_add_test (pSuite, "Close media",
 		      test_znd_media_exit) == NULL)) {
 	CU_cleanup_registry();
