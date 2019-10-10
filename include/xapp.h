@@ -41,6 +41,8 @@
 #undef	MIN
 #define MIN(a, b)  (((a) < (b)) ? (a) : (b))
 
+#define APP_MAGIC 0x3c
+
 typedef int   (xapp_init_fn)     (void);
 typedef int   (xapp_exit_fn)     (void);
 typedef int   (xapp_register_fn) (void);
@@ -50,10 +52,10 @@ typedef void  (xapp_callback)    (void *arg);
 struct xapp_maddr {
     union {
 	struct {
-	    uint64_t grp   : 8;
-	    uint64_t punit : 4;
+	    uint64_t grp   : 5;
+	    uint64_t punit : 3;
 	    uint64_t zone  : 20; /* 1M zones */
-	    uint64_t sect  : 32; /* 16TB for 4KB sectors */
+	    uint64_t sect  : 36; /* 256TB for 4KB sectors */
 	} g;
 	uint64_t addr;
     };
@@ -169,15 +171,17 @@ enum xapp_gl_functions {
 };
 
 struct app_magic {
-    uint32_t rsvd;
-    uint32_t magic;
+    uint8_t  magic;
+    uint8_t  rsv[7];
 } __attribute__((packed));
 
 struct app_zmd_entry {
-    uint16_t                flags;
-    struct xapp_maddr       addr;
-    uint32_t                wptr;
-    uint32_t                invalid_sec;
+    uint16_t             flags;
+    struct xapp_maddr    addr;
+    uint32_t             wptr;
+    uint32_t             invalid_sec;
+    uint32_t		 nblks;
+    /* TODO: Decide how to store LPID list here */ 
 } __attribute__((packed));
 
 struct app_tiny_entry {
@@ -204,10 +208,6 @@ struct app_mpe {
     uint8_t             *tbl;
     uint32_t             ent_per_pg;
     struct app_tiny_tbl  tiny;   /* This is the 'tiny' table for checkpoint */
-
-    pthread_mutex_t     *entry_mutex;
-    pthread_spinlock_t  *entry_spin;
-    pthread_mutex_t     tbl_mutex;  /* Used during table copy (checkpoint) */
 } __attribute__((packed));
 
 struct app_zmd {
@@ -217,9 +217,7 @@ struct app_zmd {
 
     uint8_t             *tbl;        /* This is the 'small' fixed table */
     uint32_t             ent_per_pg;
-    uint64_t            *closed_ts;  /* Timestamps when zones were finished */
     struct app_tiny_tbl  tiny;       /* This is the 'tiny' table for checkpoint */
-    pthread_spinlock_t  *entry_spin;
 };
 
 struct app_grp_flags {
@@ -229,10 +227,10 @@ struct app_grp_flags {
 };
 
 struct app_group {
-    uint16_t                app_grp_id;
+    uint16_t                id;
     struct app_grp_flags    flags;
-    struct app_zmd          *zmd;
-    struct app_mpe          *mpe;
+    struct app_zmd          zmd;
+    struct app_mpe          mpe;
     uint16_t                cp_zone;   /* Rsvd zone ID for checkpoint */
     LIST_ENTRY(app_group)   entry;
 };
@@ -250,16 +248,16 @@ typedef int     (app_grp_init)(void);
 typedef void    (app_grp_exit)(void);
 typedef struct app_group *
 	        (app_grp_get)(uint16_t gid);
-typedef int     (app_grp_get_list)(struct app_group **, uint16_t ngrps);
+typedef int     (app_grp_get_list)(struct app_group **lgrp, uint16_t ngrps);
 
-typedef int     (app_zmd_create)(struct app_group *);
-typedef int     (app_zmd_flush) (struct app_group *);
-typedef int     (app_zmd_load) (struct app_group *);
+typedef int     (app_zmd_create)(struct app_group *grp);
+typedef int     (app_zmd_flush) (struct app_group *grp);
+typedef int     (app_zmd_load) (struct app_group *grp);
 typedef void    (app_zmd_mark) (struct app_group *lgrp, uint64_t index);
 typedef struct app_zmd_entry *
-	        (app_zmd_get) (struct app_group *, uint16_t);
-typedef void    (app_zmd_invalidate)(struct app_group *,
-                                     struct xapp_maddr *, uint8_t full);
+	        (app_zmd_get) (struct app_group *grp, uint32_t zone);
+typedef void    (app_zmd_invalidate)(struct app_group *grp,
+                                     struct xapp_maddr *addr, uint8_t full);
 
 typedef int     (app_pro_init) (void);
 typedef void    (app_pro_exit) (void);
@@ -382,5 +380,9 @@ int	ztl_mod_register (uint8_t modtype, uint8_t id, void *mod);
 int     ztl_mod_set (uint8_t *modset);
 int	ztl_init (void);
 void	ztl_exit (void);
+
+/* LIBZTL module registration */
+
+void ztl_zmd_register (void);
 
 #endif /* XAPP_H */

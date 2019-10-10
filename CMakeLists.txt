@@ -32,8 +32,6 @@ set(HEADER_FILES
     ${PROJECT_SOURCE_DIR}/include/xapp.h
     ${PROJECT_SOURCE_DIR}/include/xapp-media.h
     ${PROJECT_SOURCE_DIR}/include/xapp-mempool.h
-#    ${PROJECT_SOURCE_DIR}/include/xapp-mgmt.h
-#    ${PROJECT_SOURCE_DIR}/include/xapp-front.h
 )
 
 ### XAPP CORE ###
@@ -43,6 +41,7 @@ set(SOURCE_FILES
     ${PROJECT_SOURCE_DIR}/src/xapp-mempool.c
     ${PROJECT_SOURCE_DIR}/src/xapp-ctx.c
     ${PROJECT_SOURCE_DIR}/src/xapp-ztl.c
+    ${PROJECT_SOURCE_DIR}/src/xapp-groups.c
 )
 
 include_directories("${PROJECT_SOURCE_DIR}/include")

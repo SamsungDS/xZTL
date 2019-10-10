@@ -9,6 +9,7 @@ set(ZND_HEADER_FILES
 
 set(ZND_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/znd-media.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/znd-zmd.c
 )
 
 set(APPZND "appznd")

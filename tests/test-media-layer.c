@@ -36,7 +36,7 @@ static int test_media_zn_fn (struct xapp_zn_mcmd *cmd)
 
 static void *test_media_dma_alloc (size_t size, uint64_t *phys)
 {
-    return malloc (1024);
+    return malloc (size);
 }
 
 static void test_media_dma_free (void *ptr)
