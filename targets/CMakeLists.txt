@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8)
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
-include_directories("${PROJECT_SOURCE_DIR}/appznd/include")
+include_directories("${PROJECT_SOURCE_DIR}/lztl/include")
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 set(ZR_HEADER_FILES

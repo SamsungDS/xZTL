@@ -1,6 +1,6 @@
 #include <xapp.h>
 #include <xapp-media.h>
-#include <znd-media.h>
+#include <ztl-media.h>
 #include <libxnvme.h>
 #include <time.h>
 #include <unistd.h>
@@ -37,6 +37,8 @@ static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
     xret      = &cmd->media_ctx;
 
     dbuf = (void *) cmd->prp[sec_i];
+
+    /* The read path is not group based. It uses only sectors */
     slba = cmd->addr[sec_i].g.sect;
 
     xret->async.ctx    = tctx->asynch;
@@ -72,7 +74,10 @@ static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
     xret      = &cmd->media_ctx;
 
     dbuf = (const void *) cmd->prp[zone_i];
-    zlba = cmd->addr[zone_i].g.zone * zndmedia.devgeo->nsect;
+
+    /* The write path separates zones into groups */
+    zlba = (zndmedia.media.geo.zn_grp * cmd->addr[zone_i].g.grp +
+	    cmd->addr[zone_i].g.zone) * zndmedia.devgeo->nsect;
 
     xret->async.ctx    = tctx->asynch;
     xret->async.cb     = znd_media_async_cb;
@@ -132,7 +137,8 @@ static int znd_media_zone_report (struct xapp_zn_mcmd *cmd)
     uint32_t lba;
 
     /* TODO: Reading everything until libxnvme gets fixed */
-    lba = /*cmd->addr.g.zone * zndmedia.devgeo->nsect*/ 0;
+    lba = 0;/* ( (zndmedia.devgeo->nzone * cmd->addr.g.grp) +
+	       cmd->addr.g.zone) * zndmedia.devgeo->nsect ) */
     limit = /*cmd->nzones;*/ 0;
     rep = znd_report_from_dev (zndmedia.dev, lba, limit);
     if (!rep)

@@ -1,12 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <xapp.h>
 #include <sys/queue.h>
 #include <pthread.h>
 #include <stdint.h>
 #include <string.h>
 #include <libznd.h>
+#include <xapp.h>
 #include <xapp-media.h>
+#include <xapp-ztl.h>
 
 extern struct xapp_core core;
 
@@ -46,6 +47,7 @@ static void groups_zmd_exit (void)
     struct app_group *grp;
 
     LIST_FOREACH(grp, &app_grp_head, entry) {
+	xnvme_buf_virt_free (grp->zmd.report);
 	free (grp->zmd.tbl);
     }
 }
@@ -77,7 +79,7 @@ static int groups_zmd_init (struct app_group *grp)
     if (zmd->byte.magic == APP_MAGIC) {
 	ret = ztl()->zmd->create_fn (grp);
 	if (ret)
-	    goto FREE;
+	    goto FREE_REP;
     }
 
     /* TODO: Setup tiny table */
@@ -86,6 +88,8 @@ static int groups_zmd_init (struct app_group *grp)
 
     return XAPP_OK;
 
+FREE_REP:
+    xnvme_buf_virt_free (zmd->report);
 FREE:
     free (zmd->tbl);
     log_erra ("ztl-group: Zone MD startup failed. Grp: %d", grp->id);

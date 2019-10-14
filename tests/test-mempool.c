@@ -2,7 +2,7 @@
 #include <omp.h>
 #include <xapp.h>
 #include <xapp-mempool.h>
-#include <znd-media.h>
+#include <ztl-media.h>
 #include "CUnit/Basic.h"
 
 static void cunit_mempool_assert_ptr (char *fn, void *ptr)

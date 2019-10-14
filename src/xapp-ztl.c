@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <sys/queue.h>
 #include <xapp.h>
+#include <xapp-ztl.h>
 
 extern struct core_struct core;
 
@@ -32,7 +33,7 @@ static void app_global_exit (void)
 {
     /* Create a clean shutdown checkpoint */
     /*if (ztl()->recovery->running) {
-        if (oztl()->recovery->checkpoint_fn ())
+        if (ztl()->recovery->checkpoint_fn ())
             log_err ("[ox-app: Checkpoint has failed]");
 
         ztl()->recovery->exit_fn ();

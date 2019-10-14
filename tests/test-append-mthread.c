@@ -5,7 +5,7 @@
 #include <xapp.h>
 #include <xapp-media.h>
 #include <xapp-mempool.h>
-#include <znd-media.h>
+#include <ztl-media.h>
 
 #define TEST_THREAD  	8
 #define TEST_SEC_CMD 	64

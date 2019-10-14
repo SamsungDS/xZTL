@@ -1,8 +1,13 @@
-# xapp
-User-space ZTL Development Layout
+# libztl: User-space Zone Translation Layer Library
 
-# appznd
-User-space Zoned Application Library
+This library is composed by the necessary building blocks for
+zoned applications. ZTL components are grouped into a target for
+a specific application.
 
-# zrocks
-Zoned RocksDB Target
+# libztl Targets:
+
+ZRocks: Zoned RocksDB
+
+# Future Targets:
+
+Z... To be defined
