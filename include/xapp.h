@@ -85,9 +85,48 @@ enum xapp_status {
     XAPP_ZTL_PROV_ERR   = 0x0e,
     XAPP_ZTL_GROUP_ERR  = 0x0f,
     XAPP_ZTL_ZMD_REP	= 0x10,
+    XAPP_ZTL_PROV_FULL  = 0x11,
 
     XAPP_MEDIA_ERROR	= 0x100,
 };
+
+/* Compare and swap atomic operations */
+
+inline void xapp_atomic_int8_update (uint8_t *ptr, uint8_t value)
+{
+    uint8_t old;
+
+    do {
+	old = *ptr;
+    } while (!__sync_bool_compare_and_swap (ptr, old, value));
+}
+
+inline void xapp_atomic_int16_update (uint16_t *ptr, uint16_t value)
+{
+    uint16_t old;
+
+    do {
+	old = *ptr;
+    } while (!__sync_bool_compare_and_swap (ptr, old, value));
+}
+
+inline void xapp_atomic_int32_update (uint32_t *ptr, uint32_t value)
+{
+    uint32_t old;
+
+    do {
+	old = *ptr;
+    } while (!__sync_bool_compare_and_swap (ptr, old, value));
+}
+
+inline void xapp_atomic_int64_update (uint64_t *ptr, uint64_t value)
+{
+    uint64_t old;
+
+    do {
+	old = *ptr;
+    } while (!__sync_bool_compare_and_swap (ptr, old, value));
+}
 
 /* Add media layer */
 void xapp_add_media (xapp_register_fn *fn);

@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <sys/queue.h>
 #include <xapp.h>
+#include <xapp-media.h>
 #include <xapp-ztl.h>
 
 extern struct core_struct core;

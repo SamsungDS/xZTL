@@ -24,6 +24,10 @@ void xapp_print_mcmd (struct xapp_io_mcmd *cmd)
     printf ("opaque : %p\n", cmd->opaque);
 }
 
+void xapp_atomic_int_update (void *ptr, void *value)
+{
+}
+
 static xapp_register_fn *media_fn = NULL;
 
 void *xapp_media_dma_alloc (size_t bytes, uint64_t *phys)

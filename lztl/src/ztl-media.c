@@ -116,7 +116,8 @@ static inline int znd_media_zone_manage (struct xapp_zn_mcmd *cmd, uint8_t op)
     struct xnvme_ret devret;
     int ret;
 
-    lba = cmd->addr.g.zone * zndmedia.devgeo->nsect;
+    lba = ( (zndmedia.devgeo->nzone * cmd->addr.g.grp) +
+	    cmd->addr.g.zone) * zndmedia.devgeo->nsect;
 
     ret = xnvme_cmd_zone_mgmt (zndmedia.dev,
 			       xnvme_dev_get_nsid (zndmedia.dev),
@@ -138,7 +139,7 @@ static int znd_media_zone_report (struct xapp_zn_mcmd *cmd)
 
     /* TODO: Reading everything until libxnvme gets fixed */
     lba = 0;/* ( (zndmedia.devgeo->nzone * cmd->addr.g.grp) +
-	       cmd->addr.g.zone) * zndmedia.devgeo->nsect ) */
+	       cmd->addr.g.zone) * zndmedia.devgeo->nsect; */
     limit = /*cmd->nzones;*/ 0;
     rep = znd_report_from_dev (zndmedia.dev, lba, limit);
     if (!rep)

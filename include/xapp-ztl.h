@@ -50,6 +50,15 @@ enum xapp_gl_functions {
     XAPP_FN_TRANSACTION = 1
 };
 
+enum xapp_zmd_flags {
+    XAPP_ZMD_USED = (1 << 0),
+    XAPP_ZMD_OPEN = (1 << 1),
+    XAPP_ZMD_RSVD = (1 << 2), /* Reserved zone */
+    XAPP_ZMD_AVLB = (1 << 3), /* Indicates the zone is valid and can be used */
+    XAPP_ZMD_COLD = (1 << 4), /* Contains cold data recycled by GC */
+    XAPP_ZMD_META = (1 << 5)  /* Contains metadata, such as log for recovery*/
+};
+
 struct app_magic {
     uint8_t  magic;
     uint8_t  rsv[7];
@@ -58,7 +67,7 @@ struct app_magic {
 struct app_zmd_entry {
     uint16_t             flags;
     struct xapp_maddr    addr;
-    uint32_t             wptr;
+    uint64_t             wptr;
     uint32_t             invalid_sec;
     uint32_t		 nblks;
     /* TODO: Decide how to store LPID list here */

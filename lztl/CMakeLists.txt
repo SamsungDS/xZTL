@@ -15,7 +15,7 @@ set(ZND_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ztl-pro-grp.c
 )
 
-set(LIBZTL "libztl")
+set(LIBZTL "ztl")
 
 add_library(${LIBZTL} STATIC ${ZND_HEADER_FILES} ${ZND_SOURCE_FILES})
 target_link_libraries ( ${LIBZTL} ${LXAPP} )
