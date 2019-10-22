@@ -51,7 +51,7 @@ static int ztl_zmd_load_report (struct app_group *grp)
 static int ztl_zmd_load (struct app_group *grp)
 {
     if (ztl_zmd_load_report (grp))
-	return XAPP_ZTL_ZMD_REP; 
+	return XAPP_ZTL_ZMD_REP;
 
     /* Set byte for table creation */
     grp->zmd.byte.magic = APP_MAGIC;

@@ -2,9 +2,13 @@
 #define XAPP_ZTL_H
 
 #include <xapp.h>
+#include <xapp-mempool.h>
 
-#define APP_MOD_COUNT        9
-#define APP_FN_SLOTS         32
+#define APP_MOD_COUNT     9
+#define APP_FN_SLOTS      32
+
+#define APP_MAX_GRPS	  32
+#define APP_PRO_MAX_OFFS  8  /* Maximum of offsets returned by new/get */
 
 enum xapp_mod_types {
     ZTLMOD_BAD = 0x0,
@@ -127,10 +131,12 @@ struct app_group {
 };
 
 struct app_pro_addr {
-    struct app_group   **grp;
-    struct xapp_maddr   *addr;
+    struct app_group    *grp;
+    struct xapp_maddr    addr[APP_PRO_MAX_OFFS];
     uint16_t             naddr;
-    uint16_t             ngrp;
+    uint16_t 		 thread_id;
+
+    struct xapp_mp_entry *mp_entry;
 };
 
 /* ------- XApp: MODULE FUNCTIONS DEFINITION ------- */
@@ -274,6 +280,7 @@ void	ztl_exit (void);
 
 /* LIBZTL module registration */
 
+void ztl_grp_register (void);
 void ztl_zmd_register (void);
 void ztl_pro_register (void);
 

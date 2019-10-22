@@ -95,8 +95,12 @@ int ztl_mod_register (uint8_t modtype, uint8_t modid, void *mod)
 
 void ztl_exit (void)
 {
+    log_info ("ztl: Closing...");
+
     app_global_exit ();
     ztl()->groups.exit_fn ();
+
+    log_info ("ztl: Closed successfully.");
 }
 
 int ztl_init (void)
@@ -106,7 +110,9 @@ int ztl_init (void)
     gl_fn = 0;
     app_ngrps = 0;
 
-    //app_groups_register ();
+    ztl_grp_register ();
+
+    log_info ("ztl: Starting...");
 
     if (ztl_mod_set (app_modset_libztl))
         return -1;
@@ -122,6 +128,8 @@ int ztl_init (void)
 	ztl()->groups.exit_fn ();
 	return ret;
     }
+
+    log_info ("ztl: Started successfully.");
 
     return XAPP_OK;
 }

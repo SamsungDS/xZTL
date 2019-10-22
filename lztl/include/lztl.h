@@ -1,8 +1,21 @@
 #include <pthread.h>
 #include <sys/queue.h>
 #include <xapp.h>
+#include <xapp-ztl.h>
 
-#define ZTL_PRO_TYPES 1
+#define ZTL_PRO_TYPES    1  /* Number of provisioning types */
+#define ZTL_PRO_MP_SZ    32 /* Mempool size per thread */
+
+/* Debug options */
+#define ZDEBUG_PRO_GRP 1
+#define ZDEBUG_PRO     1
+
+#define ZDEBUG(type, format, ...) do {		\
+    if ((type)) {				\
+	log_infoa (format, ## __VA_ARGS__);	\
+    }						\
+} while ( 0 )
+
 
 enum ztl_pro_type_list {
     ZTL_PRO_TUSER = 0x0

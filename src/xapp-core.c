@@ -6,6 +6,42 @@
 
 struct xapp_core core = {NULL};
 
+void xapp_atomic_int8_update (uint8_t *ptr, uint8_t value)
+{
+    uint8_t old;
+
+    do {
+	old = *ptr;
+    } while (!__sync_bool_compare_and_swap (ptr, old, value));
+}
+
+void xapp_atomic_int16_update (uint16_t *ptr, uint16_t value)
+{
+    uint16_t old;
+
+    do {
+	old = *ptr;
+    } while (!__sync_bool_compare_and_swap (ptr, old, value));
+}
+
+void xapp_atomic_int32_update (uint32_t *ptr, uint32_t value)
+{
+    uint32_t old;
+
+    do {
+	old = *ptr;
+    } while (!__sync_bool_compare_and_swap (ptr, old, value));
+}
+
+void xapp_atomic_int64_update (uint64_t *ptr, uint64_t value)
+{
+    uint64_t old;
+
+    do {
+	old = *ptr;
+    } while (!__sync_bool_compare_and_swap (ptr, old, value));
+}
+
 void xapp_print_mcmd (struct xapp_io_mcmd *cmd)
 {
     printf ("\n");
@@ -22,10 +58,6 @@ void xapp_print_mcmd (struct xapp_io_mcmd *cmd)
     printf ("callba : %s\n", (cmd->callback) ? "OK" : "NULL");
     printf ("async_c: %p\n", (void *) cmd->async_ctx);
     printf ("opaque : %p\n", cmd->opaque);
-}
-
-void xapp_atomic_int_update (void *ptr, void *value)
-{
 }
 
 static xapp_register_fn *media_fn = NULL;

@@ -28,6 +28,7 @@ set(TEST_ZND_SRC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/test-znd-media.c
     ${CMAKE_CURRENT_SOURCE_DIR}/test-mempool.c
     ${CMAKE_CURRENT_SOURCE_DIR}/test-append-mthread.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/test-ztl.c
 )
 
 foreach(SRC_FN ${TEST_ZND_SRC_FILES})

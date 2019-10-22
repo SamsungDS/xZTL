@@ -5,13 +5,14 @@
 #include <sys/queue.h>
 #include <libxnvme.h>
 
-#define XAPPMP_THREADS 		64
-#define XAPPMP_TYPES   		1
+#define XAPPMP_THREADS 		32
+#define XAPPMP_TYPES   		2
 #define XAPPMP_MAX_ENT 		1024
 #define XAPPMP_MAX_ENT_SZ	(1024 * 1024)  /* 1 MB */
 
 enum xapp_mp_types {
-    XAPP_MEMPOOL_MCMD =	0x0
+    XAPP_MEMPOOL_MCMD =	0x0,
+    XAPP_ZTL_PRO_CTX  = 0x1
 };
 
 enum xapp_mp_status {

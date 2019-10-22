@@ -49,6 +49,8 @@ static void groups_zmd_exit (void)
     LIST_FOREACH(grp, &app_grp_head, entry) {
 	xnvme_buf_virt_free (grp->zmd.report);
 	free (grp->zmd.tbl);
+
+	log_infoa ("ztl-group: Zone MD stopped. Grp: %d", grp->id);
     }
 }
 
@@ -112,6 +114,8 @@ static void groups_exit (void)
 {
     groups_zmd_exit ();
     groups_free ();
+
+    log_info ("ztl-groups: Closed successfully.");
 }
 
 static int groups_init (void)
@@ -137,14 +141,16 @@ static int groups_init (void)
 	LIST_INSERT_HEAD (&app_grp_head, grp, entry);
     }
 
-    return XAPP_OK;
+    log_infoa ("ztl-groups: %d groups started. ", grp_i);
+
+    return grp_i;
 
 FREE:
     groups_free ();
     return -1;
 }
 
-void app_groups_register (void) {
+void ztl_grp_register (void) {
     ztl()->groups.init_fn     = groups_init;
     ztl()->groups.exit_fn     = groups_exit;
     ztl()->groups.get_fn      = groups_get;

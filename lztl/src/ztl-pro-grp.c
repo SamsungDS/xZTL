@@ -21,6 +21,7 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     pthread_spin_lock (&pro->spin);
     zone = TAILQ_FIRST (&pro->free_head);
     if (!zone) {
+	log_infoa ("ztl-pro: No zones left. Grp %d.", grp->id);
 	pthread_spin_unlock (&pro->spin);
 	return NULL;
     }
@@ -37,8 +38,11 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     if (zmde->wptr > zone->addr.g.sect) {
 	cmd.opcode    = XAPP_ZONE_MGMT_RESET;
 	cmd.addr.addr = zone->addr.addr;
-    	if (xapp_media_submit_zn (&cmd))
+    	if (xapp_media_submit_zn (&cmd)) {
+	    log_erra ("ztl-pro: Zone reset failure (%d/%d).",
+				    zone->addr.g.grp, zone->addr.g.zone);
 	    goto ERR;
+	}
     }
 
     /* A single thread is used for each provisioning type, no lock needed */
@@ -82,14 +86,17 @@ int ztl_pro_grp_get (struct app_group *grp, struct xapp_maddr *list,
     ptype = ZTL_PRO_TUSER;
     zone = ztl_pro_grp_zone_open (grp, ptype);
     if (!zone)
-	return XAPP_ZTL_PROV_FULL;
+	return 0;
 
-    /* For we return a single zone */
+    /* For now we return a single zone */
     list[0].addr = zone->addr.addr;
 
     /* Move the write pointer */
     /* A single thread touches the write pointer, no lock needed */
     zone->zmd_entry->wptr += nsec;
+
+    ZDEBUG (ZDEBUG_PRO_GRP, " ztl-pro (get): zone (%d/%d/0x%lx)",
+	    zone->addr.g.grp, zone->addr.g.zone, (uint64_t) zone->addr.g.sect);
 
     return 1;
 }
@@ -184,7 +191,7 @@ int ztl_pro_grp_init (struct app_group *grp)
     if (!pro)
 	return XAPP_ZTL_PROV_ERR;
 
-    pro->vzones = calloc (sizeof (struct ztl_pro_zone), grp->mpe.entries);
+    pro->vzones = calloc (sizeof (struct ztl_pro_zone), grp->zmd.entries);
     if (!pro->vzones) {
 	free (pro);
 	return XAPP_ZTL_PROV_ERR;
@@ -206,7 +213,7 @@ int ztl_pro_grp_init (struct app_group *grp)
 	TAILQ_INIT (&pro->open_head[ntype]);
     }
 
-    for (zone_i = 0; zone_i < grp->mpe.entries; zone_i++) {
+    for (zone_i = 0; zone_i < grp->zmd.entries; zone_i++) {
 
 	/* This macro only works with full report
 	 * Change this when xnvme gets fixed */
@@ -222,8 +229,10 @@ int ztl_pro_grp_init (struct app_group *grp)
 		    zmde->addr.g.grp, zmde->addr.g.zone, grp->id, zone_i);
 
 	if ( (zmde->flags & XAPP_ZMD_RSVD) ||
-	    !(zmde->flags & XAPP_ZMD_AVLB) )
+	    !(zmde->flags & XAPP_ZMD_AVLB) ) {
+	    printf ("flags: %x\n", zmde->flags);
 	    continue;
+	}
 
 	zone->addr.addr = zmde->addr.addr;
 	zone->state     = zinfo->zc;
@@ -245,6 +254,9 @@ int ztl_pro_grp_init (struct app_group *grp)
 		zmde->nblks       = 0;
 		TAILQ_INSERT_TAIL (&pro->free_head, zone, entry);
 		pro->nfree++;
+
+		ZDEBUG (ZDEBUG_PRO_GRP, " ZINFO: (%d/%d) empty\n",
+				zmde->addr.g.grp, zmde->addr.g.zone);
 		break;
 
 	    case XNVME_SPEC_ZONE_COND_EOPEN:
@@ -263,6 +275,9 @@ int ztl_pro_grp_init (struct app_group *grp)
 
 		pro->nused++;
 		pro->nopen[ptype]++;
+
+		ZDEBUG (ZDEBUG_PRO_GRP, " ZINFO: (%d/%d) open\n",
+				zmde->addr.g.grp, zmde->addr.g.zone);
 		break;
 
 	    case XNVME_SPEC_ZONE_COND_FULL:
@@ -278,6 +293,9 @@ int ztl_pro_grp_init (struct app_group *grp)
 		TAILQ_INSERT_TAIL (&pro->used_head, zone, entry);
 
 		pro->nused++;
+
+		ZDEBUG (ZDEBUG_PRO_GRP, " ZINFO: (%d/%d) full\n",
+				zmde->addr.g.grp, zmde->addr.g.zone);
 		break;
 
 	    default:
@@ -288,6 +306,7 @@ int ztl_pro_grp_init (struct app_group *grp)
 	zmde->wptr = zinfo->wp;
     }
 
+    log_infoa ("ztl-pro: Started. Group %d.", grp->id);
     return 0;
 }
 
@@ -300,4 +319,6 @@ void ztl_pro_grp_exit (struct app_group *grp)
     pthread_spin_destroy (&pro->spin);
     ztl_pro_grp_zones_free (grp);
     free (grp->pro);
+
+    log_infoa ("ztl-pro: Stopped. Group %d.", grp->id);
 }
