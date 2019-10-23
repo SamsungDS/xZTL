@@ -86,6 +86,8 @@ enum xapp_status {
     XAPP_ZTL_GROUP_ERR  = 0x0f,
     XAPP_ZTL_ZMD_REP	= 0x10,
     XAPP_ZTL_PROV_FULL  = 0x11,
+    XAPP_ZTL_MPE_ERR	= 0x12,
+    XAPP_ZTL_MAP_ERR	= 0x13,
 
     XAPP_MEDIA_ERROR	= 0x100,
 };

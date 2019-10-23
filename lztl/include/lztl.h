@@ -3,12 +3,13 @@
 #include <xapp.h>
 #include <xapp-ztl.h>
 
-#define ZTL_PRO_TYPES    1  /* Number of provisioning types */
-#define ZTL_PRO_MP_SZ    32 /* Mempool size per thread */
+#define ZTL_PRO_TYPES    1   /* Number of provisioning types */
+#define ZTL_PRO_MP_SZ    32  /* Mempool size per thread */
 
 /* Debug options */
 #define ZDEBUG_PRO_GRP 1
 #define ZDEBUG_PRO     1
+#define ZDEBUG_MPE     1
 
 #define ZDEBUG(type, format, ...) do {		\
     if ((type)) {				\

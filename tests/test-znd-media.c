@@ -99,7 +99,7 @@ static void test_znd_manage_single (uint8_t op, uint8_t devop,
     ret = xapp_media_submit_zn (&cmd);
     cunit_znd_assert_int (name, ret);
 
-    if (!ret) {
+//    if (!ret) {
 
 	/* Verify log page */
 	cmd.opcode = XAPP_ZONE_MGMT_REPORT;
@@ -114,10 +114,10 @@ static void test_znd_manage_single (uint8_t op, uint8_t devop,
 	    cunit_znd_assert_int_equal (name,
 					zinfo->zc, devop);
 	}
-    }
 
-    /* Free structure allocated by xnvme */
-    xnvme_buf_virt_free (cmd.opaque);
+	/* Free structure allocated by xnvme */
+	xnvme_buf_virt_free (cmd.opaque);
+ //   }
 }
 
 static void test_znd_op_cl_fi_re (void)

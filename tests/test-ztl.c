@@ -42,6 +42,7 @@ static void test_ztl_init (void)
     /* Register ZTL modules */
     ztl_zmd_register ();
     ztl_pro_register ();
+    ztl_mpe_register ();
 
     ret = ztl_init ();
     cunit_ztl_assert_int ("ztl_init", ret);
