@@ -10,6 +10,7 @@
 #define ZDEBUG_PRO_GRP 1
 #define ZDEBUG_PRO     1
 #define ZDEBUG_MPE     1
+#define ZDRBUG_MAP     1
 
 #define ZDEBUG(type, format, ...) do {		\
     if ((type)) {				\
@@ -44,6 +45,16 @@ struct ztl_pro_grp {
     TAILQ_HEAD (open_list, ztl_pro_zone) open_head[ZTL_PRO_TYPES];
 
     pthread_spinlock_t spin;
+};
+
+struct map_md_addr {
+    union {
+        struct {
+            uint64_t addr  : 63;
+            uint64_t flag : 1;
+        } g;
+        uint64_t addr;
+    };
 };
 
 int  ztl_pro_grp_init (struct app_group *grp);

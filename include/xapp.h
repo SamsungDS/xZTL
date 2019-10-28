@@ -43,6 +43,8 @@
 
 #define APP_MAGIC 0x3c
 
+#define AND64 	  0xffffffffffffffff
+
 typedef int   (xapp_init_fn)     (void);
 typedef int   (xapp_exit_fn)     (void);
 typedef int   (xapp_register_fn) (void);

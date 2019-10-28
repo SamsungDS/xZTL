@@ -41,11 +41,11 @@ static int ztl_mpe_flush (void)
     return 0;
 }
 
-static struct app_map_entry *ztl_mpe_get (uint32_t index)
+static struct map_md_addr *ztl_mpe_get (uint32_t index)
 {
     /* TODO: If index > n_entries, increase size of table */
 
-    return ((struct app_map_entry *) smap->tbl) + index;
+    return ((struct map_md_addr *) smap->tbl) + index;
 }
 
 static void ztl_mpe_mark (uint32_t index)

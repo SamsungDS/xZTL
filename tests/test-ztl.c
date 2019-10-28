@@ -43,6 +43,7 @@ static void test_ztl_init (void)
     ztl_zmd_register ();
     ztl_pro_register ();
     ztl_mpe_register ();
+    ztl_map_register ();
 
     ret = ztl_init ();
     cunit_ztl_assert_int ("ztl_init", ret);
@@ -75,6 +76,36 @@ static void test_ztl_pro_new_free (void)
     ztl()->pro->free_fn (proe);
 }
 
+static void test_ztl_map_upsert_read (void)
+{
+    uint64_t id, val, count, interval, old;
+    int ret;
+
+    count    = 256 * 4096 - 1;
+    interval = 1;
+
+    for (id = 1; id <= count; id++) {
+	ret = ztl()->map->upsert_fn (id * interval, id * interval, &old, 0);
+	cunit_ztl_assert_int ("ztl()->map->upsert_fn", ret);
+    }
+
+    for (id = 1; id <= count; id++) {
+	val = ztl()->map->read_fn (id * interval);
+	cunit_ztl_assert_int_equal ("ztl()->map->read", val, id * interval);
+    }
+
+    id = 456789;
+    val = 1234;
+    old = 0;
+
+    ret = ztl()->map->upsert_fn (id, val, &old, 0);
+    cunit_ztl_assert_int ("ztl()->map->upsert_fn", ret);
+    cunit_ztl_assert_int_equal ("ztl()->map->upsert_fn:old", old, id);
+
+    old = ztl()->map->read_fn (id);
+    cunit_ztl_assert_int_equal ("ztl()->map->read", old, val);
+}
+
 static int cunit_ztl_init (void)
 {
     return 0;
@@ -102,6 +133,8 @@ int main (void)
 		      test_ztl_init) == NULL) ||
 	(CU_add_test (pSuite, "New/Free prov offset",
 		      test_ztl_pro_new_free ) == NULL) ||
+	(CU_add_test (pSuite, "Upsert/Read mapping",
+		      test_ztl_map_upsert_read ) == NULL) ||
         (CU_add_test (pSuite, "Close ZTL",
 		      test_ztl_exit) == NULL)) {
 	CU_cleanup_registry();

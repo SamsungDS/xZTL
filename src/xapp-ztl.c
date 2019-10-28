@@ -20,6 +20,43 @@ inline struct app_global *ztl (void) {
     return &__ztl;
 }
 
+static int app_init_map_lock (struct app_mpe *mpe)
+{
+    uint32_t ent_i;
+
+    mpe->entry_mutex = malloc (sizeof(pthread_mutex_t) * mpe->entries);
+    if (!mpe->entry_mutex)
+	return -1;
+
+    for (ent_i = 0; ent_i < mpe->entries; ent_i++) {
+	if (pthread_mutex_init (&mpe->entry_mutex[ent_i], NULL))
+	    goto MUTEX;
+    }
+
+    return 0;
+
+MUTEX:
+    while (ent_i) {
+	ent_i--;
+	pthread_mutex_destroy (&mpe->entry_mutex[ent_i]);
+    }
+    free (mpe->entry_mutex);
+    return -1;
+}
+
+static void app_exit_map_lock (struct app_mpe *mpe)
+{
+    uint32_t ent_i;
+
+    ent_i = mpe->entries;
+
+    while (ent_i) {
+	ent_i--;
+	pthread_mutex_destroy (&mpe->entry_mutex[ent_i]);
+    }
+    free (mpe->entry_mutex);
+}
+
 static int app_mpe_init (void)
 {
     struct app_mpe *mpe;
@@ -43,11 +80,14 @@ static int app_mpe_init (void)
     if (ret)
 	goto FREE;
 
+    if (app_init_map_lock (mpe))
+	goto FREE;
+
     /* Create and flush mpe table if it does not exist */
     if (mpe->byte.magic == APP_MAGIC) {
 	ret = ztl()->mpe->create_fn ();
 	if (ret)
-	    goto FREE;
+	    goto LOCK;
     }
 
     /* TODO: Setup tiny table */
@@ -56,6 +96,8 @@ static int app_mpe_init (void)
 
     return XAPP_OK;
 
+LOCK:
+    app_exit_map_lock (mpe);
 FREE:
     free (mpe->tbl);
     log_err ("ztl: Persistent Mapping startup failed.");
@@ -65,6 +107,8 @@ FREE:
 
 static void app_mpe_exit (void)
 {
+    app_exit_map_lock (&ztl()->smap);
+
     free (ztl()->smap.tbl);
 
     log_info ("ztl: Persistent Mapping stopped.");
@@ -82,10 +126,10 @@ static int app_global_init (void)
         return XAPP_ZTL_MPE_ERR;
     }
 
-    /*if (ztl()->map->init_fn ()) {
+    if (ztl()->map->init_fn ()) {
         log_err ("[ztl: Mapping NOT started.\n");
         return XAPP_ZTL_MAP_ERR;
-    }*/
+    }
 
     return XAPP_OK;
 }
@@ -100,7 +144,7 @@ static void app_global_exit (void)
         ztl()->recovery->exit_fn ();
     }*/
 
-    //ztl()->map->exit_fn ();
+    ztl()->map->exit_fn ();
     app_mpe_exit ();
     ztl()->pro->exit_fn ();
 }
@@ -132,6 +176,8 @@ int ztl_mod_set (uint8_t *modset)
                 case ZTLMOD_MPE:
                     ztl()->mpe = (struct app_mpe_mod *) mod;
                     break;
+		case ZTLMOD_MAP:
+		    ztl()->map = (struct app_map_mod *) mod;
             }
 
             log_infoa ("ztl: Module set. "

@@ -97,8 +97,8 @@ struct app_map_entry {
 	    uint64_t offset : 40;
 	    uint64_t nsec   : 23;
 	    uint64_t multi  : 1;   /* Multi-piece mapping bit */
-	} l;
-	uint64_t s;
+	} g;
+	uint64_t addr;
     };
 } __attribute__((packed)); /* 8 bytes entry */
 
@@ -110,6 +110,8 @@ struct app_mpe {
     uint8_t             *tbl;
     uint32_t             ent_per_pg;
     struct app_tiny_tbl  tiny;   /* This is the 'tiny' table for checkpoint */
+
+    pthread_mutex_t     *entry_mutex;
 } __attribute__((packed));
 
 struct app_zmd {
@@ -179,15 +181,17 @@ typedef int  (app_mpe_create) (void);
 typedef int  (app_mpe_load)   (void);
 typedef int  (app_mpe_flush)  (void);
 typedef void (app_mpe_mark)   (uint32_t index);
-typedef struct app_map_entry *
+typedef struct map_md_addr *
 	     (app_mpe_get)    (uint32_t index);
 
 typedef int      (app_map_init) (void);
 typedef void     (app_map_exit) (void);
 typedef void     (app_map_persist) (void);
-typedef int      (app_map_upsert) (uint64_t key, uint64_t val);
-typedef uint64_t (app_map_read) (uint64_t key);
-typedef int      (app_map_upsert_md) (uint64_t index, uint64_t val);
+typedef int      (app_map_upsert) (uint64_t id, uint64_t addr,
+					uint64_t *old, uint64_t old_caller);
+typedef uint64_t (app_map_read) (uint64_t id);
+typedef int      (app_map_upsert_md) (uint64_t index, uint64_t addr,
+							uint64_t old_addr);
 
 struct app_groups {
     app_grp_init         *init_fn;
@@ -330,5 +334,6 @@ void ztl_grp_register (void);
 void ztl_zmd_register (void);
 void ztl_pro_register (void);
 void ztl_mpe_register (void);
+void ztl_map_register (void);
 
 #endif /* XAPP_ZTL_H */
