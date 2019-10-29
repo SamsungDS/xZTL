@@ -116,22 +116,40 @@ static void app_mpe_exit (void)
 
 static int app_global_init (void)
 {
+    int ret;
+
     if (ztl()->pro->init_fn ()) {
         log_err ("[ztl: Provisioning NOT started.\n");
-        return XAPP_ZTL_PROV_ERR;
+	return XAPP_ZTL_PROV_ERR;
     }
 
     if (app_mpe_init()) {
         log_err ("[ztl: Persistent mapping NOT started.\n");
-        return XAPP_ZTL_MPE_ERR;
+        ret = XAPP_ZTL_MPE_ERR;
+	goto PRO;
     }
 
     if (ztl()->map->init_fn ()) {
         log_err ("[ztl: Mapping NOT started.\n");
-        return XAPP_ZTL_MAP_ERR;
+        ret = XAPP_ZTL_MAP_ERR;
+	goto MPE;
+    }
+
+    if (ztl()->wca->init_fn ()) {
+	log_err ("[ztl: Write-cache NOT started.\n");
+	ret = XAPP_ZTL_WCA_ERR;
+	goto MAP;
     }
 
     return XAPP_OK;
+
+MAP:
+    ztl()->map->exit_fn ();
+MPE:
+    app_mpe_exit ();
+PRO:
+    ztl()->pro->exit_fn ();
+    return ret;
 }
 
 static void app_global_exit (void)
@@ -144,6 +162,7 @@ static void app_global_exit (void)
         ztl()->recovery->exit_fn ();
     }*/
 
+    ztl()->wca->exit_fn ();
     ztl()->map->exit_fn ();
     app_mpe_exit ();
     ztl()->pro->exit_fn ();
@@ -178,6 +197,12 @@ int ztl_mod_set (uint8_t *modset)
                     break;
 		case ZTLMOD_MAP:
 		    ztl()->map = (struct app_map_mod *) mod;
+		    break;
+		case ZTLMOD_WCA:
+		    ztl()->wca = (struct app_wca_mod *) mod;
+		    break;
+		default:
+		    log_erra ("ztl: Invalid module ID: %d", mod_i);
             }
 
             log_infoa ("ztl: Module set. "

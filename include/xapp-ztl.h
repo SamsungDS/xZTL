@@ -193,6 +193,11 @@ typedef uint64_t (app_map_read) (uint64_t id);
 typedef int      (app_map_upsert_md) (uint64_t index, uint64_t addr,
 							uint64_t old_addr);
 
+typedef int  (app_wca_init) (void);
+typedef void (app_wca_exit) (void);
+typedef int  (app_wca_submit) (struct xapp_io_ucmd *);
+typedef void (app_wca_callback) (struct xapp_io_ucmd *);
+
 struct app_groups {
     app_grp_init         *init_fn;
     app_grp_exit         *exit_fn;
@@ -244,6 +249,15 @@ struct app_map_mod {
     app_map_upsert_md	*upsert_md_fn;
 };
 
+struct app_wca_mod {
+    uint8_t 		 mod_id;
+    char		*name;
+    app_wca_init	*init_fn;
+    app_wca_exit	*exit_fn;
+    app_wca_submit	*submit_fn;
+    app_wca_callback	*callback_fn;
+};
+
 struct app_global {
     struct app_groups    groups;
     struct app_mpe       smap;
@@ -253,6 +267,7 @@ struct app_global {
     struct app_pro_mod  *pro;
     struct app_mpe_mod  *mpe;
     struct app_map_mod  *map;
+    struct app_wca_mod  *wca;
 };
 
 /* Built-in group functions */
@@ -335,5 +350,6 @@ void ztl_zmd_register (void);
 void ztl_pro_register (void);
 void ztl_mpe_register (void);
 void ztl_map_register (void);
+void ztl_wca_register (void);
 
 #endif /* XAPP_ZTL_H */

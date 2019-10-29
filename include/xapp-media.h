@@ -73,6 +73,7 @@ struct xapp_io_mcmd {
      uint64_t 		nlba[XAPP_MAX_MADDR];
      struct xapp_maddr 	addr[XAPP_MAX_MADDR];
      uint64_t		prp[XAPP_MAX_MADDR];
+     uint64_t 		paddr[XAPP_MAX_MADDR];
      xapp_callback     *callback;
      void	       *opaque;
      struct xapp_mthread_ctx *async_ctx;

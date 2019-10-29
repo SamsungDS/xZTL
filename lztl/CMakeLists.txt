@@ -15,6 +15,7 @@ set(ZND_SOURCE_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ztl-pro-grp.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ztl-mpe.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ztl-map.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ztl-wca.c
 )
 
 set(LIBZTL "ztl")

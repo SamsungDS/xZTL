@@ -3,6 +3,7 @@
 #include <string.h>
 #include <xapp.h>
 #include <xapp-media.h>
+#include <xapp-ztl.h>
 
 struct xapp_core core = {NULL};
 
@@ -186,11 +187,14 @@ int xapp_exit (void)
 	core.media = NULL;
     }
 
+    ztl_exit ();
+
     ret = xapp_media_exit ();
     if (ret)
 	log_err ("core: Could not exit media.");
 
     log_info ("core: libztl is closed succesfully.");
+
     return ret;
 }
 
@@ -212,6 +216,14 @@ int xapp_init (void)
     ret = xapp_media_init ();
     if (ret)
 	return ret;
+
+    ret = ztl_init ();
+    if (ret) {
+	xapp_media_exit ();
+	return ret;
+    }
+
+    log_info ("core: libztl started successfully.");
 
     return XAPP_OK;
 }

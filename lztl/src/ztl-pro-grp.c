@@ -15,6 +15,7 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     struct ztl_pro_zone  *zone;
     struct xapp_zn_mcmd   cmd;
     struct app_zmd_entry *zmde;
+    int ret;
 
     pro  = (struct ztl_pro_grp *) grp->pro;
 
@@ -38,9 +39,10 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     if (zmde->wptr > zone->addr.g.sect) {
 	cmd.opcode    = XAPP_ZONE_MGMT_RESET;
 	cmd.addr.addr = zone->addr.addr;
-    	if (xapp_media_submit_zn (&cmd)) {
-	    log_erra ("ztl-pro: Zone reset failure (%d/%d).",
-				    zone->addr.g.grp, zone->addr.g.zone);
+	ret = xapp_media_submit_zn (&cmd);
+    	if (ret || cmd.status) {
+	    log_erra ("ztl-pro: Zone reset failure (%d/%d). status %d",
+			zone->addr.g.grp, zone->addr.g.zone, cmd.status);
 	    goto ERR;
 	}
     }
@@ -66,6 +68,26 @@ ERR:
     return NULL;
 }
 
+struct ztl_pro_zone *ztl_pro_grp_get_best_zone (struct app_group *grp,
+					    uint32_t nsec, uint8_t ptype)
+{
+    struct ztl_pro_zone *zone;
+    struct ztl_pro_grp  *pro;
+
+    pro  = (struct ztl_pro_grp *) grp->pro;
+
+    /* TODO: For now we select a single zone
+     * 	     If nsec is larger than a zone, we must return several zones */
+
+    /* Scan open zones: Pick the first available on the list */
+    TAILQ_FOREACH (zone, &pro->open_head[ptype], open_entry) {
+	if ( (zone->wtr <= zone->capacity - nsec) && !zone->lock)
+	    return zone;
+    }
+
+    return NULL;
+}
+
 /* This function returns the number of zones allocated
  * It returns 0 in case of error */
 int ztl_pro_grp_get (struct app_group *grp, struct xapp_maddr *list,
@@ -73,20 +95,19 @@ int ztl_pro_grp_get (struct app_group *grp, struct xapp_maddr *list,
 {
     struct ztl_pro_zone *zone;
 
-    /* TODO: Get a zone from the open zones which:
-     * - Is not being appended (no write ctx linked to it)
-     * - Has enough space to append (last lba - wptr)
-     * - If no open zones are available, open a new one
-     */
-
+    /* Remove this check when multiple zones are supported */
     if (nsec > core.media->geo.sec_zn)
 	return 0;
 
-    /* Adapt the code when more provisioning types are added */
-    ptype = ZTL_PRO_TUSER;
-    zone = ztl_pro_grp_zone_open (grp, ptype);
-    if (!zone)
-	return 0;
+    zone = ztl_pro_grp_get_best_zone (grp, nsec, ptype);
+    if (!zone) {
+	/* Adapt the code when more provisioning types are added */
+	ptype = ZTL_PRO_TUSER;
+	zone = ztl_pro_grp_zone_open (grp, ptype);
+	if (!zone)
+	    return 0;
+    }
+    zone->lock = 1;
 
     /* For now we return a single zone */
     list[0].addr = zone->addr.addr;
@@ -235,6 +256,7 @@ int ztl_pro_grp_init (struct app_group *grp)
 	}
 
 	zone->addr.addr = zmde->addr.addr;
+	zone->capacity  = zinfo->zcap;
 	zone->state     = zinfo->zc;
 	zone->zmd_entry = zmde;
 	zone->lock      = 0;

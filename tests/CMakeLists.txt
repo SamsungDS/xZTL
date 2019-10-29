@@ -19,6 +19,7 @@ foreach(SRC_FN ${TEST_SOURCE_FILES})
     set(EXE_FN "xapp-${SRC_FN_WE}")
     add_executable(${EXE_FN} ${TEST_HEADER_FILES} ${SRC_FN})
     target_link_libraries ( ${EXE_FN} ${LXAPP} )
+    target_link_libraries ( ${EXE_FN} xnvme )
     target_link_libraries ( ${EXE_FN} cunit )
 endforeach()
 

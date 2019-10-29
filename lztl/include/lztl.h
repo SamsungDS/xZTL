@@ -26,6 +26,7 @@ enum ztl_pro_type_list {
 struct ztl_pro_zone {
     struct xapp_maddr		addr;
     struct app_zmd_entry       *zmd_entry;
+    uint64_t 			capacity;
     uint8_t 			lock;
     uint8_t 			state;
     TAILQ_ENTRY (ztl_pro_zone) entry;

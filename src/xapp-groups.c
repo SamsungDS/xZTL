@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <libznd.h>
+#include <libxnvme.h>
 #include <xapp.h>
 #include <xapp-media.h>
 #include <xapp-ztl.h>

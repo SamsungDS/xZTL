@@ -65,6 +65,23 @@ struct xapp_maddr {
 
 #include <xapp-media.h>
 
+#define XAPP_IO_MAX_OFF	     16 /* Max number off zone offsets per command */
+#define XAPP_IO_MAX_MCMD     64 /* 16 MB for 4BK sectors */
+
+struct xapp_io_ucmd {
+    uint64_t 	   id;
+    void	  *buf;
+    uint32_t 	   size;
+    uint8_t 	   prov_type;
+    uint8_t 	   app_md;  /* Application is responsible for mapping/recovery */
+    uint8_t 	   status;
+    uint64_t 	   status_mcmd;
+    uint64_t 	   maddr[XAPP_IO_MAX_OFF];
+    xapp_callback *callback_fn;
+
+    struct xapp_io_mcmd *mcmd[XAPP_IO_MAX_MCMD];
+};
+
 struct xapp_core {
     struct xapp_media *media;
 };
@@ -90,6 +107,7 @@ enum xapp_status {
     XAPP_ZTL_PROV_FULL  = 0x11,
     XAPP_ZTL_MPE_ERR	= 0x12,
     XAPP_ZTL_MAP_ERR	= 0x13,
+    XAPP_ZTL_WCA_ERR    = 0x14,
 
     XAPP_MEDIA_ERROR	= 0x100,
 };
