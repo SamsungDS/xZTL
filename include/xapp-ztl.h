@@ -144,8 +144,10 @@ struct app_group {
 struct app_pro_addr {
     struct app_group    *grp;
     struct xapp_maddr    addr[APP_PRO_MAX_OFFS];
+    uint32_t 		 nsec[APP_PRO_MAX_OFFS];
     uint16_t             naddr;
     uint16_t 		 thread_id;
+    uint8_t 		 ptype;
 
     struct xapp_mp_entry *mp_entry;
 };

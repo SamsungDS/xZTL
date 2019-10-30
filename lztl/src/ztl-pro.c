@@ -11,9 +11,10 @@ static uint16_t cur_grp[ZTL_PRO_TYPES];
 
 void ztl_pro_free (struct app_pro_addr *ctx)
 {
-    ZDEBUG (ZDEBUG_PRO, "ztl-pro (free): type %d", ctx->thread_id);
-
+    /* TODO:  We free a single entry, fix it when multiple offsets are added */
+    ztl_pro_grp_free (ctx->grp, ctx->addr[0].g.zone, ctx->nsec[0], ctx->ptype);
     app_grp_ctx_sub (ctx->grp);
+
     xapp_mempool_put (ctx->mp_entry, XAPP_ZTL_PRO_CTX, ctx->thread_id);
 }
 
@@ -22,9 +23,9 @@ struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint8_t type)
     struct xapp_mp_entry *mpe;
     struct app_pro_addr *ctx;
     struct app_group *grp;
-    int noffsets;
+    int ret;
 
-    ZDEBUG (ZDEBUG_PRO, "ztl-pro (new): nsec %d, type %d", nsec, type);
+    ZDEBUG (ZDEBUG_PRO, "ztl-pro      (new): nsec %d, type %d", nsec, type);
 
     mpe = xapp_mempool_get (XAPP_ZTL_PRO_CTX, type);
     if (!mpe) {
@@ -35,18 +36,21 @@ struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint8_t type)
     ctx = (struct app_pro_addr *) mpe->opaque;
 
     grp = glist[cur_grp[type]];
-    noffsets = ztl_pro_grp_get (grp, ctx->addr, nsec, type);
-    if (!noffsets) {
+    ret = ztl_pro_grp_get (grp, ctx, nsec, type);
+    if (ret) {
 	xapp_mempool_put (mpe, XAPP_ZTL_PRO_CTX, type);
 	return NULL;
     }
 
-    ctx->grp   = grp;
-    ctx->naddr = noffsets;
+    ctx->grp       = grp;
     ctx->thread_id = type;
-    ctx->mp_entry = mpe;
+    ctx->ptype     = type;
+    ctx->mp_entry  = mpe;
 
     app_grp_ctx_add (grp);
+
+    /* TODO: Do not set groups disabled by built-in functions */
+    cur_grp[type] = (cur_grp[type] == app_ngrps - 1) ? 0 : cur_grp[type] + 1;
 
     return ctx;
 }

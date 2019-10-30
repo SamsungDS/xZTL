@@ -84,6 +84,7 @@ struct xapp_io_mcmd {
 
 struct xapp_zn_mcmd {
     uint8_t		 opcode;
+    uint8_t 		 status;
     struct xapp_maddr	 addr;
     uint32_t 		 nzones;
     void		*opaque;
@@ -123,6 +124,8 @@ struct xapp_mgeo {
     uint32_t    sec_dev;    /* Toatl sectors in device */
     uint32_t	sec_grp;    /* Sectors per group */
     uint32_t	sec_pu;     /* Sectors per PU */
+    uint64_t    nbytes_zn;  /* Bytes per zone */
+    uint64_t 	nbytes_grp; /* Bytes per group */
     uint32_t	oob_grp;    /* OOB size per group */
     uint32_t	oob_pu;     /* OOB size per PU */
     uint32_t	oob_zn;     /* OOB size per zone */

@@ -44,6 +44,7 @@ static void test_ztl_init (void)
     ztl_pro_register ();
     ztl_mpe_register ();
     ztl_map_register ();
+    ztl_wca_register ();
 
     ret = ztl_init ();
     cunit_ztl_assert_int ("ztl_init", ret);
@@ -60,20 +61,42 @@ static void test_ztl_exit (void)
 
 static void test_ztl_pro_new_free (void)
 {
-    struct app_pro_addr *proe;
+    struct app_pro_addr *proe[2];
     struct app_zmd_entry *zmde;
     uint32_t nsec = 128;
 
-    proe = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
-    cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe);
-    if (!proe)
+    proe[0] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
+    cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[0]);
+    if (!proe[0])
 	return;
 
-    zmde = ztl()->zmd->get_fn (proe->grp, proe->addr[0].g.zone);
-    cunit_ztl_assert_int_equal ("ztl()->pro->new_fn:zmd:wptr",
-	    zmde->wptr, zmde->addr.g.sect + nsec);
+    ztl()->pro->free_fn (proe[0]);
 
-    ztl()->pro->free_fn (proe);
+    zmde = ztl()->zmd->get_fn (proe[0]->grp, proe[0]->addr[0].g.zone);
+    cunit_ztl_assert_int_equal ("ztl()->pro->new_fn:zmd:wptr",
+				zmde->wptr, zmde->addr.g.sect + nsec);
+    proe[0] = NULL;
+
+    for (int i = 0; i < 2; i++) {
+	proe[i] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
+	cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[i]);
+    }
+
+    ztl()->pro->free_fn (proe[1]);
+    proe[1] = NULL;
+
+    proe[1] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
+    cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[1]);
+
+    ztl()->pro->free_fn (proe[0]);
+    ztl()->pro->free_fn (proe[1]);
+    proe[0] = NULL;
+    proe[1] = NULL;
+
+    proe[0] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
+    cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[0]);
+
+    ztl()->pro->free_fn (proe[0]);
 }
 
 static void test_ztl_map_upsert_read (void)

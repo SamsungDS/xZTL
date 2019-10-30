@@ -144,14 +144,16 @@ static int xapp_media_check (struct xapp_media *media)
 	return XAPP_MEDIA_GEO;
 
     /* Fill up geometry fields */
-    g->zn_grp  = g->pu_grp  * g->zn_pu;
-    g->zn_dev  = g->zn_grp  * g->ngrps;
-    g->sec_grp = g->zn_grp  * g->sec_zn;
-    g->sec_pu  = g->zn_pu   * g->sec_zn;
-    g->sec_dev = g->sec_grp * g->ngrps;
-    g->oob_grp = g->sec_grp * g->nbytes_oob;
-    g->oob_pu  = g->sec_pu  * g->nbytes_oob;
-    g->oob_zn  = g->sec_zn  * g->nbytes_oob;
+    g->zn_grp     = g->pu_grp    * g->zn_pu;
+    g->zn_dev     = g->zn_grp    * g->ngrps;
+    g->sec_grp    = g->zn_grp    * g->sec_zn;
+    g->sec_pu     = g->zn_pu     * g->sec_zn;
+    g->sec_dev    = g->sec_grp   * g->ngrps;
+    g->nbytes_zn  = g->nbytes    * g->sec_zn;
+    g->nbytes_grp = g->nbytes_zn * g->zn_grp;
+    g->oob_grp    = g->sec_grp   * g->nbytes_oob;
+    g->oob_pu     = g->sec_pu    * g->nbytes_oob;
+    g->oob_zn     = g->sec_zn    * g->nbytes_oob;
 
     return XAPP_OK;
 }

@@ -131,6 +131,8 @@ static inline int znd_media_zone_manage (struct xapp_zn_mcmd *cmd, uint8_t op)
 			       0,
 			       &devret);
 
+    cmd->status = (ret) ? xnvme_ret_cpl_status (&devret) : XAPP_OK;
+
     return (ret) ? op : XAPP_OK;
 }
 

@@ -92,7 +92,7 @@ static int app_mpe_init (void)
 
     /* TODO: Setup tiny table */
 
-    log_info ("ztl: Persistent Mapping started.");
+    log_info ("ztl-mpe: Persistent Mapping started.");
 
     return XAPP_OK;
 
@@ -100,7 +100,7 @@ LOCK:
     app_exit_map_lock (mpe);
 FREE:
     free (mpe->tbl);
-    log_err ("ztl: Persistent Mapping startup failed.");
+    log_err ("ztl-mpe: Persistent Mapping startup failed.");
 
     return -1;
 }
