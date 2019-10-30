@@ -24,7 +24,23 @@ static void znd_media_async_cb (struct xnvme_ret *ret, void *cb_arg)
 
 static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
 {
-    return ZND_INVALID_OPCODE;
+    struct xnvme_ret *xret;
+    uint64_t slba;
+    uint16_t sec_i = 0;
+
+    xret = &cmd->media_ctx;
+
+    /* The read path is not group based. It uses only sectors */
+    slba = cmd->addr[sec_i].g.sect;
+
+    return xnvme_cmd_read (zndmedia.dev,
+			    xnvme_dev_get_nsid (zndmedia.dev),
+			    slba,
+			    (uint16_t) cmd->nlba[sec_i] - 1,
+			    (void *) cmd->prp[sec_i],
+			    NULL,
+			    0,
+			    xret);
 }
 
 static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
@@ -34,10 +50,9 @@ static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
     void *dbuf;
     struct xapp_mthread_ctx *tctx;
     struct xnvme_ret *xret;
-    int ret;
 
-    tctx      = cmd->async_ctx;
-    xret      = &cmd->media_ctx;
+    tctx = cmd->async_ctx;
+    xret = &cmd->media_ctx;
 
     dbuf = (void *) cmd->prp[sec_i];
 
@@ -48,7 +63,7 @@ static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
     xret->async.cb     = znd_media_async_cb;
     xret->async.cb_arg = (void *) cmd;
 
-    ret = xnvme_cmd_read (zndmedia.dev,
+    return xnvme_cmd_read (zndmedia.dev,
 			    xnvme_dev_get_nsid (zndmedia.dev),
 			    slba,
 			    (uint16_t) cmd->nlba[sec_i] - 1,
@@ -56,7 +71,6 @@ static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
 			    NULL,
 			    XNVME_CMD_ASYNC,
 			    xret);
-    return ret;
 }
 
 static int znd_media_submit_append_synch (struct xapp_io_mcmd *cmd)

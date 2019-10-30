@@ -184,16 +184,17 @@ int xapp_exit (void)
 {
     int ret;
 
-    if (core.media) {
-	free (core.media);
-	core.media = NULL;
-    }
-
+    xapp_mempool_exit ();
     ztl_exit ();
 
     ret = xapp_media_exit ();
     if (ret)
 	log_err ("core: Could not exit media.");
+
+    if (core.media) {
+	free (core.media);
+	core.media = NULL;
+    }
 
     log_info ("core: libztl is closed succesfully.");
 
@@ -220,12 +221,20 @@ int xapp_init (void)
 	return ret;
 
     ret = ztl_init ();
-    if (ret) {
-	xapp_media_exit ();
-	return ret;
-    }
+    if (ret)
+	goto MEDIA;
+
+    ret = xapp_mempool_init ();
+    if (ret)
+	goto ZTL;
 
     log_info ("core: libztl started successfully.");
 
     return XAPP_OK;
+
+ZTL:
+    ztl_exit ();
+MEDIA:
+    xapp_media_exit ();
+    return ret;
 }

@@ -331,12 +331,6 @@ static void test_znd_read_zone (void)
     if (ret)
 	goto MP;
 
-    /* Reset the zone before appending */
-    test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
-			    XNVME_SPEC_ZONE_COND_EMPTY,
-			    zone,
-			    "xapp_media_submit_znm:reset");
-
     /* Allocate DMA memory */
     wbuf = xapp_media_dma_alloc (bsize, &phys);
     cunit_znd_assert_ptr ("xapp_media_dma_alloc", wbuf);
@@ -361,7 +355,7 @@ static void test_znd_read_zone (void)
     /* We currently use sector only read addresses */
     cmd->addr[0].g.sect = zone * core.media->geo.sec_zn;
 
-    /* Submit append */
+    /* Submit read */
     outstanding = 1;
     ret = xapp_media_submit_io (cmd);
     cunit_znd_assert_int ("xapp_media_submit_io", ret);
@@ -378,7 +372,7 @@ CTX:
     cunit_znd_assert_int ("xapp_ctx_media_exit", ret);
 MP:
     ret = xapp_mempool_exit ();
-    cunit_znd_assert_int ("xapp_mempool_exit", ret);
+    cunit_znd_assert_int ("", ret);
 }
 
 int main (void)

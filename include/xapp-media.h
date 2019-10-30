@@ -68,6 +68,7 @@ struct xapp_mthread_ctx {
 struct xapp_io_mcmd {
      uint8_t		opcode;
      uint8_t		synch;
+     uint32_t 		sequence;
      uint32_t 	      	naddr;
      uint16_t 		status;
      uint64_t 		nlba[XAPP_MAX_MADDR];

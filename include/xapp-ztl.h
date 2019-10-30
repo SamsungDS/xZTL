@@ -197,8 +197,8 @@ typedef int      (app_map_upsert_md) (uint64_t index, uint64_t addr,
 
 typedef int  (app_wca_init) (void);
 typedef void (app_wca_exit) (void);
-typedef int  (app_wca_submit) (struct xapp_io_ucmd *);
-typedef void (app_wca_callback) (struct xapp_io_ucmd *);
+typedef int  (app_wca_submit) (struct xapp_io_ucmd *ucmd);
+typedef void (app_wca_callback) (struct xapp_io_mcmd *mcmd);
 
 struct app_groups {
     app_grp_init         *init_fn;

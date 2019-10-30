@@ -32,7 +32,7 @@ int zrocks_delete (uint64_t id);
 
 /**
  * Read an offset within an object */
-int zrocks_read (uint64_t id, uint32_t offset, void *buf, uint32_t size);
+int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size);
 
 /**
  * Write to ZNS device and return the physical offset list
@@ -44,4 +44,4 @@ int zrocks_write (void *buf, uint32_t size, uint8_t level, uint64_t *addr);
  * Read from ZNS device from a physical offset
  * This fuinction is used if the application is responsible for recovery
  */
-int zrocks_read (void *buf, uint64_t size, uint64_t offset);
+int zrocks_read (uint64_t offset, void *buf, uint64_t size);
