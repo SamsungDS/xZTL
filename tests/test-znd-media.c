@@ -278,7 +278,7 @@ static void test_znd_append_zone (void)
     cmd->synch     = 0;
     cmd->async_ctx = tctx;
     cmd->prp[0]    = (uint64_t) wbuf;
-    cmd->nlba[0]   = nlbas;
+    cmd->nsec[0]   = nlbas;
     cmd->callback  = test_znd_callback;
 
     cmd->addr[0].g.zone = zone;
@@ -349,7 +349,7 @@ static void test_znd_read_zone (void)
     cmd->synch     = 0;
     cmd->async_ctx = tctx;
     cmd->prp[0]    = (uint64_t) wbuf;
-    cmd->nlba[0]   = nlbas;
+    cmd->nsec[0]   = nlbas;
     cmd->callback  = test_znd_callback;
 
     /* We currently use sector only read addresses */

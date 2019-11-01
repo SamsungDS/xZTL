@@ -29,7 +29,7 @@ static void xapp_mempool_free (struct xapp_mp_pool_i *pool)
 }
 
 /* This function does not free entries that are out of the pool */
-int xapp_mempool_destroy (uint16_t type, uint16_t tid)
+int xapp_mempool_destroy (uint32_t type, uint16_t tid)
 {
     struct xapp_mp_pool_i *pool;
 
@@ -48,7 +48,7 @@ int xapp_mempool_destroy (uint16_t type, uint16_t tid)
     return XAPP_OK;
 }
 
-int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
+int xapp_mempool_create (uint32_t type, uint16_t tid, uint16_t entries,
 							uint32_t ent_sz)
 {
     struct xapp_mp_pool_i *pool;
@@ -96,6 +96,10 @@ int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
     pool->in_count = pool->out_count = 0;
     pool->active = 1;
 
+    if (XAPP_MP_DEBUG)
+	log_infoa ("mempool (create): type %d, tid %d, ents %d, "
+	    "ent_sz %d\n", type, tid, entries, ent_sz);
+
     return XAPP_OK;
 
 MEMERR:
@@ -106,16 +110,20 @@ MEMERR:
 }
 
 /* Only 1 thread is allowed to remove but a concurrent thread may insert */
-struct xapp_mp_entry *xapp_mempool_get (uint16_t type, uint16_t tid)
+struct xapp_mp_entry *xapp_mempool_get (uint32_t type, uint16_t tid)
 {
     struct xapp_mp_pool_i *pool;
     struct xapp_mp_entry *ent;
     uint16_t tmp, old;
 
+    if (XAPP_MP_DEBUG)
+	log_infoa ("mempool (get): type %d, tid %d", type, tid);
+
     pool = &xappmp.mp[type].pool[tid];
 #ifdef MP_LOCKFREE
     /* This guarantees that INSERT and REMOVE are not concurrent */
     /* TODO: Make a timeout */
+
     while (pool->entries - pool->out_count <= 2) {
 	tmp = pool->in_count;
 	pool->out_count -= tmp;
@@ -150,10 +158,13 @@ RETRY:
 }
 
 /* Only 1 thread is allowed to insert but a concurrent thread may remove */
-void xapp_mempool_put (struct xapp_mp_entry *ent, uint16_t type, uint16_t tid)
+void xapp_mempool_put (struct xapp_mp_entry *ent, uint32_t type, uint16_t tid)
 {
     struct xapp_mp_pool_i *pool;
     uint16_t old;
+
+    if (XAPP_MP_DEBUG)
+	log_infoa ("mempool (put): type %d, tid %d", type, tid);
 
     pool = &xappmp.mp[type].pool[tid];
 

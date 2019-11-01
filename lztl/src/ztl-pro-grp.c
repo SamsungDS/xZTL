@@ -106,7 +106,7 @@ struct ztl_pro_zone *ztl_pro_grp_get_best_zone (struct app_group *grp,
     /* Scan open zones: Pick the first available on the list */
     TAILQ_FOREACH (zone, &pro->open_head[ptype], open_entry) {
 	off = (zone->zmd_entry->addr.g.sect + zone->capacity) - nsec;
-	if ( (zone->zmd_entry->wptr < off) && !zone->lock)
+	if ( (zone->zmd_entry->wptr <= off) && !zone->lock)
 	    return zone;
     }
 

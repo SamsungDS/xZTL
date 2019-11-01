@@ -17,5 +17,7 @@ set(ZROCKS "zrocks")
 
 add_library(${ZROCKS} STATIC ${ZR_HEADER_FILES} ${ZR_SOURCE_FILES})
 target_link_libraries ( ${ZROCKS} ${LXAPP} )
-target_link_libraries ( ${ZROCKS} ${APPZND} )
+target_link_libraries ( ${ZROCKS} ztl )
+target_link_libraries ( ${ZROCKS} xnvme )
+target_link_libraries ( ${ZROCKS} pthread )
 set_target_properties(${ZROCKS} PROPERTIES OUTPUT_NAME ${ZROCKS})

@@ -6,6 +6,8 @@
 #include <sys/queue.h>
 #include <syslog.h>
 
+#define XAPP_MP_DEBUG 0
+
 #define log_erra(format, ...)         syslog(LOG_ERR, format, ## __VA_ARGS__)
 #define log_infoa(format, ...)        syslog(LOG_INFO, format, ## __VA_ARGS__)
 #define log_err(format)               syslog(LOG_ERR, format)
@@ -74,14 +76,19 @@ struct xapp_io_ucmd {
     uint8_t 	   prov_type;
     uint8_t 	   app_md;  /* Application is responsible for mapping/recovery */
     uint8_t 	   status;
-    uint64_t 	   moffset[XAPP_IO_MAX_MCMD];
+
     xapp_callback *callback;
 
+    struct app_pro_addr *prov;
     struct xapp_io_mcmd *mcmd[XAPP_IO_MAX_MCMD];
-    uint16_t 	   nmcmd;
-    uint16_t 	   completed;
 
-    TAILQ_ENTRY (xapp_io_ucmd)	entry;
+    uint16_t 	   nmcmd;
+    uint64_t 	   moffset[XAPP_IO_MAX_MCMD];
+    uint32_t 	   msec[XAPP_IO_MAX_MCMD];
+    uint16_t 	   ncb;
+    uint8_t 	   completed;
+
+    STAILQ_ENTRY (xapp_io_ucmd)	entry;
 };
 
 struct xapp_core {
@@ -111,6 +118,8 @@ enum xapp_status {
     XAPP_ZTL_MAP_ERR	= 0x13,
     XAPP_ZTL_WCA_ERR    = 0x14,
     XAPP_ZTL_APPEND_ERR = 0x15,
+    XAPP_ZTL_WCA_S_ERR  = 0x16,
+    XAPP_ZTL_WCA_S2_ERR = 0x17,
 
     XAPP_MEDIA_ERROR	= 0x100,
 };

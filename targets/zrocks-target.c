@@ -5,17 +5,18 @@
 
 void *zrocks_alloc (uint32_t size)
 {
-    // allocate memory from device
+    // TODO: allocate memory from device
     return NULL;
 }
 
 void zrocks_free (void *ptr)
 {
-    // free memory from device
+    // TODO: free memory from device
 }
 
 int zrocks_write (void *buf, uint32_t size, uint8_t level, uint64_t *addr)
 {
+    // TODO:
     // add parameter for level in struct ucmd
     // create ucmd
     // populate ucmd
@@ -28,15 +29,36 @@ int zrocks_write (void *buf, uint32_t size, uint8_t level, uint64_t *addr)
 
 int zrocks_new (uint64_t id, void *buf, uint32_t size, uint8_t level)
 {
-    // create ucmd
-    // populate ucmd
-    // wait until completed == ncmd
-    // return
-    return 0;
+    struct xapp_io_ucmd ucmd;
+
+    /* For now, we only support level 0 */
+    if (level)
+	return -1;
+
+    ucmd.id        = id;
+    ucmd.prov_type = level;
+    ucmd.buf       = buf;
+    ucmd.size      = size;
+    ucmd.app_md    = 0;
+    ucmd.status    = 0;
+    ucmd.completed = 0;
+    ucmd.callback  = NULL;
+    ucmd.prov      = NULL;
+
+    if (ztl()->wca->submit_fn (&ucmd))
+	return -1;
+
+    /* Wait for asynchronous command */
+    while (!ucmd.completed) {
+	usleep (1);
+    }
+
+    return ucmd.status;
 }
 
 int zrocks_delete (uint64_t id)
 {
+    // TODO:
     // only used for ztl managed mapping
     // invalidate object offsets
     return 0;
@@ -48,10 +70,15 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
     uint64_t objoff;
     int ret;
 
+    /* TODO: Accept reads larger than 512 KB
+     * Multiple media commands are necessary for larger reads */
+    if (size > 128 * 4096)
+	return -1;
+
     cmd.opcode  = XAPP_CMD_READ;
     cmd.synch   = 1;
     cmd.prp[0]  = (uint64_t) buf;
-    cmd.nlba[0] = size;
+    cmd.nsec[0] = size;
 
     /* This assumes a single zone offset per object */
     objoff = ztl()->map->read_fn (id);
@@ -67,6 +94,7 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
 
 int zrocks_read (uint64_t offset, void *buf, uint32_t size)
 {
+    // TODO:
     // read directly from device
     return 0;
 }

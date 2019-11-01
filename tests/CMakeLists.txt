@@ -30,6 +30,7 @@ set(TEST_ZND_SRC_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/test-mempool.c
     ${CMAKE_CURRENT_SOURCE_DIR}/test-append-mthread.c
     ${CMAKE_CURRENT_SOURCE_DIR}/test-ztl.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/test-zrocks.c
 )
 
 foreach(SRC_FN ${TEST_ZND_SRC_FILES})
@@ -41,4 +42,5 @@ foreach(SRC_FN ${TEST_ZND_SRC_FILES})
     target_link_libraries ( ${EXE_FN} cunit )
     target_link_libraries ( ${EXE_FN} xnvme )
     target_link_libraries ( ${EXE_FN} pthread )
+    target_link_libraries ( ${EXE_FN} zrocks )
 endforeach()

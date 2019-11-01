@@ -71,13 +71,14 @@ struct xapp_io_mcmd {
      uint32_t 		sequence;
      uint32_t 	      	naddr;
      uint16_t 		status;
-     uint64_t 		nlba[XAPP_MAX_MADDR];
+     uint64_t 		nsec[XAPP_MAX_MADDR];
      struct xapp_maddr 	addr[XAPP_MAX_MADDR];
      uint64_t		prp[XAPP_MAX_MADDR];
      uint64_t 		paddr[XAPP_MAX_MADDR];
      xapp_callback     *callback;
      void	       *opaque;
      struct xapp_mthread_ctx *async_ctx;
+     struct xapp_mp_entry    *mp_cmd;
 
      /* change to pointer when xnvme is updated */
      struct xnvme_ret media_ctx;

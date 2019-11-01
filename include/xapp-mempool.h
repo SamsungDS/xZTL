@@ -52,12 +52,12 @@ int xapp_mempool_init (void);
 int xapp_mempool_exit (void);
 
 /* Create and destroy memory pools */
-int xapp_mempool_create (uint16_t type, uint16_t tid, uint16_t entries,
+int xapp_mempool_create (uint32_t type, uint16_t tid, uint16_t entries,
 							uint32_t ent_sz);
-int xapp_mempool_destroy (uint16_t type, uint16_t tid);
+int xapp_mempool_destroy (uint32_t type, uint16_t tid);
 
 /* Insert and remove elements */
-struct xapp_mp_entry *xapp_mempool_get (uint16_t type, uint16_t tid);
-void xapp_mempool_put (struct xapp_mp_entry *ent, uint16_t type, uint16_t tid);
+struct xapp_mp_entry *xapp_mempool_get (uint32_t type, uint16_t tid);
+void xapp_mempool_put (struct xapp_mp_entry *ent, uint32_t type, uint16_t tid);
 
 #endif /* XAPPMEMPOOL */

@@ -136,9 +136,6 @@ WAIT:
         /* Cache entry PPA is set after the read completes */
     }
 
-//    cache_ent->mutex = &ch[cache->id]->map_md->entry_mutex[pg_off];
-//    cache_ent->spin = &ch[cache->id]->map_md->entry_spin[pg_off];
-
     pthread_spin_lock (&cache->mb_spin);
     md_entry->addr = (uint64_t) cache_ent;
     md_entry->addr |= MAP_ADDR_FLAG;

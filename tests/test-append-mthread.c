@@ -178,7 +178,7 @@ RETRY:
 	    cmd->synch     = 0;
 	    cmd->async_ctx = tctx;
 	    cmd->prp[0]    = (uint64_t) (wbuf + cmd_sz * cmd_i);
-	    cmd->nlba[0]   = sec_cmd;
+	    cmd->nsec[0]   = sec_cmd;
 	    cmd->callback  = test_append_callback;
 	    cmd->opaque    = (void *) mp_cmd;
 

@@ -91,14 +91,16 @@ void ztl_pro_exit (void)
 static int ztl_mempool_init (void)
 {
     uint32_t th_i;
+    int ret;
 
     for (th_i = 0; th_i < ZTL_PRO_TYPES; th_i++) {
-	if (xapp_mempool_create ( XAPP_ZTL_PRO_CTX,
+	ret = xapp_mempool_create (XAPP_ZTL_PRO_CTX,
 				  th_i,
 				  ZTL_PRO_MP_SZ,
 				  sizeof (struct app_pro_addr)
-				) )
-	    return -1;
+				);
+	if (ret)
+	    return ret;
     }
 
     return XAPP_OK;

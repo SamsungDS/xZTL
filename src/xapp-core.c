@@ -50,7 +50,7 @@ void xapp_print_mcmd (struct xapp_io_mcmd *cmd)
     printf ("synch  : %d\n", cmd->synch);
     printf ("naddr  : %d\n", cmd->naddr);
     printf ("status : %d\n", cmd->status);
-    printf ("nlba0  : %lu\n", cmd->nlba[0]);
+    printf ("nlba0  : %lu\n", cmd->nsec[0]);
     printf ("addr[0]: (%d/%d/%d/%lu)\n", cmd->addr[0].g.grp,
 				         cmd->addr[0].g.punit,
 			                 cmd->addr[0].g.zone,
@@ -216,25 +216,25 @@ int xapp_init (void)
     if (ret)
 	return XAPP_MEDIA_ERROR | ret;
 
-    ret = xapp_media_init ();
+    ret = xapp_mempool_init ();
     if (ret)
 	return ret;
+
+    ret = xapp_media_init ();
+    if (ret)
+	goto MP;
 
     ret = ztl_init ();
     if (ret)
 	goto MEDIA;
 
-    ret = xapp_mempool_init ();
-    if (ret)
-	goto ZTL;
-
     log_info ("core: libztl started successfully.");
 
     return XAPP_OK;
 
-ZTL:
-    ztl_exit ();
 MEDIA:
     xapp_media_exit ();
+MP:
+    xapp_mempool_exit ();
     return ret;
 }
