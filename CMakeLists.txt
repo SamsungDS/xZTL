@@ -6,7 +6,7 @@ set(XAPP_VERSION_MINOR 0)
 set(XAPP_VERSION_PATCH 1)
 set(XAPP_VERSION "${XAPP_VERSION_MAJOR}.${XAPP_VERSION_MINOR}.${XAPP_VERSION_PATCH}")
 
-project(libztl C)
+project(libztl LANGUAGES C CXX)
 include(FeatureSummary)
 include(use_c11)
 include(CheckLibraryExists)
@@ -24,7 +24,7 @@ enable_c_flag("-std=c11")
 enable_c_flag("-Wall")
 #enable_c_flag("-Wextra")
 enable_c_flag("-pedantic")
-enable_c_flag("-fPIC")
+#enable_c_flag("-fPIC")
 enable_c_flag("-fopenmp")
 enable_c_flag("-g")
 
@@ -51,6 +51,12 @@ set(LXAPP "xapp")
 
 add_library(${LXAPP} STATIC ${HEADER_FILES} ${SOURCE_FILES})
 set_target_properties(${LXAPP} PROPERTIES OUTPUT_NAME ${LXAPP})
+
+install(FILES "${PROJECT_SOURCE_DIR}/include/xapp.h"
+	      "${PROJECT_SOURCE_DIR}/include/xapp-ztl.h"
+	      "${PROJECT_SOURCE_DIR}/include/xapp-media.h"
+DESTINATION include COMPONENT dev)
+install(TARGETS ${LXAPP} DESTINATION lib COMPONENT lib)
 
 add_subdirectory(lztl)
 add_subdirectory(targets)

@@ -23,3 +23,5 @@ set(LIBZTL "ztl")
 add_library(${LIBZTL} STATIC ${ZND_HEADER_FILES} ${ZND_SOURCE_FILES})
 target_link_libraries ( ${LIBZTL} ${LXAPP} )
 set_target_properties(${LIBZTL} PROPERTIES OUTPUT_NAME ${LIBZTL})
+
+install(TARGETS ${LIBZTL} DESTINATION lib COMPONENT lib)

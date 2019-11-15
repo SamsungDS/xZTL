@@ -1,17 +1,18 @@
+#include <stdlib.h>
 #include <xapp.h>
 #include <xapp-media.h>
 #include <xapp-ztl.h>
 #include <ztl-media.h>
 
-void *zrocks_alloc (uint32_t size)
+void *zrocks_alloc (size_t size)
 {
-    // TODO: allocate memory from device
-    return NULL;
+    uint64_t phys;
+    return xapp_media_dma_alloc (size, &phys);
 }
 
 void zrocks_free (void *ptr)
 {
-    // TODO: free memory from device
+    xapp_media_dma_free (ptr);
 }
 
 int zrocks_write (void *buf, uint32_t size, uint8_t level, uint64_t *addr)
@@ -24,6 +25,13 @@ int zrocks_write (void *buf, uint32_t size, uint8_t level, uint64_t *addr)
     // wait until completed == ncmd
     // populate *addr
     // return
+    return 0;
+}
+
+int zrocks_read (uint64_t offset, void *buf, uint32_t size)
+{
+    // TODO:
+    // read directly from device
     return 0;
 }
 
@@ -58,10 +66,9 @@ int zrocks_new (uint64_t id, void *buf, uint32_t size, uint8_t level)
 
 int zrocks_delete (uint64_t id)
 {
-    // TODO:
-    // only used for ztl managed mapping
-    // invalidate object offsets
-    return 0;
+    uint64_t old;
+
+    return ztl()->map->upsert_fn (id, 0, &old, 0);
 }
 
 int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
@@ -90,13 +97,6 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
 						    id, offset, size);
 
     return (!ret) ? cmd.status : ret;
-}
-
-int zrocks_read (uint64_t offset, void *buf, uint32_t size)
-{
-    // TODO:
-    // read directly from device
-    return 0;
 }
 
 int zrocks_exit (void)

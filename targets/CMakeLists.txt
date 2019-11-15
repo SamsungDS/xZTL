@@ -16,8 +16,13 @@ set(ZR_SOURCE_FILES
 set(ZROCKS "zrocks")
 
 add_library(${ZROCKS} STATIC ${ZR_HEADER_FILES} ${ZR_SOURCE_FILES})
-target_link_libraries ( ${ZROCKS} ${LXAPP} )
-target_link_libraries ( ${ZROCKS} ztl )
-target_link_libraries ( ${ZROCKS} xnvme )
-target_link_libraries ( ${ZROCKS} pthread )
 set_target_properties(${ZROCKS} PROPERTIES OUTPUT_NAME ${ZROCKS})
+target_link_libraries ( ${ZROCKS} PUBLIC ${LXAPP} )
+target_link_libraries ( ${ZROCKS} PUBLIC ztl )
+target_link_libraries ( ${ZROCKS} PUBLIC xnvme )
+target_link_libraries ( ${ZROCKS} PUBLIC pthread )
+
+install(FILES "${PROJECT_SOURCE_DIR}/targets/include/libzrocks.h"
+DESTINATION include COMPONENT dev)
+
+install(TARGETS ${ZROCKS} DESTINATION lib COMPONENT lib)

@@ -1,3 +1,9 @@
+#ifndef LIBZROCKS_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 
 /**
@@ -13,7 +19,7 @@ int zrocks_exit (void);
 /**
  * Allocate an aligned buffer for DMA
  */
-void *zrocks_alloc (uint32_t size);
+void *zrocks_alloc (size_t size);
 
 /**
  * Free a buffer allocated by zrocks_alloc
@@ -45,3 +51,9 @@ int zrocks_write (void *buf, uint32_t size, uint8_t level, uint64_t *addr);
  * This fuinction is used if the application is responsible for recovery
  */
 int zrocks_read (uint64_t offset, void *buf, uint64_t size);
+
+#ifdef __cplusplus
+}; // closing brace for extern "C"
+#endif
+
+#endif // LIBZROCKS_H
