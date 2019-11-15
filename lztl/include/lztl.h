@@ -8,10 +8,10 @@
 
 /* Debug options */
 #define ZDEBUG_PRO_GRP 0
-#define ZDEBUG_PRO     0
+#define ZDEBUG_PRO     1
 #define ZDEBUG_MPE     1
-#define ZDRBUG_MAP     0
-#define ZDEBUG_WCA     0
+#define ZDRBUG_MAP     1
+#define ZDEBUG_WCA     1
 
 #define ZDEBUG(type, format, ...) do {		\
     if ((type)) {				\

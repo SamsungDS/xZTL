@@ -75,6 +75,7 @@ void xapp_media_dma_free (void *ptr)
 
 int xapp_media_submit_io (struct xapp_io_mcmd *cmd)
 {
+    xapp_print_mcmd (cmd);
     return core.media->submit_io (cmd);
 }
 

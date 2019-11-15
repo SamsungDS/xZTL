@@ -3,6 +3,7 @@
 #include <xapp-media.h>
 #include <xapp-ztl.h>
 #include <ztl-media.h>
+#include <libzrocks.h>
 
 void *zrocks_alloc (size_t size)
 {
@@ -28,7 +29,7 @@ int zrocks_write (void *buf, uint32_t size, uint8_t level, uint64_t *addr)
     return 0;
 }
 
-int zrocks_read (uint64_t offset, void *buf, uint32_t size)
+int zrocks_read (uint64_t offset, void *buf, uint64_t size)
 {
     // TODO:
     // read directly from device
@@ -74,8 +75,10 @@ int zrocks_delete (uint64_t id)
 int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
 {
     struct xapp_io_mcmd cmd;
-    uint64_t objoff;
+    uint64_t objsec_off, usersec_off;
     int ret;
+
+    log_infoa ("zrocks (read): ID %lu, off %lu, size %d\n", id, offset, size);
 
     /* TODO: Accept reads larger than 512 KB
      * Multiple media commands are necessary for larger reads */
@@ -83,18 +86,30 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
 	return -1;
 
     cmd.opcode  = XAPP_CMD_READ;
+    cmd.naddr   = 1;
     cmd.synch   = 1;
     cmd.prp[0]  = (uint64_t) buf;
-    cmd.nsec[0] = size;
+    cmd.nsec[0] = size / ZNS_ALIGMENT;
+    if (size % ZNS_ALIGMENT != 0)
+	cmd.nsec[0]++;
 
     /* This assumes a single zone offset per object */
-    objoff = ztl()->map->read_fn (id);
-    cmd.addr[0].g.sect = objoff + offset;
+    usersec_off = offset / ZNS_ALIGMENT;
+    objsec_off  = ztl()->map->read_fn (id);
+
+    cmd.addr[0].g.sect = objsec_off + usersec_off;
+
+    log_infoa ("  objsec_off %lu, usersec_off %lu, nsec %lu\n",
+				    objsec_off, usersec_off, cmd.nsec[0]);
 
     ret = xapp_media_submit_io (&cmd);
-    if (ret || cmd.status)
+    if (ret || cmd.status) {
 	log_erra ("zrocks: Read failure. ID %lu, off 0x%lx, sz %d\n",
 						    id, offset, size);
+    } else if (offset % ZNS_ALIGMENT != 0) {
+	printf ("Copying from %p to %p, size %d\n", buf + offset, buf, size);
+	memcpy (buf, buf + (offset % ZNS_ALIGMENT), size);
+    }
 
     return (!ret) ? cmd.status : ret;
 }

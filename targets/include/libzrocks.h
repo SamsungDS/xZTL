@@ -6,6 +6,8 @@ extern "C" {
 
 #include <stdlib.h>
 
+#define ZNS_ALIGMENT 4096
+
 /**
  * Initialize zrocks library
  */

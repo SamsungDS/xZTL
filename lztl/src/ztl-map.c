@@ -414,7 +414,7 @@ static uint64_t map_read (uint64_t id)
 
     map_ent = &((struct app_map_entry *) cache_ent->buf)[ent_off];
 
-    ret = map_ent->addr;
+    ret = map_ent->g.offset;
 
     return ret;
 }
