@@ -5,6 +5,8 @@
 #include <ztl-media.h>
 #include <libzrocks.h>
 
+#define ZROCKS_DEBUG 0
+
 void *zrocks_alloc (size_t size)
 {
     uint64_t phys;
@@ -78,7 +80,9 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
     uint64_t objsec_off, usersec_off;
     int ret;
 
-    log_infoa ("zrocks (read): ID %lu, off %lu, size %d\n", id, offset, size);
+    if (ZROCKS_DEBUG)
+	log_infoa ("zrocks (read): ID %lu, off %lu, size %d\n",
+							id, offset, size);
 
     /* TODO: Accept reads larger than 512 KB
      * Multiple media commands are necessary for larger reads */
@@ -90,25 +94,27 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
     cmd.synch   = 1;
     cmd.prp[0]  = (uint64_t) buf;
     cmd.nsec[0] = size / ZNS_ALIGMENT;
+    cmd.status  = 0;
     if (size % ZNS_ALIGMENT != 0)
-	cmd.nsec[0]++;
+	cmd.nsec[0] += 2;
 
     /* This assumes a single zone offset per object */
     usersec_off = offset / ZNS_ALIGMENT;
     objsec_off  = ztl()->map->read_fn (id);
 
+    cmd.addr[0].addr = 0;
     cmd.addr[0].g.sect = objsec_off + usersec_off;
 
-    log_infoa ("  objsec_off %lu, usersec_off %lu, nsec %lu\n",
-				    objsec_off, usersec_off, cmd.nsec[0]);
+    if (ZROCKS_DEBUG)
+	log_infoa ("  objsec_off %lx, usersec_off %lu, nsec %lu\n",
+    				    objsec_off, usersec_off, cmd.nsec[0]);
 
     ret = xapp_media_submit_io (&cmd);
     if (ret || cmd.status) {
 	log_erra ("zrocks: Read failure. ID %lu, off 0x%lx, sz %d\n",
 						    id, offset, size);
     } else if (offset % ZNS_ALIGMENT != 0) {
-	printf ("Copying from %p to %p, size %d\n", buf + offset, buf, size);
-	memcpy (buf, buf + (offset % ZNS_ALIGMENT), size);
+	memcpy (buf, (char *)buf + (offset % ZNS_ALIGMENT), size);
     }
 
     return (!ret) ? cmd.status : ret;

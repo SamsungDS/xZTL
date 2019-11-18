@@ -42,32 +42,152 @@ static void test_zrocks_exit (void)
     zrocks_exit ();
 }
 
+#define TEST_N_BUFFERS 2
+#define TEST_BUFFER_SZ (1024 * 1024 * 1) /* 1 MB */
+#define TEST_RANDOM_ID 2
+
+
+static uint8_t *wbuf[TEST_N_BUFFERS];
+static uint8_t *rbuf[TEST_N_BUFFERS];
+
+static void test_zrocks_fill_buffer (uint32_t id)
+{
+    uint32_t byte;
+    uint8_t value = 0x1;
+
+    for (byte = 0; byte < TEST_BUFFER_SZ; byte += 16) {
+	value += 0x1;
+	memset (&wbuf[id][byte], value, 16);
+    }
+}
+
+static int test_zrocks_check_buffer (uint32_t id, uint32_t off, uint32_t size)
+{
+    /*printf (" \nMem check:\n");
+    for (int i = off; i < off + size; i++) {
+        if (i % 16 == 0 && i)
+	    printf("\n %d-%d ", i - (i%16), (i - (i%16)) + 16);
+	printf (" %x/%x", wbuf[id][i], rbuf[id][i]);
+    }
+    printf("\n");
+*/
+    return memcmp (wbuf[id], rbuf[id], size);
+}
+
 static void test_zrocks_new (void)
 {
-    uint32_t ids = 128;
-    uint64_t id, phys[ids];
-    void *wbuf[ids];
+    uint32_t ids;
+    uint64_t id, phys[TEST_N_BUFFERS];
     uint32_t size;
     uint8_t level;
-    int ret[ids];
+    int ret[TEST_N_BUFFERS];
 
-    size  = 1024 * 1024 * 1; /* 1 MB */
+    ids   = TEST_N_BUFFERS;
+    size  = TEST_BUFFER_SZ;
     level = 0;
 
     #pragma omp parallel for
-    for (id = 1; id < ids; id++) {
+    for (id = 0; id < ids; id++) {
+
 	/* Allocate DMA memory */
 	wbuf[id] = xapp_media_dma_alloc (size, &phys[id]);
 	cunit_zrocks_assert_ptr ("xapp_media_dma_alloc", wbuf[id]);
 	if (!wbuf[id])
 	    continue;
 
-	memset (wbuf[id], 0xc, size);
-	ret[id] = zrocks_new (id, wbuf[id], size, level);
+	test_zrocks_fill_buffer (id);
+
+	ret[id] = zrocks_new (id + 1, wbuf[id], size, level);
 	cunit_zrocks_assert_int ("zrocks_new", ret[id]);
 
-	xapp_media_dma_free (wbuf[id]);
+	printf ("Write submitted: %lu\n", id + 1);
     }
+}
+
+static void test_zrocks_read (void)
+{
+    uint32_t ids, offset;
+    uint64_t id, phys[TEST_N_BUFFERS];
+    int ret[TEST_N_BUFFERS];
+    size_t read_sz, size;
+
+    ids = TEST_N_BUFFERS;
+    read_sz = 1024 * 256; /* 256 KB */
+    size = TEST_BUFFER_SZ;
+
+    for (id = 0; id < ids; id++) {
+
+	/* Allocate DMA memory */
+	rbuf[id] = xapp_media_dma_alloc (size, &phys[id]);
+	cunit_zrocks_assert_ptr ("xapp_media_dma_alloc", rbuf[id]);
+	if (!rbuf[id])
+	    continue;
+
+	memset (rbuf[id], 0x0, size);
+
+	offset = 0;
+	while (offset < size) {
+	    ret[id] = zrocks_read_obj (id + 1, offset, rbuf[id] + offset, read_sz);
+	    cunit_zrocks_assert_int ("zrocks_read_obj", ret[id]);
+	    if (ret[id])
+		printf ("Read error: ID %lu, offset %d, status: %x\n",
+							id + 1, offset, ret[id]);
+	    offset += read_sz;
+	}
+
+	ret[id] = test_zrocks_check_buffer (id, 0, TEST_BUFFER_SZ);
+	cunit_zrocks_assert_int ("zrocks_read_obj:check", ret[id]);
+	if (ret[id])
+	    printf ("Corruption: ID %lu, corrupted: %d bytes\n", id + 1, ret[id]);
+
+	xapp_media_dma_free (rbuf[id]);
+
+	printf ("Read submitted: %lu\n", id + 1);
+    }
+}
+
+static void test_zrocks_random_read (void)
+{
+    uint64_t id, phys;
+    uint64_t random_off[4] = {63, 24567, 175678, 267192};
+    size_t   random_sz[4]  = {532, 53, 2695, 1561};
+    //uint64_t random_off[1] = {24567};
+    //size_t   random_sz[1]  = {53};
+    int readi, ret;
+    uint8_t *buf, *woff;
+
+    id = TEST_RANDOM_ID;
+
+    buf = xapp_media_dma_alloc (1024 * 512, &phys);
+    cunit_zrocks_assert_ptr ("xapp_media_dma_alloc", buf);
+    if (!buf)
+	return;
+
+    for (readi = 0; readi < 4; readi++) {
+	memset (buf, 0x0, random_sz[readi]);
+	ret = zrocks_read_obj (id, random_off[readi], buf, random_sz[readi]);
+	cunit_zrocks_assert_int ("zrocks_read_obj", ret);
+
+	woff = &wbuf[id - 1][random_off[readi]];
+
+/*	printf (" \nMem check:\n");
+	for (int i = 0; i < random_sz[readi] + 4096; i++) {
+	    if (i % 16 == 0)
+		printf("\n %lu-%lu ",
+		    (i+random_off[readi]) - ((i+random_off[readi]) % 16) + random_off[readi] % 16,
+		    ((i+random_off[readi]) - ((i+random_off[readi]) % 16)) + 16 + random_off[readi] % 16);
+	    printf (" %x/%x", woff[i], buf[i]);
+	}
+	printf("\n");
+*/
+	cunit_zrocks_assert_int ("zrocks_read_obj:check",
+				    memcmp (woff, buf, random_sz[readi]));
+    }
+
+    xapp_media_dma_free (buf);
+
+    for (int i = 0; i < TEST_N_BUFFERS; i++)
+	xapp_media_dma_free (wbuf[i]);
 }
 
 int main (void)
@@ -87,6 +207,10 @@ int main (void)
 		      test_zrocks_init) == NULL) ||
 	(CU_add_test (pSuite, "ZRocks New",
 		      test_zrocks_new) == NULL) ||
+	(CU_add_test (pSuite, "ZRocks Read",
+		      test_zrocks_read) == NULL) ||
+	(CU_add_test (pSuite, "ZRocks Random Read",
+		      test_zrocks_random_read) == NULL) ||
         (CU_add_test (pSuite, "Close ZRocks",
 		      test_zrocks_exit) == NULL)) {
 	CU_cleanup_registry();

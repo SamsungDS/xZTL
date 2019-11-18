@@ -51,7 +51,7 @@ void xapp_print_mcmd (struct xapp_io_mcmd *cmd)
     printf ("naddr  : %d\n", cmd->naddr);
     printf ("status : %d\n", cmd->status);
     printf ("nlba0  : %lu\n", cmd->nsec[0]);
-    printf ("addr[0]: (%d/%d/%d/%lu)\n", cmd->addr[0].g.grp,
+    printf ("addr[0]: (%d/%d/%d/%lx)\n", cmd->addr[0].g.grp,
 				         cmd->addr[0].g.punit,
 			                 cmd->addr[0].g.zone,
 			      (uint64_t) cmd->addr[0].g.sect);
@@ -75,7 +75,7 @@ void xapp_media_dma_free (void *ptr)
 
 int xapp_media_submit_io (struct xapp_io_mcmd *cmd)
 {
-    xapp_print_mcmd (cmd);
+    // xapp_print_mcmd (cmd);
     return core.media->submit_io (cmd);
 }
 
