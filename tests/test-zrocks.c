@@ -42,8 +42,8 @@ static void test_zrocks_exit (void)
     zrocks_exit ();
 }
 
-#define TEST_N_BUFFERS 2
-#define TEST_BUFFER_SZ (1024 * 1024 * 1) /* 1 MB */
+#define TEST_N_BUFFERS 8
+#define TEST_BUFFER_SZ (1024 * 1024 * 16) /* 1 MB */
 #define TEST_RANDOM_ID 2
 
 
@@ -99,8 +99,6 @@ static void test_zrocks_new (void)
 
 	ret[id] = zrocks_new (id + 1, wbuf[id], size, level);
 	cunit_zrocks_assert_int ("zrocks_new", ret[id]);
-
-	printf ("Write submitted: %lu\n", id + 1);
     }
 }
 
@@ -141,8 +139,6 @@ static void test_zrocks_read (void)
 	    printf ("Corruption: ID %lu, corrupted: %d bytes\n", id + 1, ret[id]);
 
 	xapp_media_dma_free (rbuf[id]);
-
-	printf ("Read submitted: %lu\n", id + 1);
     }
 }
 

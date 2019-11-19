@@ -6,13 +6,17 @@
 #include <libxnvme.h>
 
 #define XAPPMP_THREADS 		32
-#define XAPPMP_TYPES   		2
+#define XAPPMP_TYPES   		3
 #define XAPPMP_MAX_ENT 		1024
 #define XAPPMP_MAX_ENT_SZ	(1024 * 1024)  /* 1 MB */
 
+typedef void *(xapp_mp_alloc)(size_t size);
+typedef void  (xapp_mp_free)(void *ptr);
+
 enum xapp_mp_types {
     XAPP_MEMPOOL_MCMD =	0x0,
-    XAPP_ZTL_PRO_CTX  = 0x1
+    XAPP_ZTL_PRO_CTX  = 0x1,
+    ZROCKS_MEMORY     = 0x2
 };
 
 enum xapp_mp_status {
@@ -36,6 +40,8 @@ struct xapp_mp_pool_i {
     uint16_t 		out_count;
     uint16_t 		entries;
     pthread_spinlock_t	spin;
+    xapp_mp_alloc      *alloc_fn;
+    xapp_mp_free       *free_fn;
     STAILQ_HEAD (mp_head, xapp_mp_entry) head;
 };
 
@@ -53,7 +59,7 @@ int xapp_mempool_exit (void);
 
 /* Create and destroy memory pools */
 int xapp_mempool_create (uint32_t type, uint16_t tid, uint16_t entries,
-							uint32_t ent_sz);
+		    uint32_t ent_sz, xapp_mp_alloc *alloc, xapp_mp_free *free);
 int xapp_mempool_destroy (uint32_t type, uint16_t tid);
 
 /* Insert and remove elements */

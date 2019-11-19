@@ -21,8 +21,12 @@ static void xapp_mempool_free (struct xapp_mp_pool_i *pool)
 	ent = STAILQ_FIRST (&pool->head);
 	if (ent) {
 	    STAILQ_REMOVE_HEAD (&pool->head, entry);
-	    if (ent->opaque)
-		free (ent->opaque);
+	    if (ent->opaque) {
+		if (!pool->alloc_fn || !pool->free_fn)
+		    free (ent->opaque);
+		else
+		    pool->free_fn (ent->opaque);
+	    }
 	    free (ent);
 	}
     }
@@ -44,12 +48,14 @@ int xapp_mempool_destroy (uint32_t type, uint16_t tid)
     pool->active = 0;
     xapp_mempool_free (pool);
     pthread_spin_destroy (&pool->spin);
+    pool->alloc_fn = NULL;
+    pool->free_fn  = NULL;
 
     return XAPP_OK;
 }
 
 int xapp_mempool_create (uint32_t type, uint16_t tid, uint16_t entries,
-							uint32_t ent_sz)
+		uint32_t ent_sz, xapp_mp_alloc *alloc, xapp_mp_free *free)
 {
     struct xapp_mp_pool_i *pool;
     struct xapp_mp_entry *ent;
@@ -79,7 +85,11 @@ int xapp_mempool_create (uint32_t type, uint16_t tid, uint16_t entries,
 	if (!ent)
 	    goto MEMERR;
 
-	opaque = aligned_alloc (64, ent_sz);
+	if (!alloc || !free)
+	    opaque = aligned_alloc (64, ent_sz);
+	else
+	    opaque = alloc (ent_sz);
+
 	if (!opaque) {
 	    free (ent);
 	    goto MEMERR;
@@ -94,6 +104,8 @@ int xapp_mempool_create (uint32_t type, uint16_t tid, uint16_t entries,
 
     pool->entries = entries;
     pool->in_count = pool->out_count = 0;
+    pool->alloc_fn = alloc;
+    pool->free_fn  = free;
     pool->active = 1;
 
     if (XAPP_MP_DEBUG)

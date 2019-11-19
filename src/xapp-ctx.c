@@ -11,7 +11,7 @@ struct xapp_mthread_ctx *xapp_ctx_media_init (uint16_t tid,
     int ret;
 
     ret = xapp_mempool_create (XAPP_MEMPOOL_MCMD, tid, depth + 2,
-					sizeof (struct xapp_io_mcmd));
+				sizeof (struct xapp_io_mcmd), NULL, NULL);
     if (ret)
 	return NULL;
 

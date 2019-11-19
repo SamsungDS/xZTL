@@ -97,7 +97,9 @@ static int ztl_mempool_init (void)
 	ret = xapp_mempool_create (XAPP_ZTL_PRO_CTX,
 				  th_i,
 				  ZTL_PRO_MP_SZ,
-				  sizeof (struct app_pro_addr)
+				  sizeof (struct app_pro_addr),
+				  NULL,
+				  NULL
 				);
 	if (ret)
 	    return ret;

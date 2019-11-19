@@ -57,7 +57,7 @@ static void test_mempool_create (void)
     ent_sz = 1024;
 
     cunit_mempool_assert_int ("xapp_mempool_create",
-		xapp_mempool_create (type, tid, ents, ent_sz));
+		xapp_mempool_create (type, tid, ents, ent_sz, NULL, NULL));
 }
 
 static void test_mempool_destroy (void)
@@ -83,7 +83,7 @@ static void test_mempool_create_mult (void)
     #pragma omp parallel for
     for (tid = 0; tid < 8; tid++) {
 	cunit_mempool_assert_int ("xapp_mempool_create",
-		xapp_mempool_create (type, tid, ents, ent_sz));
+		xapp_mempool_create (type, tid, ents, ent_sz, NULL, NULL));
     }
 }
 
