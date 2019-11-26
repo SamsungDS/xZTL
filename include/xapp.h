@@ -8,6 +8,8 @@
 
 #define XAPP_MP_DEBUG 0
 
+#define XAPP_DEV_NAME "pci://0000:03:00.0/2"
+
 #define log_erra(format, ...)         syslog(LOG_ERR, format, ## __VA_ARGS__)
 #define log_infoa(format, ...)        syslog(LOG_INFO, format, ## __VA_ARGS__)
 #define log_err(format)               syslog(LOG_ERR, format)
@@ -50,6 +52,7 @@
 typedef int   (xapp_init_fn)     (void);
 typedef int   (xapp_exit_fn)     (void);
 typedef int   (xapp_register_fn) (void);
+typedef int   (xapp_register_media_fn) (const char *dev_name);
 typedef void *(xapp_thread)      (void *arg);
 typedef void  (xapp_callback)    (void *arg);
 
@@ -132,13 +135,13 @@ void xapp_atomic_int32_update (uint32_t *ptr, uint32_t value);
 void xapp_atomic_int64_update (uint64_t *ptr, uint64_t value);
 
 /* Add media layer */
-void xapp_add_media (xapp_register_fn *fn);
+void xapp_add_media (xapp_register_media_fn *fn);
 
 /* Set the media abstraction */
 int xapp_media_set (struct xapp_media *media);
 
 /* Initialize XApp instance */
-int xapp_init (void);
+int xapp_init (const char *device_name);
 
 /* Safe shut down */
 int xapp_exit (void);

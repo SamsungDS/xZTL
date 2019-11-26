@@ -106,8 +106,9 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
     cmd.naddr   = 1;
     cmd.synch   = 1;
     cmd.prp[0]  = (uint64_t) mp_entry->opaque;
-    cmd.nsec[0] = size / ZNS_ALIGMENT;
+    cmd.nsec[0] = size / ZNS_ALIGMENT + 1;
     cmd.status  = 0;
+
     if (size % ZNS_ALIGMENT != 0)
 	cmd.nsec[0] += 1;
 
@@ -116,7 +117,8 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
     objsec_off  = ztl()->map->read_fn (id);
 
     /* Add a sector in case if read cross sector boundary */
-    if (size > ZNS_ALIGMENT - (offset % ZNS_ALIGMENT))
+    if (objsec_off + size >
+	    ( (objsec_off / ZNS_ALIGMENT) + (cmd.nsec[0]) ) * ZNS_ALIGMENT)
 	cmd.nsec[0] += 1;
 
     cmd.addr[0].addr = 0;
@@ -133,8 +135,8 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
 
     ret = xapp_media_submit_io (&cmd);
     if (ret || cmd.status) {
-	log_erra ("zrocks: Read failure. ID %lu, off 0x%lx, sz %d\n",
-						    id, offset, size);
+	log_erra ("zrocks: Read failure. ID %lu, off 0x%lx, sz %d. ret %d, cmd.status %d",
+						    id, offset, size, ret, cmd.status);
     } else {
 	/* If I/O succeeded, we copy the data from the correct offset to the user */
 	memcpy (buf, (char *) mp_entry->opaque + (offset % ZNS_ALIGMENT), size);
@@ -154,7 +156,7 @@ int zrocks_exit (void)
     return xapp_exit ();
 }
 
-int zrocks_init (void)
+int zrocks_init (const char *dev_name)
 {
     int ret;
 
@@ -171,7 +173,7 @@ int zrocks_init (void)
     if (pthread_spin_init (&zrocks_mp_spin, 0))
 	return -1;
 
-    ret = xapp_init ();
+    ret = xapp_init (dev_name);
     if (ret) {
 	pthread_spin_destroy (&zrocks_mp_spin);
 	return -1;

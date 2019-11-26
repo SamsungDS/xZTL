@@ -251,7 +251,7 @@ static void ztl_pro_grp_zones_free (struct app_group *grp)
 
 int ztl_pro_grp_init (struct app_group *grp)
 {
-    struct xnvme_spec_log_zinf_zinfo *zinfo;
+    struct znd_descr *zinfo;
     struct znd_report    *rep;
     struct ztl_pro_zone  *zone;
     struct app_zmd_entry *zmde;
@@ -290,7 +290,7 @@ int ztl_pro_grp_init (struct app_group *grp)
 
 	/* This macro only works with full report
 	 * Change this when xnvme gets fixed */
-	zinfo = ZND_REPORT_ZINFO (rep,
+	zinfo = ZND_REPORT_DESCR (rep,
 		    grp->id * core.media->geo.zn_grp + zone_i);
 
 	zone = &pro->vzones[zone_i];
@@ -309,12 +309,12 @@ int ztl_pro_grp_init (struct app_group *grp)
 
 	zone->addr.addr = zmde->addr.addr;
 	zone->capacity  = zinfo->zcap;
-	zone->state     = zinfo->zc;
+	zone->state     = zinfo->zs;
 	zone->zmd_entry = zmde;
 	zone->lock      = 0;
 
-	switch (zinfo->zc) {
-	    case XNVME_SPEC_ZONE_COND_EMPTY:
+	switch (zinfo->zs) {
+	    case ZND_STATE_EMPTY:
 
 		if ( (zmde->flags & XAPP_ZMD_USED) ||
 		     (zmde->flags & XAPP_ZMD_OPEN) ) {
@@ -333,9 +333,9 @@ int ztl_pro_grp_init (struct app_group *grp)
 				zmde->addr.g.grp, zmde->addr.g.zone);
 		break;
 
-	    case XNVME_SPEC_ZONE_COND_EOPEN:
-	    case XNVME_SPEC_ZONE_COND_IOPEN:
-	    case XNVME_SPEC_ZONE_COND_CLOSED:
+	    case ZND_STATE_EOPEN:
+	    case ZND_STATE_IOPEN:
+	    case ZND_STATE_CLOSED:
 
 		zmde->flags |= (XAPP_ZMD_OPEN | XAPP_ZMD_USED);
 
@@ -354,7 +354,7 @@ int ztl_pro_grp_init (struct app_group *grp)
 				zmde->addr.g.grp, zmde->addr.g.zone);
 		break;
 
-	    case XNVME_SPEC_ZONE_COND_FULL:
+	    case ZND_STATE_FULL:
 
 		if (zmde->flags & XAPP_ZMD_OPEN) {
 		    log_erra("ztl-pro: device reported FULL zone, but ZMD flag"
@@ -373,8 +373,8 @@ int ztl_pro_grp_init (struct app_group *grp)
 		break;
 
 	    default:
-		log_infoa ("ztl-pro: Unknown zone condition. zone %d, zc: %d",
-			    grp->id * core.media->geo.zn_grp + zone_i, zinfo->zc);
+		log_infoa ("ztl-pro: Unknown zone condition. zone %d, zs: %d",
+			    grp->id * core.media->geo.zn_grp + zone_i, zinfo->zs);
 	}
 
 	zmde->wptr = zinfo->wp;

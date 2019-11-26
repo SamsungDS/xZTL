@@ -43,7 +43,8 @@ static int cunit_znd_media_exit (void)
 
 static void test_znd_media_register (void)
 {
-    cunit_znd_assert_int ("znd_media_register", znd_media_register ());
+    cunit_znd_assert_int ("znd_media_register",
+				    znd_media_register (XAPP_DEV_NAME));
 }
 
 static void test_znd_media_init (void)
@@ -60,7 +61,7 @@ static void test_znd_report (void)
 {
     struct xapp_zn_mcmd cmd;
     struct znd_report *report;
-    struct xnvme_spec_log_zinf_zinfo *zinfo;
+    struct znd_descr *zinfo;
     int ret, zi, zone, nzones;
     uint32_t znlbas;
 
@@ -75,7 +76,7 @@ static void test_znd_report (void)
 	znlbas = core.media->geo.sec_zn;
 	for (zi = zone; zi < zone + nzones; zi++) {
 	    report = (struct znd_report *) cmd.opaque;
-	    zinfo = ZND_REPORT_ZINFO(report, zi);
+	    zinfo = ZND_REPORT_DESCR(report, zi);
 	    cunit_znd_assert_int_equal ("xapp_media_submit_zn:report:szlba",
 					 zinfo->zslba, zi * znlbas);
 	}
@@ -90,7 +91,7 @@ static void test_znd_manage_single (uint8_t op, uint8_t devop,
 {
     struct xapp_zn_mcmd cmd;
     struct znd_report *report;
-    struct xnvme_spec_log_zinf_zinfo *zinfo;
+    struct znd_descr *zinfo;
     int ret;
 
     cmd.opcode = op;
@@ -110,9 +111,9 @@ static void test_znd_manage_single (uint8_t op, uint8_t devop,
 
 	if (!ret) {
 	    report = (struct znd_report *) cmd.opaque;
-	    zinfo = ZND_REPORT_ZINFO(report, cmd.addr.g.zone);
+	    zinfo = ZND_REPORT_DESCR(report, cmd.addr.g.zone);
 	    cunit_znd_assert_int_equal (name,
-					zinfo->zc, devop);
+					zinfo->zs, devop);
 	}
 
 	/* Free structure allocated by xnvme */
@@ -125,23 +126,23 @@ static void test_znd_op_cl_fi_re (void)
     uint32_t zone = 10;
 
     test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
-			    XNVME_SPEC_ZONE_COND_EMPTY,
+			    ZND_STATE_EMPTY,
 			    zone,
 			    "xapp_media_submit_znm:reset");
     test_znd_manage_single (XAPP_ZONE_MGMT_OPEN,
-			    XNVME_SPEC_ZONE_COND_EOPEN,
+			    ZND_STATE_EOPEN,
 			    zone,
 			    "xapp_media_submit_znm:open");
     test_znd_manage_single (XAPP_ZONE_MGMT_CLOSE,
-			    XNVME_SPEC_ZONE_COND_CLOSED,
+			    ZND_STATE_CLOSED,
 			    zone,
 			    "xapp_media_submit_znm:close");
     test_znd_manage_single (XAPP_ZONE_MGMT_FINISH,
-			    XNVME_SPEC_ZONE_COND_FULL,
+			    ZND_STATE_FULL,
 			    zone,
 			    "xapp_media_submit_znm:finish");
     test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
-			    XNVME_SPEC_ZONE_COND_EMPTY,
+			    ZND_STATE_EMPTY,
 			    zone,
 			    "xapp_media_submit_znm:reset");
 }
@@ -239,7 +240,7 @@ static void test_znd_append_zone (void)
     tid     = 0;
     ents    = 128;
     nlbas   = 64;
-    zone    = 510;
+    zone    = 50;
     bsize = nlbas * core.media->geo.nbytes;
 
     /* Initialize mempool module */
@@ -256,7 +257,7 @@ static void test_znd_append_zone (void)
 
     /* Reset the zone before appending */
     test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
-			    XNVME_SPEC_ZONE_COND_EMPTY,
+			    ZND_STATE_EMPTY,
 			    zone,
 			    "xapp_media_submit_znm:reset");
 
@@ -316,7 +317,7 @@ static void test_znd_read_zone (void)
     tid     = 0;
     ents    = 128;
     nlbas   = 64;
-    zone    = 510;
+    zone    = 50;
     bsize = nlbas * core.media->geo.nbytes;
 
     /* Initialize mempool module */
@@ -400,9 +401,9 @@ int main (void)
 		      test_znd_asynch_ctx) == NULL) ||
         (CU_add_test (pSuite, "Allocate/Free DMA aligned buffer",
 		      test_znd_dma_memory) == NULL) ||
-        (CU_add_test (pSuite, "Append 64 sectors to zone 510",
+        (CU_add_test (pSuite, "Append 64 sectors to zone 50",
 		      test_znd_append_zone) == NULL) ||
-        (CU_add_test (pSuite, "Read 64 sectors from zone 510",
+        (CU_add_test (pSuite, "Read 64 sectors from zone 50",
 		      test_znd_read_zone) == NULL) ||
 	(CU_add_test (pSuite, "Close media",
 		      test_znd_media_exit) == NULL)) {

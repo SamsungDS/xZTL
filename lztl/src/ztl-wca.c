@@ -50,11 +50,12 @@ static void ztl_wca_callback_mcmd (void *arg)
 
     xapp_atomic_int16_update (&ucmd->ncb, ucmd->ncb + 1);
 
-    ZDEBUG (ZDEBUG_WCA, "ztl-wca: Callback. (ID %lu, S %d/%d, C %d). St: %d",
+    ZDEBUG (ZDEBUG_WCA, "ztl-wca: Callback. (ID %lu, S %d/%d, C %d, WOFF 0x%lx). St: %d",
 						    ucmd->id,
 						    mcmd->sequence,
 						    ucmd->nmcmd,
 						    ucmd->ncb,
+						    ucmd->moffset[mcmd->sequence],
 						    mcmd->status);
 
     xapp_mempool_put (mcmd->mp_cmd, XAPP_MEMPOOL_MCMD, ZTL_PRO_TUSER);

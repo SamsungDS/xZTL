@@ -390,6 +390,9 @@ static int map_upsert (uint64_t id, uint64_t val, uint64_t *old,
     xapp_atomic_int64_update (&map_ent->addr, val);
 //    cache_ent->dirty = 1;
 
+    ZDEBUG (ZDRBUG_MAP, "  upsert succeed: ID: %lu, val: (0x%lx/%d/%d)",
+	    id, (uint64_t) map_ent->g.offset, map_ent->g.nsec, map_ent->g.multi);
+
     return 0;
 }
 
@@ -415,6 +418,9 @@ static uint64_t map_read (uint64_t id)
     map_ent = &((struct app_map_entry *) cache_ent->buf)[ent_off];
 
     ret = map_ent->g.offset;
+
+    ZDEBUG (ZDRBUG_MAP, "  read succeed: ID: %lu, val (0x%lx/%d/%d)",
+	    id, (uint64_t) map_ent->g.offset, map_ent->g.nsec, map_ent->g.multi);
 
     return ret;
 }

@@ -11,7 +11,7 @@ extern "C" {
 /**
  * Initialize zrocks library
  */
-int zrocks_init (void);
+int zrocks_init (const char *dev_name);
 
 /**
  * Close zrocks library

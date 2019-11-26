@@ -35,6 +35,6 @@ struct znd_log_cmd {
 };
 
 /* Registration function */
-int znd_media_register (void);
+int znd_media_register (const char *dev_name);
 
 #endif /* ZNMEDIA */

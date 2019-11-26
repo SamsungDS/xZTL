@@ -29,7 +29,7 @@ static void test_ztl_init (void)
 {
     int ret;
 
-    ret = znd_media_register ();
+    ret = znd_media_register (XAPP_DEV_NAME);
     cunit_ztl_assert_int ("znd_media_register", ret);
     if (ret)
 	return;

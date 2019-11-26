@@ -61,7 +61,7 @@ void xapp_print_mcmd (struct xapp_io_mcmd *cmd)
     printf ("opaque : %p\n", cmd->opaque);
 }
 
-static xapp_register_fn *media_fn = NULL;
+static xapp_register_media_fn *media_fn = NULL;
 
 void *xapp_media_dma_alloc (size_t bytes, uint64_t *phys)
 {
@@ -176,7 +176,7 @@ int xapp_media_set (struct xapp_media *media)
     return XAPP_OK;
 }
 
-void xapp_add_media (xapp_register_fn *fn)
+void xapp_add_media (xapp_register_media_fn *fn)
 {
     media_fn = fn;
 }
@@ -202,7 +202,7 @@ int xapp_exit (void)
     return ret;
 }
 
-int xapp_init (void)
+int xapp_init (const char *dev_name)
 {
     int ret;
 
@@ -213,7 +213,7 @@ int xapp_init (void)
     if (!media_fn)
 	return XAPP_NOMEDIA;
 
-    ret = media_fn ();
+    ret = media_fn (dev_name);
     if (ret)
 	return XAPP_MEDIA_ERROR | ret;
 

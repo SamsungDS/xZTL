@@ -33,7 +33,7 @@ static void test_zrocks_init (void)
 {
     int ret;
 
-    ret = zrocks_init ();
+    ret = zrocks_init (XAPP_DEV_NAME);
     cunit_zrocks_assert_int ("zrocks_init", ret);
 }
 
@@ -42,7 +42,7 @@ static void test_zrocks_exit (void)
     zrocks_exit ();
 }
 
-#define TEST_N_BUFFERS 8
+#define TEST_N_BUFFERS 1
 #define TEST_BUFFER_SZ (1024 * 1024 * 16) /* 1 MB */
 #define TEST_RANDOM_ID 2
 

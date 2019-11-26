@@ -211,7 +211,7 @@ int main () {
     int ret, err;
 
     /* Register the ZNS media layer */
-    znd_media_register ();
+    znd_media_register (XAPP_DEV_NAME);
 
     /* Initialize media */
     ret = xapp_media_init ();
