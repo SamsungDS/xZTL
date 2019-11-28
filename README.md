@@ -4,10 +4,16 @@ This library is composed by the necessary building blocks for
 zoned applications. ZTL components are grouped into a target for
 a specific application.
 
-# Targets:
+# Current Targets:
 
 ZRocks: Zoned RocksDB
 
-# Future Targets:
+# Install
 
-Z... To be defined
+```
+mkdir build
+cd build
+cmake ..
+make install
+```
+
