@@ -1,7 +1,0 @@
-CREATE libzrocks.a
-ADDLIB /usr/lib/libxnvme.a
-ADDLIB /usr/local/lib/libxapp.a
-ADDLIB /usr/local/lib/libztl.a
-ADDLIB /usr/local/lib/libzrocks.a
-SAVE
-END
