@@ -1,46 +1,60 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.1.0)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
-include_directories("${PROJECT_SOURCE_DIR}/include")
-include_directories("${PROJECT_SOURCE_DIR}/lztl/include")
-include_directories("${PROJECT_SOURCE_DIR}/targets/include")
+project(tests C)
+include(FeatureSummary)
+include(use_c11)
+include(CheckLibraryExists)
+include(CheckFunctionExists)
 
-### XAPP Tests ###
+use_c11()
+enable_c_flag("-std=c11")
+enable_c_flag("-Wall")
+enable_c_flag("-pedantic")
+enable_c_flag("-fopenmp")
 
-set(TEST_HEADER_FILES
-    ${PROJECT_SOURCE_DIR}/include/xapp.h
+include_directories("${PROJECT_SOURCE_DIR}/../xapp/include")
+include_directories("${PROJECT_SOURCE_DIR}/../ztl/include")
+include_directories("${PROJECT_SOURCE_DIR}/../ztl-tgt-zrocks/include")
+
+link_directories("${PROJECT_SOURCE_DIR}/../build/xapp")
+link_directories("${PROJECT_SOURCE_DIR}/../build/ztl")
+link_directories("${PROJECT_SOURCE_DIR}/../build/ztl-tgt-zrocks")
+
+set(XAPP_TESTS
+    ${PROJECT_SOURCE_DIR}/src/test-media-layer.c
 )
-
-set(TEST_SOURCE_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/test-media-layer.c
-)
-
-foreach(SRC_FN ${TEST_SOURCE_FILES})
+foreach(SRC_FN ${XAPP_TESTS})
     get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
     set(EXE_FN "xapp-${SRC_FN_WE}")
-    add_executable(${EXE_FN} ${TEST_HEADER_FILES} ${SRC_FN})
-    target_link_libraries ( ${EXE_FN} ${LXAPP} )
-    target_link_libraries ( ${EXE_FN} xnvme )
+    add_executable(${EXE_FN} ${SRC_FN})
     target_link_libraries ( ${EXE_FN} cunit )
+    target_link_libraries ( ${EXE_FN} xapp )
 endforeach()
 
-### libztl Tests ###
-
-set(TEST_ZND_SRC_FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/test-znd-media.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/test-mempool.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/test-append-mthread.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/test-ztl.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/test-zrocks.c
+set(ZTL_TESTS
+    ${PROJECT_SOURCE_DIR}/src/test-znd-media.c
+    ${PROJECT_SOURCE_DIR}/src/test-mempool.c
+    ${PROJECT_SOURCE_DIR}/src/test-append-mthread.c
+    ${PROJECT_SOURCE_DIR}/src/test-ztl.c
 )
-
-foreach(SRC_FN ${TEST_ZND_SRC_FILES})
+foreach(SRC_FN ${ZTL_TESTS})
     get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
     set(EXE_FN "lztl-${SRC_FN_WE}")
-    add_executable(${EXE_FN} ${TEST_HEADER_FILES} ${SRC_FN})
-    target_link_libraries ( ${EXE_FN} ${LXAPP} )
-    target_link_libraries ( ${EXE_FN} ztl )
+    add_executable(${EXE_FN} ${SRC_FN})
     target_link_libraries ( ${EXE_FN} cunit )
-    target_link_libraries ( ${EXE_FN} xnvme )
+    target_link_libraries ( ${EXE_FN} pthread )
+    target_link_libraries ( ${EXE_FN} ztl )
+endforeach()
+
+set(ZROCKS_TESTS
+    ${PROJECT_SOURCE_DIR}/src/test-zrocks.c
+)
+foreach(SRC_FN ${ZTL_TESTS})
+    get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
+    set(EXE_FN "zrocks-${SRC_FN_WE}")
+    add_executable(${EXE_FN} ${SRC_FN})
+    target_link_libraries ( ${EXE_FN} cunit )
     target_link_libraries ( ${EXE_FN} pthread )
     target_link_libraries ( ${EXE_FN} zrocks )
 endforeach()

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.1.0)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(XAPP_VERSION_MAJOR 0)
@@ -6,9 +6,10 @@ set(XAPP_VERSION_MINOR 0)
 set(XAPP_VERSION_PATCH 1)
 set(XAPP_VERSION "${XAPP_VERSION_MAJOR}.${XAPP_VERSION_MINOR}.${XAPP_VERSION_PATCH}")
 
-project(libztl LANGUAGES C CXX)
+project(xapp C)
 include(FeatureSummary)
 include(use_c11)
+include(bundle_xapp)
 include(CheckLibraryExists)
 include(CheckFunctionExists)
 
@@ -17,16 +18,13 @@ add_definitions(-DXAPP_VERSION_MAJOR=${XAPP_VERSION_MAJOR})
 add_definitions(-DXAPP_VERSION_MINOR=${XAPP_VERSION_MINOR})
 add_definitions(-DXAPP_VERSION_PATCH=${XAPP_VERSION_PATCH})
 add_definitions(-DXAPP_VERSION=${XAPP_VERSION})
-add_definitions(-DXAPP_LABEL="libztl: User-space Zone Translation Layer Library")
+add_definitions(-DXAPP_LABEL="xapp: what, is this?")
 
 use_c11()
 enable_c_flag("-std=c11")
 enable_c_flag("-Wall")
-#enable_c_flag("-Wextra")
 enable_c_flag("-pedantic")
-#enable_c_flag("-fPIC")
 enable_c_flag("-fopenmp")
-enable_c_flag("-g")
 
 set(HEADER_FILES
     ${PROJECT_SOURCE_DIR}/include/xapp.h
@@ -34,8 +32,6 @@ set(HEADER_FILES
     ${PROJECT_SOURCE_DIR}/include/xapp-mempool.h
     ${PROJECT_SOURCE_DIR}/include/xapp-ztl.h
 )
-
-### XAPP CORE ###
 
 set(SOURCE_FILES
     ${PROJECT_SOURCE_DIR}/src/xapp-core.c
@@ -47,18 +43,24 @@ set(SOURCE_FILES
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
-set(LXAPP "xapp")
+set(LNAME "xapp")
 
-add_library(${LXAPP} STATIC ${HEADER_FILES} ${SOURCE_FILES})
-set_target_properties(${LXAPP} PROPERTIES OUTPUT_NAME ${LXAPP})
+add_library(${LNAME} STATIC ${HEADER_FILES} ${SOURCE_FILES})
+set_target_properties(${LNAME} PROPERTIES OUTPUT_NAME "${LNAME}_slim")
+
+bundle_xapp("${LNAME}" "${LNAME}_bundle")
+message(STATUS "bundle_xapp(${BUNDLE_LIBS})")
+if ("${dep_path}" STREQUAL "dep_path-NOTFOUND")
+	message( FATAL_ERROR "bundling libs failed")
+endif()
+if ("${BUNDLE_LIBS}" STREQUAL "FAILED")
+	message( FATAL_ERROR "bundling libs failed")
+endif()
 
 install(FILES "${PROJECT_SOURCE_DIR}/include/xapp.h"
-	      "${PROJECT_SOURCE_DIR}/include/xapp-ztl.h"
-	      "${PROJECT_SOURCE_DIR}/include/xapp-media.h"
-DESTINATION include COMPONENT dev)
-install(TARGETS ${LXAPP} DESTINATION lib COMPONENT lib)
-
-add_subdirectory(lztl)
-add_subdirectory(targets)
-add_subdirectory(tests)
-add_subdirectory(scripts)
+	DESTINATION include COMPONENT dev)
+install(FILES "${PROJECT_SOURCE_DIR}/include/xapp-ztl.h"
+	DESTINATION include COMPONENT dev)
+install(FILES "${PROJECT_SOURCE_DIR}/include/xapp-media.h"
+	DESTINATION include COMPONENT dev)
+install(TARGETS ${LNAME} DESTINATION lib COMPONENT lib)

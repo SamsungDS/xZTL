@@ -1,0 +1,63 @@
+cmake_minimum_required(VERSION 3.1.0)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+
+set(ZTL_VERSION_MAJOR 0)
+set(ZTL_VERSION_MINOR 0)
+set(ZTL_VERSION_PATCH 1)
+set(ZTL_VERSION "${ZTL_VERSION_MAJOR}.${ZTL_VERSION_MINOR}.${ZTL_VERSION_PATCH}")
+
+project(ztl C)
+include(FeatureSummary)
+include(use_c11)
+include(bundle_ztl)
+include(CheckLibraryExists)
+include(CheckFunctionExists)
+
+# versioning
+add_definitions(-DZTL_VERSION_MAJOR=${ZTL_VERSION_MAJOR})
+add_definitions(-DZTL_VERSION_MINOR=${ZTL_VERSION_MINOR})
+add_definitions(-DZTL_VERSION_PATCH=${ZTL_VERSION_PATCH})
+add_definitions(-DZTL_VERSION=${ZTL_VERSION})
+add_definitions(-DZTL_LABEL="libztl: User-space Zone Translation Layer Library")
+
+use_c11()
+enable_c_flag("-std=c11")
+enable_c_flag("-Wall")
+enable_c_flag("-pedantic")
+enable_c_flag("-fopenmp")
+
+set(HEADER_FILES
+    ${PROJECT_SOURCE_DIR}/include/lztl.h
+    ${PROJECT_SOURCE_DIR}/include/ztl-media.h
+)
+
+set(SOURCE_FILES
+    ${PROJECT_SOURCE_DIR}/src/ztl-media.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-zmd.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-pro.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-pro-grp.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-mpe.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-map.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-wca.c
+)
+
+include_directories("${PROJECT_SOURCE_DIR}/include")
+
+set(LNAME "ztl")
+
+add_library(${LNAME} STATIC ${HEADER_FILES} ${SOURCE_FILES})
+set_target_properties(${LNAME} PROPERTIES OUTPUT_NAME "${LNAME}_slim")
+
+bundle_ztl("${LNAME}" "${LNAME}_bundle")
+message(STATUS "bundle_ztl(${BUNDLE_LIBS})")
+if ("${dep_path}" STREQUAL "dep_path-NOTFOUND")
+	message( FATAL_ERROR "bundling libs failed")
+endif()
+if ("${BUNDLE_LIBS}" STREQUAL "FAILED")
+	message( FATAL_ERROR "bundling libs failed")
+endif()
+
+install(FILES ${PROJECT_SOURCE_DIR}/include/lztl.h
+	DESTINATION include COMPONENT dev)
+
+install(TARGETS ${LNAME} DESTINATION lib COMPONENT lib)

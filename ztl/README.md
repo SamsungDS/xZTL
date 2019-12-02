@@ -7,13 +7,3 @@ a specific application.
 # Current Targets:
 
 ZRocks: Zoned RocksDB
-
-# Install
-
-```
-mkdir build
-cd build
-cmake ..
-make install
-```
-
