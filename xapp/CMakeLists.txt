@@ -18,7 +18,7 @@ add_definitions(-DXAPP_VERSION_MAJOR=${XAPP_VERSION_MAJOR})
 add_definitions(-DXAPP_VERSION_MINOR=${XAPP_VERSION_MINOR})
 add_definitions(-DXAPP_VERSION_PATCH=${XAPP_VERSION_PATCH})
 add_definitions(-DXAPP_VERSION=${XAPP_VERSION})
-add_definitions(-DXAPP_LABEL="xapp: what, is this?")
+add_definitions(-DXAPP_LABEL="xapp: ztl library core")
 
 use_c11()
 enable_c_flag("-std=c11")
