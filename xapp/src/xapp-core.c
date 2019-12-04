@@ -19,6 +19,7 @@
 
 #include <syslog.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <xapp.h>
 #include <xapp-media.h>

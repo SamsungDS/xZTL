@@ -45,60 +45,72 @@ void zrocks_free (void *ptr)
     xapp_media_dma_free (ptr);
 }
 
-int zrocks_write (void *buf, uint32_t size, uint8_t level, uint64_t *addr)
+static int __zrocks_write (struct xapp_io_ucmd *ucmd,
+			uint64_t id, void *buf, uint32_t size, uint8_t level)
 {
-    // TODO:
-    // add parameter for level in struct ucmd
-    // create ucmd
-    // populate ucmd
-    // set app_md to 1
-    // wait until completed == ncmd
-    // populate *addr
-    // return
-    return 0;
-}
+    /* For now, we only support level 0 */
+    ucmd->prov_type = 0/*level*/;
 
-int zrocks_read (uint64_t offset, void *buf, uint64_t size)
-{
-    // TODO:
-    // read directly from device
+    ucmd->id        = id;
+    ucmd->buf       = buf;
+    ucmd->size      = size;
+    ucmd->status    = 0;
+    ucmd->completed = 0;
+    ucmd->callback  = NULL;
+    ucmd->prov      = NULL;
+
+    if (ztl()->wca->submit_fn (ucmd))
+	return -1;
+
+    /* Wait for asynchronous command */
+    while (!ucmd->completed) {
+	usleep (1);
+    }
+
     return 0;
 }
 
 int zrocks_new (uint64_t id, void *buf, uint32_t size, uint8_t level)
 {
     struct xapp_io_ucmd ucmd;
+    int ret;
 
-    /* For now, we only support level 0 */
-    if (level)
-	return -1;
+    ucmd.app_md = 0;
+    ret = __zrocks_write (&ucmd, id, buf, size, level);
 
-    ucmd.id        = id;
-    ucmd.prov_type = level;
-    ucmd.buf       = buf;
-    ucmd.size      = size;
-    ucmd.app_md    = 0;
-    ucmd.status    = 0;
-    ucmd.completed = 0;
-    ucmd.callback  = NULL;
-    ucmd.prov      = NULL;
-
-    if (ztl()->wca->submit_fn (&ucmd))
-	return -1;
-
-    /* Wait for asynchronous command */
-    while (!ucmd.completed) {
-	usleep (1);
-    }
-
-    return ucmd.status;
+    return (!ret) ? ucmd.status : ret;
 }
 
-int zrocks_delete (uint64_t id)
+int zrocks_write (void *buf, uint32_t size, uint8_t level,
+				    struct zrocks_map **map, uint16_t *pieces)
 {
-    uint64_t old;
+    struct xapp_io_ucmd ucmd;
+    struct zrocks_map *list;
+    int ret, off_i;
 
-    return ztl()->map->upsert_fn (id, 0, &old, 0);
+    ucmd.app_md = 1;
+    ret = __zrocks_write (&ucmd, 0, buf, size, level);
+
+    if (ret)
+	return ret;
+
+    if (ucmd.status)
+	return ucmd.status;
+
+    list = zrocks_alloc (sizeof(struct zrocks_map) * ucmd.noffs);
+    if (!list)
+	return -1;
+
+    for (off_i = 0; off_i < ucmd.noffs; off_i++) {
+	list[off_i].g.offset = (uint64_t) ucmd.moffset[off_i];
+	list[off_i].g.nsec   = ucmd.msec[off_i];
+	list[off_i].g.multi  = 1;
+    }
+
+    *map = list;
+    *pieces = ucmd.noffs;
+
+    return 0;
 }
 
 int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
@@ -166,6 +178,22 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
     pthread_spin_unlock (&zrocks_mp_spin);
 
     return (!ret) ? cmd.status : ret;
+}
+
+
+
+int zrocks_read (uint64_t offset, void *buf, uint64_t size)
+{
+    // TODO:
+    // read directly from device
+    return 0;
+}
+
+int zrocks_delete (uint64_t id)
+{
+    uint64_t old;
+
+    return ztl()->map->upsert_fn (id, 0, &old, 0);
 }
 
 int zrocks_exit (void)

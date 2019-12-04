@@ -113,10 +113,21 @@ struct app_tiny_tbl {
 struct app_map_entry {
     union {
 	struct {
-	    uint64_t offset : 40;
+
+	    /* Media offset */
+	    /* 4KB  sector: Max capacity: 4PB
+             * 512b sector: Max capacity: 512TB */
+            uint64_t offset : 40;
+
+	    /* Number of sectors */
+            /* 4KB  sector: Max entry size: 32GB
+             * 512b sector: Max entry size: 4GB */
 	    uint64_t nsec   : 23;
-	    uint64_t multi  : 1;   /* Multi-piece mapping bit */
+
+	    /* Multi-piece mapping bit */
+	    uint64_t multi  : 1;
 	} g;
+
 	uint64_t addr;
     };
 } __attribute__((packed)); /* 8 bytes entry */

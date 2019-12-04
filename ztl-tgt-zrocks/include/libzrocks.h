@@ -27,6 +27,28 @@ extern "C" {
 
 #define ZNS_ALIGMENT 4096
 
+struct zrocks_map {
+    union {
+	struct {
+
+	    /* Media offset */
+	    /* 4KB  sector: Max capacity: 4PB
+             * 512b sector: Max capacity: 512TB */
+            uint64_t offset : 40;
+
+	    /* Number of sectors */
+            /* 4KB  sector: Max entry size: 32GB
+             * 512b sector: Max entry size: 4GB */
+	    uint64_t nsec   : 23;
+
+	    /* Multi-piece mapping bit */
+	    uint64_t multi  : 1;
+	} g;
+
+	uint64_t addr;
+    };
+};
+
 /**
  * Initialize zrocks library
  */
@@ -62,10 +84,15 @@ int zrocks_delete (uint64_t id);
 int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size);
 
 /**
- * Write to ZNS device and return the physical offset list
- * This function is used if the application is responsible for recovery
+ * Write to ZNS device and return the mapping multi-piece list
+ * This function is used if the application is responsible for recovery.
+ *
+ * NOTE: If the return value is zero, the user is responsible for
+ * calling 'zrocks_free' and free 'map' by passing its value as
+ * parameter.
  */
-int zrocks_write (void *buf, uint32_t size, uint8_t level, uint64_t *addr);
+int zrocks_write (void *buf, uint32_t size, uint8_t level,
+				struct zrocks_map **map, uint16_t *pieces);
 
 /**
  * Read from ZNS device from a physical offset

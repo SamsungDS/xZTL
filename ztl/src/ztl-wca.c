@@ -34,6 +34,9 @@ static struct xapp_mthread_ctx      *tctx;
 static pthread_t		     wca_thread;
 static uint8_t 			     wca_running;
 
+/* This function checks if the media offsets are sequential.
+ * If not, we return a negative value. For now we do not support
+ * multi-piece mapping in ZTL-managed mapping */
 static int ztl_wca_check_offset_seq (struct xapp_io_ucmd *ucmd)
 {
     uint32_t off_i;
@@ -48,6 +51,38 @@ static int ztl_wca_check_offset_seq (struct xapp_io_ucmd *ucmd)
     }
 
     return 0;
+}
+
+/* This function prepares a multi-piece mapping to return to the user.
+ * Each entry contains the offset and size, and the full list represents
+ * the entire buffer. */
+static void ztl_wca_reorg_ucmd_off (struct xapp_io_ucmd *ucmd)
+{
+    uint32_t off_i, curr, first_off, size;
+
+    curr      = 0;
+    first_off = 0;
+    size      = 0;
+
+    for (off_i = 1; off_i < ucmd->nmcmd; off_i++) {
+
+	size += ucmd->msec[off_i - 1];
+
+	if ( (off_i == ucmd->nmcmd - 1) ||
+	     (ucmd->moffset[off_i] !=
+	      ucmd->moffset[off_i - 1] + ucmd->msec[off_i - 1]) ) {
+
+	    ucmd->moffset[curr] = ucmd->moffset[first_off];
+	    ucmd->msec[curr]    = size;
+
+	    first_off = off_i;
+	    size = 0;
+	    curr++;
+
+	}
+    }
+
+    ucmd->noffs = curr;
 }
 
 static void ztl_wca_callback_mcmd (void *arg)
@@ -81,24 +116,32 @@ static void ztl_wca_callback_mcmd (void *arg)
 
     if (ucmd->ncb == ucmd->nmcmd) {
 
-	/* If mapping is managed by the ZTL, we need to support multi-piece
-	 * mapping objects. For now, we fail the I/O */
-	if (!ucmd->app_md && ztl_wca_check_offset_seq (ucmd))
-	    ucmd->status = XAPP_ZTL_APPEND_ERR;
+	ucmd->noffs = 0;
 
-	/* Update mapping */
-	if (!ucmd->status) {
-	    map.addr   = 0;
-	    map.g.offset = ucmd->moffset[0];
-	    map.g.nsec   = ucmd->msec[0];
-	    map.g.multi  = 0;
-	    ret = ztl()->map->upsert_fn (ucmd->id, map.addr, &old, 0);
-	    if (ret)
-		ucmd->status = XAPP_ZTL_MAP_ERR;
+	/* Update mapping if managed by the ZTL */
+	if (!ucmd->status && !ucmd->app_md) {
+
+	    /* Check if media offsets are sequential within the zone
+	     * For ZTL-managed mapping, we do not support multi-piece entries */
+	    if (!ztl_wca_check_offset_seq (ucmd)) {
+		map.addr     = 0;
+		map.g.offset = ucmd->moffset[0];
+		map.g.nsec   = ucmd->msec[0];
+		map.g.multi  = 0;
+		ret = ztl()->map->upsert_fn (ucmd->id, map.addr, &old, 0);
+		if (ret)
+		    ucmd->status = XAPP_ZTL_MAP_ERR;
+	    } else {
+		ucmd->status = XAPP_ZTL_APPEND_ERR;
+	    }
 	}
 
-	ztl()->pro->free_fn (ucmd->prov);
+	/* If command is successfull, reorganize media offsets for multi-piece
+	 * mapping use by the user application */
+	if (!ucmd->status)
+	    ztl_wca_reorg_ucmd_off (ucmd);
 
+	ztl()->pro->free_fn (ucmd->prov);
 
 	if (ucmd->callback) {
 	    ucmd->completed = 1;
@@ -132,21 +175,27 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
     uint64_t boff;
     int ret;
 
+    ZDEBUG (ZDEBUG_WCA, "ztl-wca: Processing user write. ID %lu", ucmd->id);
+
     nsec = ucmd->size / core.media->geo.nbytes;
 
     /* We do not support non-aligned buffers */
     if (ucmd->size % core.media->geo.nbytes != 0)
 	goto FAILURE;
 
-    ZDEBUG (ZDEBUG_WCA, "ztl-wca: Processing user write. ID %lu", ucmd->id);
+    ncmd = nsec / ZTL_WCA_SEC_MCMD;
+    if (nsec % ZTL_WCA_SEC_MCMD != 0)
+	ncmd++;
+
+    if (ncmd > XAPP_IO_MAX_MCMD) {
+	log_erra ("ztl-wca: User command exceed XAPP_IO_MAX_MCMD. "
+		"%d of %d", ncmd, XAPP_IO_MAX_MCMD);
+	goto FAILURE;
+    }
 
     prov = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
     if (!prov)
 	goto FAILURE;
-
-    ncmd = nsec / ZTL_WCA_SEC_MCMD;
-    if (nsec % ZTL_WCA_SEC_MCMD != 0)
-	ncmd++;
 
     ucmd->prov  = prov;
     ucmd->nmcmd = ncmd;

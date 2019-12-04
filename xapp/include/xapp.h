@@ -89,7 +89,7 @@ struct xapp_maddr {
 
 #include <xapp-media.h>
 
-#define XAPP_IO_MAX_MCMD     256 /* 64 MB for 4KB sectors */
+#define XAPP_IO_MAX_MCMD     512 /* 128 MB for 4KB sectors */
 
 struct xapp_io_ucmd {
     uint64_t 	   id;
@@ -105,6 +105,7 @@ struct xapp_io_ucmd {
     struct xapp_io_mcmd *mcmd[XAPP_IO_MAX_MCMD];
 
     uint16_t 	   nmcmd;
+    uint16_t       noffs;
     uint64_t 	   moffset[XAPP_IO_MAX_MCMD];
     uint32_t 	   msec[XAPP_IO_MAX_MCMD];
     uint16_t 	   ncb;
