@@ -137,24 +137,28 @@ static int app_global_init (void)
 {
     int ret;
 
-    if (ztl()->pro->init_fn ()) {
-        log_err ("[ztl: Provisioning NOT started.\n");
+    ret = ztl()->pro->init_fn ();
+    if (ret) {
+        log_erra ("[ztl: Provisioning NOT started. ret: 0x%x\n", ret);
 	return XAPP_ZTL_PROV_ERR;
     }
 
-    if (app_mpe_init()) {
+    ret = app_mpe_init();
+    if (ret) {
         log_err ("[ztl: Persistent mapping NOT started.\n");
         ret = XAPP_ZTL_MPE_ERR;
 	goto PRO;
     }
 
-    if (ztl()->map->init_fn ()) {
-        log_err ("[ztl: Mapping NOT started.\n");
+    ret = ztl()->map->init_fn ();
+    if (ret) {
+	log_err ("[ztl: Mapping NOT started.\n");
         ret = XAPP_ZTL_MAP_ERR;
 	goto MPE;
     }
 
-    if (ztl()->wca->init_fn ()) {
+    ret = ztl()->wca->init_fn ();
+    if (ret) {
 	log_err ("[ztl: Write-cache NOT started.\n");
 	ret = XAPP_ZTL_WCA_ERR;
 	goto MAP;

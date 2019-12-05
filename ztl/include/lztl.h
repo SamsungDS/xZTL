@@ -22,7 +22,7 @@
 #include <xapp.h>
 #include <xapp-ztl.h>
 
-#define ZTL_PRO_TYPES    1   /* Number of provisioning types */
+#define ZTL_PRO_TYPES    64  /* Number of provisioning types */
 #define ZTL_PRO_MP_SZ    32  /* Mempool size per thread */
 
 /* Debug options */
@@ -82,6 +82,6 @@ int  ztl_pro_grp_init (struct app_group *grp);
 void ztl_pro_grp_exit (struct app_group *grp);
 int  ztl_pro_grp_put_zone (struct app_group *grp, uint32_t zone_i);
 int  ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
-					     uint32_t nsec, uint8_t ptype);
+					     uint32_t nsec, uint16_t ptype);
 void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
 					    uint32_t nsec, uint8_t type);

@@ -24,7 +24,7 @@
 #include <sys/queue.h>
 #include <libxnvme.h>
 
-#define XAPPMP_THREADS 		32
+#define XAPPMP_THREADS 		64
 #define XAPPMP_TYPES   		3
 #define XAPPMP_MAX_ENT 		1024
 #define XAPPMP_MAX_ENT_SZ	(1024 * 1024)  /* 1 MB */

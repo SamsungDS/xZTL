@@ -37,7 +37,7 @@ void ztl_pro_free (struct app_pro_addr *ctx)
     xapp_mempool_put (ctx->mp_entry, XAPP_ZTL_PRO_CTX, ctx->thread_id);
 }
 
-struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint8_t type)
+struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint16_t type)
 {
     struct xapp_mp_entry *mpe;
     struct app_pro_addr *ctx;
@@ -45,6 +45,11 @@ struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint8_t type)
     int ret;
 
     ZDEBUG (ZDEBUG_PRO, "ztl-pro      (new): nsec %d, type %d", nsec, type);
+
+    if (type >= ZTL_PRO_TYPES) {
+	log_erra ("ztl-pro: Provisioning type not supported: %d", type);
+	return NULL;
+    }
 
     mpe = xapp_mempool_get (XAPP_ZTL_PRO_CTX, type);
     if (!mpe) {

@@ -93,6 +93,8 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     TAILQ_INSERT_TAIL (&pro->open_head[ptype], zone, open_entry);
     xapp_atomic_int32_update (&pro->nopen[ptype], pro->nopen[ptype] + 1);
 
+    zmde->level = ptype;
+
     return zone;
 
 ERR:
@@ -133,7 +135,7 @@ struct ztl_pro_zone *ztl_pro_grp_get_best_zone (struct app_group *grp,
 }
 
 int ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
-					    uint32_t nsec, uint8_t ptype)
+					    uint32_t nsec, uint16_t ptype)
 {
     struct ztl_pro_zone *zone;
 
@@ -143,8 +145,7 @@ int ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
 
     zone = ztl_pro_grp_get_best_zone (grp, nsec, ptype);
     if (!zone) {
-	/* Adapt the code when more provisioning types are added */
-	ptype = ZTL_PRO_TUSER;
+
 	zone = ztl_pro_grp_zone_open (grp, ptype);
 	if (!zone)
 	    return -1;
@@ -307,8 +308,7 @@ int ztl_pro_grp_init (struct app_group *grp)
 
     for (zone_i = 0; zone_i < grp->zmd.entries; zone_i++) {
 
-	/* This macro only works with full report
-	 * Change this when xnvme gets fixed */
+	/* We are getting the full report here */
 	zinfo = ZND_REPORT_DESCR (rep,
 		    grp->id * core.media->geo.zn_grp + zone_i);
 
@@ -360,9 +360,9 @@ int ztl_pro_grp_init (struct app_group *grp)
 
 		TAILQ_INSERT_TAIL (&pro->used_head, zone, entry);
 
-		/* We only have 1 provisioning type for now
-		 * When more are added, it needs to be loaded from ZMD
-		 * by checking zmd->flags */
+		 /* ZMD is not durable yet, so if a zone is already opened or
+		  * full at startup, we assume it belongs to a single user
+		  * provisioning defined by ZTL_PRO_TUSER */
 		ptype = ZTL_PRO_TUSER;
 		TAILQ_INSERT_TAIL (&pro->open_head[ptype], zone, open_entry);
 

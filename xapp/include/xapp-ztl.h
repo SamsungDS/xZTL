@@ -92,6 +92,7 @@ struct app_magic {
 
 struct app_zmd_entry {
     uint16_t             flags;
+    uint16_t		 level; /* Used to define user level metadata to the zone */
     struct xapp_maddr    addr;
     uint64_t             wptr;
     uint32_t             invalid_sec;
@@ -206,7 +207,7 @@ typedef int     (app_pro_finish_zone) (struct app_group *grp,
                                        uint32_t zid, uint8_t type);
 typedef int     (app_pro_put_zone)    (struct app_group *grp, uint32_t zid);
 typedef struct app_pro_addr *
-	        (app_pro_new)  (uint32_t naddr, uint8_t type);
+	        (app_pro_new)  (uint32_t naddr, uint16_t type);
 typedef void    (app_pro_free) (struct app_pro_addr *ctx);
 
 typedef int  (app_mpe_create) (void);

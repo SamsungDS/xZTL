@@ -46,10 +46,9 @@ void zrocks_free (void *ptr)
 }
 
 static int __zrocks_write (struct xapp_io_ucmd *ucmd,
-			uint64_t id, void *buf, uint32_t size, uint8_t level)
+			uint64_t id, void *buf, uint32_t size, uint16_t level)
 {
-    /* For now, we only support level 0 */
-    ucmd->prov_type = 0/*level*/;
+    ucmd->prov_type = level;
 
     ucmd->id        = id;
     ucmd->buf       = buf;
@@ -70,7 +69,7 @@ static int __zrocks_write (struct xapp_io_ucmd *ucmd,
     return 0;
 }
 
-int zrocks_new (uint64_t id, void *buf, uint32_t size, uint8_t level)
+int zrocks_new (uint64_t id, void *buf, uint32_t size, uint16_t level)
 {
     struct xapp_io_ucmd ucmd;
     int ret;
@@ -81,7 +80,7 @@ int zrocks_new (uint64_t id, void *buf, uint32_t size, uint8_t level)
     return (!ret) ? ucmd.status : ret;
 }
 
-int zrocks_write (void *buf, uint32_t size, uint8_t level,
+int zrocks_write (void *buf, uint32_t size, uint16_t level,
 				    struct zrocks_map **map, uint16_t *pieces)
 {
     struct xapp_io_ucmd ucmd;

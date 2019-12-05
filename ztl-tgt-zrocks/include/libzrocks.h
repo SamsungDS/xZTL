@@ -72,7 +72,7 @@ void zrocks_free (void *ptr);
 /**
  * Create a new variable-sized object belonging to a certain level
  */
-int zrocks_new (uint64_t id, void *buf, uint32_t size, uint8_t level);
+int zrocks_new (uint64_t id, void *buf, uint32_t size, uint16_t level);
 
 /**
  * Delete an object
@@ -91,7 +91,7 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size);
  * calling 'zrocks_free' and free 'map' by passing its value as
  * parameter.
  */
-int zrocks_write (void *buf, uint32_t size, uint8_t level,
+int zrocks_write (void *buf, uint32_t size, uint16_t level,
 				struct zrocks_map **map, uint16_t *pieces);
 
 /**

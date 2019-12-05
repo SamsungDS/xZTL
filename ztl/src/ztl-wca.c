@@ -193,7 +193,9 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	goto FAILURE;
     }
 
-    prov = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
+    /* Note: Provisioning types are user level metadata, if other
+     * types of provisioning are added we need to support it here */
+    prov = ztl()->pro->new_fn (nsec, ucmd->prov_type);
     if (!prov)
 	goto FAILURE;
 

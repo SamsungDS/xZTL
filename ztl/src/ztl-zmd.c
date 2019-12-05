@@ -44,6 +44,7 @@ static int ztl_zmd_create (struct app_group *grp)
 	zn->addr.g.sect = (g->sec_grp * grp->id) + (g->sec_zn * zn_i);
 
 	zn->flags |= XAPP_ZMD_AVLB;
+	zn->level = 0;
     }
 
     return 0;
