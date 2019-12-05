@@ -65,7 +65,7 @@ static void test_ztl_pro_new_free (void)
     struct app_zmd_entry *zmde;
     uint32_t nsec = 128;
 
-    proe[0] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
+    proe[0] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER, 0);
     cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[0]);
     if (!proe[0])
 	return;
@@ -78,14 +78,14 @@ static void test_ztl_pro_new_free (void)
     proe[0] = NULL;
 
     for (int i = 0; i < 2; i++) {
-	proe[i] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
+	proe[i] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER, 0);
 	cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[i]);
     }
 
     ztl()->pro->free_fn (proe[1]);
     proe[1] = NULL;
 
-    proe[1] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
+    proe[1] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER, 0);
     cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[1]);
 
     ztl()->pro->free_fn (proe[0]);
@@ -93,7 +93,7 @@ static void test_ztl_pro_new_free (void)
     proe[0] = NULL;
     proe[1] = NULL;
 
-    proe[0] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER);
+    proe[0] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER, 0);
     cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[0]);
 
     ztl()->pro->free_fn (proe[0]);

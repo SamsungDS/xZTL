@@ -26,8 +26,9 @@
 #define APP_MOD_COUNT     9
 #define APP_FN_SLOTS      32
 
-#define APP_MAX_GRPS	  32
-#define APP_PRO_MAX_OFFS  8  /* Maximum of offsets returned by new/get */
+#define APP_MAX_GRPS	  	32
+#define APP_PRO_MAX_OFFS  	8  /* Maximum of offsets returned by new/get */
+#define APP_PRO_MIN_PIECE_SZ	1  /* Minimum number of bytes provisioned in a single piece in a zone */
 
 #define ZTL_MPE_PG_SEC	 8   /* 32K/4K page for 4K/512b sec sz */
 #define ZTL_MPE_CPGS	 256 /* Small mapping always follows this granularity */
@@ -178,7 +179,7 @@ struct app_pro_addr {
     uint32_t 		 nsec[APP_PRO_MAX_OFFS];
     uint16_t             naddr;
     uint16_t 		 thread_id;
-    uint8_t 		 ptype;
+    uint16_t 		 ptype;
 
     struct xapp_mp_entry *mp_entry;
 };
@@ -207,7 +208,7 @@ typedef int     (app_pro_finish_zone) (struct app_group *grp,
                                        uint32_t zid, uint8_t type);
 typedef int     (app_pro_put_zone)    (struct app_group *grp, uint32_t zid);
 typedef struct app_pro_addr *
-	        (app_pro_new)  (uint32_t naddr, uint16_t type);
+	        (app_pro_new)  (uint32_t naddr, uint16_t type, uint8_t multi);
 typedef void    (app_pro_free) (struct app_pro_addr *ctx);
 
 typedef int  (app_mpe_create) (void);

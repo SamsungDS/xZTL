@@ -26,7 +26,7 @@
 
 #define XAPPMP_THREADS 		64
 #define XAPPMP_TYPES   		3
-#define XAPPMP_MAX_ENT 		1024
+#define XAPPMP_MAX_ENT 		(65536 + 2)
 #define XAPPMP_MAX_ENT_SZ	(1024 * 1024)  /* 1 MB */
 
 typedef void *(xapp_mp_alloc)(size_t size);
@@ -57,7 +57,7 @@ struct xapp_mp_pool_i {
     uint8_t 		active;
     volatile uint16_t 	in_count;
     uint16_t 		out_count;
-    uint16_t 		entries;
+    uint32_t 		entries;
     pthread_spinlock_t	spin;
     xapp_mp_alloc      *alloc_fn;
     xapp_mp_free       *free_fn;
@@ -77,7 +77,7 @@ int xapp_mempool_init (void);
 int xapp_mempool_exit (void);
 
 /* Create and destroy memory pools */
-int xapp_mempool_create (uint32_t type, uint16_t tid, uint16_t entries,
+int xapp_mempool_create (uint32_t type, uint16_t tid, uint32_t entries,
 		    uint32_t ent_sz, xapp_mp_alloc *alloc, xapp_mp_free *free);
 int xapp_mempool_destroy (uint32_t type, uint16_t tid);
 

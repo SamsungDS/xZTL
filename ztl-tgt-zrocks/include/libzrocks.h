@@ -27,6 +27,10 @@ extern "C" {
 
 #define ZNS_ALIGMENT 4096
 
+/* 4KB aligment : 16 GB user buffers
+ * 512b aligment: 2 GB user buffers */
+#define ZNS_MAX_BUF  (ZNS_ALIGMENT * 65536)
+
 struct zrocks_map {
     union {
 	struct {

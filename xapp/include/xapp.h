@@ -89,7 +89,8 @@ struct xapp_maddr {
 
 #include <xapp-media.h>
 
-#define XAPP_IO_MAX_MCMD     512 /* 128 MB for 4KB sectors */
+#define XAPP_IO_MAX_MCMD     65536 /* 4KB sectors : 16 GB user buffers */
+				   /* 512b sectors: 2 GB user buffers */
 
 struct xapp_io_ucmd {
     uint64_t 	   id;
@@ -109,7 +110,7 @@ struct xapp_io_ucmd {
     uint64_t 	   moffset[XAPP_IO_MAX_MCMD];
     uint32_t 	   msec[XAPP_IO_MAX_MCMD];
     uint16_t 	   ncb;
-    uint8_t 	   completed;
+    uint16_t 	   completed;
 
     STAILQ_ENTRY (xapp_io_ucmd)	entry;
 };

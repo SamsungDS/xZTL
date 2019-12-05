@@ -23,7 +23,7 @@
 #include <lztl.h>
 #include <unistd.h>
 
-#define ZTL_MCMD_ENTS	 512
+#define ZTL_MCMD_ENTS	 XAPP_IO_MAX_MCMD
 #define ZTL_WCA_SEC_MCMD 64
 
 extern struct xapp_core core;
@@ -166,12 +166,26 @@ static int ztl_wca_submit (struct xapp_io_ucmd *ucmd)
     return 0;
 }
 
+static uint32_t ztl_wca_ncmd_prov_based (struct app_pro_addr *prov)
+{
+    uint32_t zn_i, ncmd;
+
+    ncmd = 0;
+    for (zn_i = 0; zn_i < prov->naddr; zn_i++) {
+	ncmd += prov->nsec[zn_i] / ZTL_WCA_SEC_MCMD;
+	if (prov->nsec[zn_i] % ZTL_WCA_SEC_MCMD != 0)
+	    ncmd++;
+    }
+
+    return ncmd;
+}
+
 static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 {
     struct app_pro_addr *prov;
     struct xapp_mp_entry *mp_cmd;
     struct xapp_io_mcmd *mcmd;
-    uint32_t nsec, ncmd, cmd_i;
+    uint32_t nsec, nsec_zn, ncmd, ncmd_zn, cmd_i, zn_i, zncmd_i;
     uint64_t boff;
     int ret;
 
@@ -183,6 +197,7 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
     if (ucmd->size % core.media->geo.nbytes != 0)
 	goto FAILURE;
 
+    /* First we check the number of commands based on ZTL_WCA_SEC_MCMD */
     ncmd = nsec / ZTL_WCA_SEC_MCMD;
     if (nsec % ZTL_WCA_SEC_MCMD != 0)
 	ncmd++;
@@ -195,9 +210,17 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
     /* Note: Provisioning types are user level metadata, if other
      * types of provisioning are added we need to support it here */
-    prov = ztl()->pro->new_fn (nsec, ucmd->prov_type);
+    prov = ztl()->pro->new_fn (nsec, ucmd->prov_type, ucmd->app_md);
     if (!prov)
 	goto FAILURE;
+
+    /* We check the number of commands again based on the provisioning */
+    ncmd = ztl_wca_ncmd_prov_based (prov);
+    if (ncmd > XAPP_IO_MAX_MCMD) {
+	log_erra ("ztl-wca: User command exceed XAPP_IO_MAX_MCMD. "
+		"%d of %d", ncmd, XAPP_IO_MAX_MCMD);
+	goto FAIL_NCMD;
+    }
 
     ucmd->prov  = prov;
     ucmd->nmcmd = ncmd;
@@ -206,43 +229,55 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
     boff = (uint64_t) ucmd->buf;
 
-    ZDEBUG (ZDEBUG_WCA, "  NCMD: %d", ncmd);
+    ZDEBUG (ZDEBUG_WCA, "ztl-wca: NMCMD: %d", ncmd);
 
     /* Populate media commands */
-    for (cmd_i = 0; cmd_i < ncmd; cmd_i++) {
-	mp_cmd = xapp_mempool_get (XAPP_MEMPOOL_MCMD, ZTL_PRO_TUSER);
-	if (!mp_cmd)
-	    goto FAIL_MP;
+    cmd_i = 0;
+    for (zn_i = 0; zn_i < prov->naddr; zn_i++) {
+	ncmd_zn = prov->nsec[zn_i] / ZTL_WCA_SEC_MCMD;
+	if (prov->nsec[zn_i] % ZTL_WCA_SEC_MCMD != 0)
+	    ncmd_zn++;
 
-	mcmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
+	nsec_zn = prov->nsec[zn_i];
+	for (zncmd_i = 0; zncmd_i < ncmd_zn; zncmd_i++) {
 
-	memset (mcmd, 0x0, sizeof (struct xapp_io_mcmd));
-	mcmd->mp_cmd    = mp_cmd;
-	mcmd->opcode    = XAPP_ZONE_APPEND;
-        mcmd->synch     = 0;
-	mcmd->sequence  = cmd_i;
-	mcmd->naddr     = 1;
-	mcmd->status    = 0;
-	mcmd->nsec[0]   = (nsec >= ZTL_WCA_SEC_MCMD) ?
-				   ZTL_WCA_SEC_MCMD : nsec;
-	nsec -= mcmd->nsec[0];
-	ucmd->msec[cmd_i] = mcmd->nsec[0];
+	    /* We are using a memory pool for user commands, if other types
+	     * such as GC in introduceds, we need to choose the provisioning
+	     * type here */
+	    mp_cmd = xapp_mempool_get (XAPP_MEMPOOL_MCMD, ZTL_PRO_TUSER);
+	    if (!mp_cmd)
+		goto FAIL_MP;
 
-	/* For now, prov returns a single zone per buffer */
-	mcmd->addr[0].g.grp  = prov->addr[0].g.grp;
-	mcmd->addr[0].g.zone = prov->addr[0].g.zone;
+	    mcmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
 
-	mcmd->prp[0] = boff;
-	boff += core.media->geo.nbytes * mcmd->nsec[0];
+	    memset (mcmd, 0x0, sizeof (struct xapp_io_mcmd));
+	    mcmd->mp_cmd    = mp_cmd;
+	    mcmd->opcode    = XAPP_ZONE_APPEND;
+	    mcmd->synch     = 0;
+	    mcmd->sequence  = cmd_i;
+	    mcmd->naddr     = 1;
+	    mcmd->status    = 0;
+	    mcmd->nsec[0]   = (nsec_zn >= ZTL_WCA_SEC_MCMD) ?
+					  ZTL_WCA_SEC_MCMD : nsec_zn;
+	    nsec_zn -= mcmd->nsec[0];
+	    ucmd->msec[cmd_i] = mcmd->nsec[0];
 
-	mcmd->callback  = ztl_wca_callback_mcmd;
-	mcmd->opaque    = ucmd;
-	mcmd->async_ctx = tctx;
+	    mcmd->addr[0].g.grp  = prov->addr[zn_i].g.grp;
+	    mcmd->addr[0].g.zone = prov->addr[zn_i].g.zone;
 
-	ucmd->mcmd[cmd_i] = mcmd;
+	    mcmd->prp[0] = boff;
+	    boff += core.media->geo.nbytes * mcmd->nsec[0];
+
+	    mcmd->callback  = ztl_wca_callback_mcmd;
+	    mcmd->opaque    = ucmd;
+	    mcmd->async_ctx = tctx;
+
+	    ucmd->mcmd[cmd_i] = mcmd;
+	    cmd_i++;
+	}
     }
 
-    ZDEBUG (ZDEBUG_WCA, "  Populated: %d", cmd_i);
+    ZDEBUG (ZDEBUG_WCA, "ztl-wca: Populated: %d", cmd_i);
 
     /* Submit media commands */
     for (cmd_i = 0; cmd_i < ncmd; cmd_i++) {
@@ -284,6 +319,10 @@ FAIL_MP:
 	ucmd->mcmd[cmd_i]->mp_cmd = NULL;
 	ucmd->mcmd[cmd_i] = NULL;
     }
+
+FAIL_NCMD:
+    for (zn_i = 0; zn_i < prov->naddr; zn_i++)
+	prov->nsec[zn_i] = 0;
     ztl()->pro->free_fn (prov);
 
 FAILURE:

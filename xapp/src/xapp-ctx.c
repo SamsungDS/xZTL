@@ -22,6 +22,8 @@
 #include <xapp-media.h>
 #include <xapp-mempool.h>
 
+#define XAPP_CTX_NVME_DEPTH  256
+
 struct xapp_mthread_ctx *xapp_ctx_media_init (uint16_t tid,
 						     uint32_t depth)
 {
@@ -51,7 +53,7 @@ struct xapp_mthread_ctx *xapp_ctx_media_init (uint16_t tid,
 
     /* Create asynchronous context via xnvme */
     cmd.opcode = XAPP_MISC_ASYNCH_INIT;
-    cmd.asynch.depth   	    = depth;
+    cmd.asynch.depth   	    = XAPP_CTX_NVME_DEPTH;
     cmd.asynch.ctx_ptr      = tctx;
 
     ret = xapp_media_submit_misc (&cmd);

@@ -30,14 +30,19 @@ static uint16_t cur_grp[ZTL_PRO_TYPES];
 
 void ztl_pro_free (struct app_pro_addr *ctx)
 {
-    /* TODO:  We free a single entry, fix it when multiple offsets are added */
-    ztl_pro_grp_free (ctx->grp, ctx->addr[0].g.zone, ctx->nsec[0], ctx->ptype);
+    uint32_t zn_i;
+
+    for (zn_i = 0; zn_i < ctx->naddr; zn_i++)
+	ztl_pro_grp_free (ctx->grp, ctx->addr[zn_i].g.zone,
+					    ctx->nsec[zn_i], ctx->ptype);
+
+    /* We assume a single group for now */
     app_grp_ctx_sub (ctx->grp);
 
     xapp_mempool_put (ctx->mp_entry, XAPP_ZTL_PRO_CTX, ctx->thread_id);
 }
 
-struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint16_t type)
+struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint16_t type, uint8_t multi)
 {
     struct xapp_mp_entry *mpe;
     struct app_pro_addr *ctx;
@@ -59,8 +64,10 @@ struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint16_t type)
 
     ctx = (struct app_pro_addr *) mpe->opaque;
 
+    /* For now, we consider a single group */
     grp = glist[cur_grp[type]];
-    ret = ztl_pro_grp_get (grp, ctx, nsec, type);
+
+    ret = ztl_pro_grp_get (grp, ctx, nsec, type, multi);
     if (ret) {
 	xapp_mempool_put (mpe, XAPP_ZTL_PRO_CTX, type);
 	return NULL;
@@ -73,7 +80,8 @@ struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint16_t type)
 
     app_grp_ctx_add (grp);
 
-    /* TODO: Do not set groups disabled by built-in functions */
+    /* We do not check for disabled groups (disabled by built-in functions).
+     * For now, it is ok because we don't have garbage collection */
     cur_grp[type] = (cur_grp[type] == app_ngrps - 1) ? 0 : cur_grp[type] + 1;
 
     return ctx;

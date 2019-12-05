@@ -73,7 +73,7 @@ int xapp_mempool_destroy (uint32_t type, uint16_t tid)
     return XAPP_OK;
 }
 
-int xapp_mempool_create (uint32_t type, uint16_t tid, uint16_t entries,
+int xapp_mempool_create (uint32_t type, uint16_t tid, uint32_t entries,
 		uint32_t ent_sz, xapp_mp_alloc *alloc, xapp_mp_free *free)
 {
     struct xapp_mp_pool_i *pool;

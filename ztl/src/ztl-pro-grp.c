@@ -113,65 +113,90 @@ ERR:
 }
 
 struct ztl_pro_zone *ztl_pro_grp_get_best_zone (struct app_group *grp,
-					    uint32_t nsec, uint8_t ptype)
+				uint32_t nsec, uint16_t ptype, uint8_t multi)
 {
     struct ztl_pro_zone *zone;
     struct ztl_pro_grp  *pro;
     uint64_t off;
+    uint32_t min_piece;
 
-    pro  = (struct ztl_pro_grp *) grp->pro;
-
-    /* TODO: For now we select a single zone
-     * 	     If nsec is larger than a zone, we must return several zones */
+    pro = (struct ztl_pro_grp *) grp->pro;
+    min_piece = (multi) ? APP_PRO_MIN_PIECE_SZ : nsec;
 
     /* Scan open zones: Pick the first available on the list */
     TAILQ_FOREACH (zone, &pro->open_head[ptype], open_entry) {
-	off = (zone->zmd_entry->addr.g.sect + zone->capacity) - nsec;
+	off = (zone->zmd_entry->addr.g.sect + zone->capacity) - min_piece;
 	if ( (zone->zmd_entry->wptr <= off) && !zone->lock)
 	    return zone;
+
+	/* TODO: Finish zone if space left is less than APP_PRO_MIN_PIECE_SZ */
     }
 
     return NULL;
 }
 
 int ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
-					    uint32_t nsec, uint16_t ptype)
+				uint32_t nsec, uint16_t ptype, uint8_t multi)
 {
     struct ztl_pro_zone *zone;
+    uint64_t sec_left, sec_avlb, zn_i;
 
-    /* Remove this check when multiple zones are supported */
-    if (nsec > core.media->geo.sec_zn)
-	return -1;
+    sec_left = nsec;
+    zn_i = 0;
+    ctx->naddr = 0;
 
-    zone = ztl_pro_grp_get_best_zone (grp, nsec, ptype);
-    if (!zone) {
+    while (sec_left) {
+	zone = ztl_pro_grp_get_best_zone (grp, nsec, ptype, multi);
+	if (!zone) {
+	    zone = ztl_pro_grp_zone_open (grp, ptype);
+	    if (!zone)
+		return -1;
+	}
+	zone->lock = 1;
 
-	zone = ztl_pro_grp_zone_open (grp, ptype);
-	if (!zone)
-	    return -1;
+	ctx->naddr++;
+	ctx->addr[zn_i].addr = zone->addr.addr;
+
+	sec_avlb = zone->zmd_entry->addr.g.sect + zone->capacity -
+						    zone->zmd_entry->wptr;
+
+	ctx->nsec[zn_i] = (sec_avlb > sec_left) ? sec_left : sec_avlb;
+
+	sec_left -= ctx->nsec[zn_i];
+
+	ZDEBUG (ZDEBUG_PRO, "ztl-pro-grp  (get): (%d/%d/0x%lx/0x%lx) type %d. sp: %d, sl: %lu",
+			zone->addr.g.grp,
+			zone->addr.g.zone,
+	     (uint64_t) zone->addr.g.sect,
+			zone->zmd_entry->wptr,
+			ptype,
+			ctx->nsec[zn_i],
+			sec_left);
+
+	zn_i++;
+	if (sec_left && (zn_i >= APP_PRO_MAX_OFFS))
+	    goto NO_LEFT;
     }
-    zone->lock = 1;
-
-    /* For now we return a single zone */
-    ctx->naddr        = 1;
-    ctx->addr[0].addr = zone->addr.addr;
-    ctx->nsec[0]      = nsec;
-
-    ZDEBUG (ZDEBUG_PRO, "ztl-pro-grp  (get): (%d/%d/0x%lx/0x%lx) type %d",
-		    zone->addr.g.grp,
-		    zone->addr.g.zone,
-         (uint64_t) zone->addr.g.sect,
-		    zone->zmd_entry->wptr,
-		    ptype);
 
     if (ZDEBUG_PRO_GRP)
 	ztl_pro_grp_print_status (grp);
 
     return 0;
+
+NO_LEFT:
+    while (zn_i) {
+	zn_i--;
+	ztl_pro_grp_free (grp, ctx->addr[zn_i].g.zone, 0, ptype);
+	ctx->naddr--;
+	ctx->addr[zn_i].addr = 0;
+	ctx->nsec[zn_i] = 0;
+    }
+
+    return -1;
 }
 
 void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
-					    uint32_t nsec, uint8_t type)
+					    uint32_t nsec, uint16_t type)
 {
     struct ztl_pro_zone *zone;
 
