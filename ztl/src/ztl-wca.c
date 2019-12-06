@@ -72,13 +72,15 @@ static void ztl_wca_reorg_ucmd_off (struct xapp_io_ucmd *ucmd)
 	     (ucmd->moffset[off_i] !=
 	      ucmd->moffset[off_i - 1] + ucmd->msec[off_i - 1]) ) {
 
+	    if (off_i == ucmd->nmcmd - 1)
+		size += ucmd->msec[off_i];
+
 	    ucmd->moffset[curr] = ucmd->moffset[first_off];
 	    ucmd->msec[curr]    = size;
 
 	    first_off = off_i;
 	    size = 0;
 	    curr++;
-
 	}
     }
 

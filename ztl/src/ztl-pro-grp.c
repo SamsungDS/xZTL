@@ -199,12 +199,19 @@ void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
 					    uint32_t nsec, uint16_t type)
 {
     struct ztl_pro_zone *zone;
+    struct ztl_pro_grp  *pro;
 
+    pro = (struct ztl_pro_grp *) grp->pro;
     zone = &((struct ztl_pro_grp *) grp->pro)->vzones[zone_i];
 
     /* Move the write pointer */
     /* A single thread touches the write pointer, no lock needed */
     zone->zmd_entry->wptr += nsec;
+
+    if (zone->zmd_entry->wptr == zone->addr.g.sect + zone->capacity) {
+	TAILQ_REMOVE (&pro->open_head[type], zone, open_entry);
+	xapp_atomic_int32_update (&pro->nopen[type], pro->nopen[type] - 1);
+    }
 
     zone->lock = 0;
 

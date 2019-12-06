@@ -84,7 +84,12 @@ int zrocks_new (uint64_t id, void *buf, uint32_t size, uint16_t level);
 int zrocks_delete (uint64_t id);
 
 /**
- * Read an offset within an object */
+ * Read an offset within an object
+ *
+ * @id - Unique integer identifier of the object
+ * @offset - Offset in bytes within the object
+ * @buf - Pointer to a buffer where data must be copied into
+ * @size - Size in bytes starting from offset */
 int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size);
 
 /**
@@ -100,7 +105,11 @@ int zrocks_write (void *buf, uint32_t size, uint16_t level,
 
 /**
  * Read from ZNS device from a physical offset
- * This fuinction is used if the application is responsible for recovery
+ * This function is used if the application is responsible for recovery
+ *
+ * @offset - Offset in bytes within the ZNS device
+ * @buf - Pointer to a buffer where data must be copied into
+ * @size - Size in bytes starting from offset
  */
 int zrocks_read (uint64_t offset, void *buf, uint64_t size);
 
