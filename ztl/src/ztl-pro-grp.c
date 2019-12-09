@@ -38,7 +38,8 @@ static void ztl_pro_grp_print_status (struct app_group *grp)
     printf ("\nztl-pro group %d: free %d, used %d\n", grp->id, pro->nfree, pro->nused);
 
     for (type_i = 0; type_i < ZTL_PRO_TYPES; type_i++) {
-	printf (" OPEN: %d (T%d)\n", pro->nopen[type_i], type_i);
+	if (pro->nopen[type_i])
+	    printf (" OPEN: %d (T%d)\n", pro->nopen[type_i], type_i);
 	TAILQ_FOREACH (zone, &pro->open_head[type_i], open_entry) {
 	    printf ("  Zone: (%d/%d/0x%lx/0x%lx). Lock: %d\n",
 					zone->addr.g.grp,
@@ -164,7 +165,8 @@ int ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
 
 	sec_left -= ctx->nsec[zn_i];
 
-	ZDEBUG (ZDEBUG_PRO, "ztl-pro-grp  (get): (%d/%d/0x%lx/0x%lx) type %d. sp: %d, sl: %lu",
+	ZDEBUG (ZDEBUG_PRO, "ztl-pro-grp  (get): (%d/%d/0x%lx/0x%lx) "
+						    "type %d. sp: %d, sl: %lu",
 			zone->addr.g.grp,
 			zone->addr.g.zone,
 	     (uint64_t) zone->addr.g.sect,

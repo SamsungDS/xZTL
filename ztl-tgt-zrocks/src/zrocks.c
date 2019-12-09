@@ -122,10 +122,10 @@ int zrocks_write (void *buf, uint32_t size, uint16_t level,
 static int __zrocks_read (uint64_t offset, void *buf, uint32_t size) {
     struct xapp_io_mcmd cmd;
     struct xapp_mp_entry *mp_entry;
-    uint64_t sec_off, sec_size, misalign;
+    uint64_t sec_off, sec_size, sec_end, misalign;
     int ret;
 
-    sec_size = size / ZNS_ALIGMENT + 1;
+    sec_size = size / ZNS_ALIGMENT;
     if (size % ZNS_ALIGMENT != 0)
 	sec_size++;
 
@@ -133,12 +133,15 @@ static int __zrocks_read (uint64_t offset, void *buf, uint32_t size) {
     misalign = offset % ZNS_ALIGMENT;
 
     /* Add a sector in case if read cross sector boundary */
-    if ((sec_size * ZNS_ALIGMENT) - (ZNS_ALIGMENT - misalign) < size)
+    sec_end = (offset + size) / ZNS_ALIGMENT;
+    if ((offset + size) % ZNS_ALIGMENT == 0)
+	sec_end--;
+    if (sec_end - sec_off + 1 > sec_size)
 	sec_size++;
 
     if (ZROCKS_DEBUG)
-	log_infoa ("zrocks (__read): sec_off %lx, nsec %lu\n",
-						    sec_off, sec_size);
+	log_infoa ("zrocks (__read): sec_size %lu, sec_off %lx, misalign %lu, "
+			    "nsec %lu\n", sec_size, sec_off, misalign, sec_size);
 
     /* Maximum read size is 512 KB (128 sectors)
      * Multiple media commands are necessary for larger reads */
@@ -166,7 +169,7 @@ static int __zrocks_read (uint64_t offset, void *buf, uint32_t size) {
     ret = xapp_media_submit_io (&cmd);
     if (!ret && !cmd.status) {
 	/* If I/O succeeded, we copy the data from the correct offset to the user */
-	memcpy (buf, (char *) mp_entry->opaque + (offset % ZNS_ALIGMENT), size);
+	memcpy (buf, (char *) mp_entry->opaque + misalign, size);
     }
 
     pthread_spin_lock (&zrocks_mp_spin);

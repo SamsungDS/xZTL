@@ -68,23 +68,43 @@ static void ztl_wca_reorg_ucmd_off (struct xapp_io_ucmd *ucmd)
 
 	size += ucmd->msec[off_i - 1];
 
-	if ( (off_i == ucmd->nmcmd - 1) ||
-	     (ucmd->moffset[off_i] !=
-	      ucmd->moffset[off_i - 1] + ucmd->msec[off_i - 1]) ) {
+	/* If offset of sector is not sequential to the previousi one */
+	if ( (ucmd->moffset[off_i] !=
+	      ucmd->moffset[off_i - 1] + ucmd->msec[off_i - 1]) ||
 
-	    if (off_i == ucmd->nmcmd - 1)
-		size += ucmd->msec[off_i];
+	/* Or zone is not the same as the previous one */
+	     (ucmd->mcmd[off_i]->addr[0].g.zone !=
+	      ucmd->mcmd[off_i -1]->addr[0].g.zone) ) {
 
+	    /* Close the piece and set first offset + size */
 	    ucmd->moffset[curr] = ucmd->moffset[first_off];
 	    ucmd->msec[curr]    = size;
 
 	    first_off = off_i;
 	    size = 0;
 	    curr++;
+
+	    /* If this is the last sector, we need to add it to the list */
+	    if (off_i == ucmd->nmcmd - 1) {
+		size += ucmd->msec[first_off];
+		ucmd->moffset[curr] = ucmd->moffset[first_off];
+		ucmd->msec[curr]    = size;
+		curr++;
+	    }
+
+	/* If this is the last sector and belongs to the previous piece */
+	} else if (off_i == ucmd->nmcmd - 1) {
+
+	    /* Merge sector to the previous piece */
+	    size += ucmd->msec[off_i];
+	    ucmd->moffset[curr] = ucmd->moffset[first_off];
+	    ucmd->msec[curr]    = size;
+	    curr++;
+
 	}
     }
 
-    ucmd->noffs = curr;
+    ucmd->noffs = (ucmd->nmcmd > 1) ? curr : 1;
 }
 
 static void ztl_wca_callback_mcmd (void *arg)
@@ -142,6 +162,12 @@ static void ztl_wca_callback_mcmd (void *arg)
 	 * mapping use by the user application */
 	if (!ucmd->status)
 	    ztl_wca_reorg_ucmd_off (ucmd);
+
+	if (ZDEBUG_WCA && ucmd->prov->ptype) {
+	    for (int i = 0; i < ucmd->noffs; i++)
+		log_infoa ("ztl-wca: off_id %d, moff %lu, nsec %d\n",
+					    i, ucmd->moffset[i], ucmd->msec[i]);
+	}
 
 	ztl()->pro->free_fn (ucmd->prov);
 

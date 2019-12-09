@@ -22,7 +22,7 @@
 #include <xapp-media.h>
 #include <xapp-mempool.h>
 
-#define XAPP_CTX_NVME_DEPTH  256
+#define XAPP_CTX_NVME_DEPTH  512
 
 struct xapp_mthread_ctx *xapp_ctx_media_init (uint16_t tid,
 						     uint32_t depth)

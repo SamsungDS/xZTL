@@ -39,6 +39,9 @@ static void znd_media_async_cb (struct xnvme_ret *ret, void *cb_arg)
     if (cmd->opcode == XAPP_ZONE_APPEND && !cmd->status)
 	cmd->paddr[0] = *(uint64_t *) &ret->cpl.cdw0;
 
+    if (cmd->status)
+	xapp_print_mcmd (cmd);
+
     cmd->callback (cmd);
 }
 
@@ -64,6 +67,9 @@ static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
 			    NULL,
 			    0,
 			    xret);
+
+    if (ret)
+	xapp_print_mcmd (cmd);
 
     return ret;
 }
@@ -133,6 +139,10 @@ static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
 			  NULL,
 			  XNVME_CMD_ASYNC,
 			  xret);
+
+    if (ret)
+	xapp_print_mcmd (cmd);
+
     return ret;
 }
 

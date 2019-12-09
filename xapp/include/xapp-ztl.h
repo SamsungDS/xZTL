@@ -27,7 +27,7 @@
 #define APP_FN_SLOTS      32
 
 #define APP_MAX_GRPS	  	32
-#define APP_PRO_MAX_OFFS  	8  /* Maximum of offsets returned by new/get */
+#define APP_PRO_MAX_OFFS  	128  /* Maximum of offsets returned by new/get */
 #define APP_PRO_MIN_PIECE_SZ	1  /* Minimum number of bytes provisioned in a single piece in a zone */
 
 #define ZTL_MPE_PG_SEC	 8   /* 32K/4K page for 4K/512b sec sz */
