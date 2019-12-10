@@ -31,6 +31,8 @@
 #define ZROCKS_BUF_ENTS 	128
 #define ZROCKS_MAX_READ_SZ	(128 * 4096) /* 512KB */
 
+extern struct xapp_core core;
+
 /* Remove this lock if we find a way to get a thread ID starting from 0 */
 static pthread_spinlock_t zrocks_mp_spin;
 
@@ -220,6 +222,33 @@ int zrocks_delete (uint64_t id)
     uint64_t old;
 
     return ztl()->map->upsert_fn (id, 0, &old, 0);
+}
+
+int zrocks_trim (struct zrocks_map *map, uint16_t level)
+{
+    struct app_zmd_entry *zmd;
+    struct app_group *grp;
+
+    if (ZROCKS_DEBUG) log_infoa ("zrocks (trim): (0x%lu/%d)\n",
+					(uint64_t) map->g.offset, map->g.nsec);
+
+    /* We use a single group for now */
+    grp = ztl()->groups.get_fn (0);
+
+    zmd = ztl()->zmd->get_fn (grp, map->g.offset, 1);
+    xapp_atomic_int32_update (&zmd->ndeletes, zmd->ndeletes + 1);
+
+    if (zmd->npieces == zmd->ndeletes) {
+
+	ztl()->pro->finish_zn_fn (grp, zmd->addr.g.zone, level);
+
+	if (ztl()->pro->put_zone_fn (grp, zmd->addr.g.zone)) {
+	    log_erra ("zrocks-trim: Failed to return zone to provisioning. "
+						"ID %d", zmd->addr.g.zone);
+	}
+    }
+
+    return 0;
 }
 
 int zrocks_exit (void)

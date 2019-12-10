@@ -112,8 +112,9 @@ static void ztl_wca_callback_mcmd (void *arg)
     struct xapp_io_ucmd  *ucmd;
     struct xapp_io_mcmd  *mcmd;
     struct app_map_entry map;
+    struct app_zmd_entry *zmd;
     uint64_t old;
-    int ret;
+    int ret, off_i;
 
     mcmd = (struct xapp_io_mcmd *) arg;
     ucmd = (struct xapp_io_ucmd *) mcmd->opaque;
@@ -159,14 +160,20 @@ static void ztl_wca_callback_mcmd (void *arg)
 	}
 
 	/* If command is successfull, reorganize media offsets for multi-piece
-	 * mapping use by the user application */
+	 * mapping used by the user application */
 	if (!ucmd->status)
 	    ztl_wca_reorg_ucmd_off (ucmd);
 
-	if (ZDEBUG_WCA && ucmd->prov->ptype) {
-	    for (int i = 0; i < ucmd->noffs; i++)
-		log_infoa ("ztl-wca: off_id %d, moff %lu, nsec %d\n",
-					    i, ucmd->moffset[i], ucmd->msec[i]);
+
+	for (off_i = 0; off_i < ucmd->noffs; off_i++) {
+	    zmd = ztl()->zmd->get_fn (ucmd->prov->grp, ucmd->moffset[off_i], 1);
+	    xapp_atomic_int32_update (&zmd->npieces, zmd->npieces + 1);
+
+	    if (ZDEBUG_WCA) {
+		log_infoa ("ztl-wca: off_id %d, moff %lu, nsec %d. "
+			"ZN(%d) pieces: %d\n", off_i, ucmd->moffset[off_i],
+			ucmd->msec[off_i], zmd->addr.g.zone, zmd->npieces);
+	    }
 	}
 
 	ztl()->pro->free_fn (ucmd->prov);

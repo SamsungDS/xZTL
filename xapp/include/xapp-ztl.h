@@ -96,8 +96,8 @@ struct app_zmd_entry {
     uint16_t		 level; /* Used to define user level metadata to the zone */
     struct xapp_maddr    addr;
     uint64_t             wptr;
-    uint32_t             invalid_sec;
-    uint32_t		 nblks;
+    uint32_t             ndeletes;
+    uint32_t		 npieces;
     /* TODO: Decide how to store LPID list here */
 } __attribute__((packed));
 
@@ -197,7 +197,8 @@ typedef int     (app_zmd_flush) (struct app_group *grp);
 typedef int     (app_zmd_load)  (struct app_group *grp);
 typedef void    (app_zmd_mark)  (struct app_group *lgrp, uint64_t index);
 typedef struct app_zmd_entry *
-	        (app_zmd_get)   (struct app_group *grp, uint32_t zone);
+	        (app_zmd_get)   (struct app_group *grp, uint64_t zone,
+							    uint8_t by_offset);
 typedef void    (app_zmd_invalidate) (struct app_group *grp,
                                       struct xapp_maddr *addr, uint8_t full);
 

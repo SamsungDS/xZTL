@@ -77,6 +77,7 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     xapp_atomic_int32_update (&pro->nused, pro->nused + 1);
 
     zmde = zone->zmd_entry;
+    xapp_atomic_int16_update (&zmde->flags, zmde->flags | XAPP_ZMD_USED);
 
     /* Reset the zone if write pointer is at the end */
     if (zmde->wptr > zone->addr.g.sect) {
@@ -91,10 +92,14 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     }
 
     /* A single thread is used for each provisioning type, no lock needed */
+    xapp_atomic_int16_update (&zmde->flags, zmde->flags | XAPP_ZMD_OPEN);
     TAILQ_INSERT_TAIL (&pro->open_head[ptype], zone, open_entry);
     xapp_atomic_int32_update (&pro->nopen[ptype], pro->nopen[ptype] + 1);
 
-    zmde->level = ptype;
+    xapp_atomic_int64_update (&zmde->wptr, zone->addr.g.sect);
+    xapp_atomic_int32_update (&zmde->npieces, 0);
+    xapp_atomic_int32_update (&zmde->ndeletes, 0);
+    xapp_atomic_int16_update (&zmde->level, ptype);
 
     return zone;
 
@@ -212,6 +217,8 @@ void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
 
     if (zone->zmd_entry->wptr == zone->addr.g.sect + zone->capacity) {
 	TAILQ_REMOVE (&pro->open_head[type], zone, open_entry);
+	xapp_atomic_int16_update (&zone->zmd_entry->flags,
+				    zone->zmd_entry->flags ^ XAPP_ZMD_OPEN);
 	xapp_atomic_int32_update (&pro->nopen[type], pro->nopen[type] - 1);
     }
 
@@ -228,6 +235,56 @@ void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
 	ztl_pro_grp_print_status (grp);
 }
 
+int ztl_pro_grp_finish_zn (struct app_group *grp, uint32_t zid, uint8_t type)
+{
+    struct ztl_pro_zone *zone;
+    struct ztl_pro_grp  *pro;
+    struct app_zmd_entry *zmde;
+    struct xapp_zn_mcmd cmd;
+    int ret;
+
+    pro = (struct ztl_pro_grp *) grp->pro;
+    zone = &((struct ztl_pro_grp *) grp->pro)->vzones[zid];
+    zmde = zone->zmd_entry;
+
+    /* Zone is already empty */
+    if ( !(zmde->flags & XAPP_ZMD_USED) )
+	return 0;
+
+    /* Zone is already finished */
+    if (zmde->wptr == zone->addr.g.sect + zone->capacity)
+	return 0;
+
+    /* TODO: Collect here the wasted space for write-amplification */
+    printf ("ztl-pro-grp (finish): Wasted space: %lu sectors\n",
+			zone->addr.g.sect + zone->capacity - zmde->wptr);
+
+    cmd.opcode = XAPP_ZONE_MGMT_FINISH;
+    cmd.addr.g.zone = zmde->addr.g.zone;
+
+    ret = xapp_media_submit_zn (&cmd);
+    if (ret)
+	log_erra ("ztl-pro-grp: Zone Finish failed. ID %d", zmde->addr.g.zone);
+
+    zmde->wptr = zone->addr.g.sect + zone->capacity;
+
+    if (zmde->flags & XAPP_ZMD_OPEN) {
+	TAILQ_REMOVE (&pro->open_head[type], zone, open_entry);
+	xapp_atomic_int16_update (&zone->zmd_entry->flags,
+				    zone->zmd_entry->flags ^ XAPP_ZMD_OPEN);
+	xapp_atomic_int32_update (&pro->nopen[type], pro->nopen[type] - 1);
+    }
+
+    ZDEBUG (ZDEBUG_PRO, "ztl-pro-grp (finish): (%d/%d/0x%lx/0x%lx) type %d",
+		zone->addr.g.grp,
+		zone->addr.g.zone,
+		(uint64_t) zone->addr.g.sect,
+		zone->zmd_entry->wptr,
+		type);
+
+    return 0;
+}
+
 int ztl_pro_grp_put_zone (struct app_group *grp, uint32_t zone_i)
 {
     struct ztl_pro_zone  *zone;
@@ -237,6 +294,15 @@ int ztl_pro_grp_put_zone (struct app_group *grp, uint32_t zone_i)
     pro  = (struct ztl_pro_grp *) grp->pro;
     zone = &pro->vzones[zone_i];
     zmde = zone->zmd_entry;
+
+    ZDEBUG (ZDEBUG_PRO, "ztl-pro-grp  (put): (%d/%d/0x%lx/0x%lx) "
+					    "pieces %d, deletes: %d",
+			zone->addr.g.grp,
+			zone->addr.g.zone,
+	     (uint64_t) zone->addr.g.sect,
+			zone->zmd_entry->wptr,
+			zone->zmd_entry->npieces,
+			zone->zmd_entry->ndeletes);
 
     if ( !(zmde->flags & XAPP_ZMD_AVLB) ) {
 	log_infoa ("ztl-pro (put): Cannot PUT an invalid zone (%d/%d)",
@@ -271,6 +337,9 @@ int ztl_pro_grp_put_zone (struct app_group *grp, uint32_t zone_i)
     pthread_spin_unlock (&pro->spin);
 
     xapp_atomic_int32_update (&pro->nfree, pro->nfree + 1);
+
+    if (ZDEBUG_PRO_GRP)
+	ztl_pro_grp_print_status (grp);
 
     return 0;
 }
@@ -348,7 +417,7 @@ int ztl_pro_grp_init (struct app_group *grp)
 
 	zone = &pro->vzones[zone_i];
 
-	zmde = ztl()->zmd->get_fn (grp, zone_i);
+	zmde = ztl()->zmd->get_fn (grp, zone_i, 0);
 
 	if (zmde->addr.g.zone != zone_i || zmde->addr.g.grp != grp->id)
 	    log_erra("ztl-pro: zmd entry address does not match (%d/%d)(%d/%d)",
@@ -377,8 +446,8 @@ int ztl_pro_grp_init (struct app_group *grp)
 		    continue;
 		}
 
-		zmde->invalid_sec = 0;
-		zmde->nblks       = 0;
+		zmde->npieces  = 0;
+		zmde->ndeletes = 0;
 		TAILQ_INSERT_TAIL (&pro->free_head, zone, entry);
 		pro->nfree++;
 

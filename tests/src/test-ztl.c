@@ -72,7 +72,7 @@ static void test_ztl_pro_new_free (void)
 
     ztl()->pro->free_fn (proe[0]);
 
-    zmde = ztl()->zmd->get_fn (proe[0]->grp, proe[0]->addr[0].g.zone);
+    zmde = ztl()->zmd->get_fn (proe[0]->grp, proe[0]->addr[0].g.zone, 0);
     cunit_ztl_assert_int_equal ("ztl()->pro->new_fn:zmd:wptr",
 				zmde->wptr, zmde->addr.g.sect + nsec);
     proe[0] = NULL;

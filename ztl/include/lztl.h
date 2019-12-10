@@ -81,6 +81,7 @@ struct map_md_addr {
 int  ztl_pro_grp_init (struct app_group *grp);
 void ztl_pro_grp_exit (struct app_group *grp);
 int  ztl_pro_grp_put_zone (struct app_group *grp, uint32_t zone_i);
+int  ztl_pro_grp_finish_zn (struct app_group *grp, uint32_t zid, uint8_t type);
 int  ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
 			    uint32_t nsec, uint16_t ptype, uint8_t multi);
 void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,

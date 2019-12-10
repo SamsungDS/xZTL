@@ -45,6 +45,8 @@ static int ztl_zmd_create (struct app_group *grp)
 
 	zn->flags |= XAPP_ZMD_AVLB;
 	zn->level = 0;
+	zn->npieces = 0;
+	zn->ndeletes = 0;
     }
 
     return 0;
@@ -84,12 +86,16 @@ static int ztl_zmd_flush (struct app_group *grp)
     return 0;
 }
 
-static struct app_zmd_entry *ztl_zmd_get (struct app_group *grp, uint32_t zone)
+static struct app_zmd_entry *ztl_zmd_get (struct app_group *grp, uint64_t zone,
+							    uint8_t by_offset)
 {
     struct app_zmd *zmd = &grp->zmd;
 
     if (!zmd->tbl)
         return NULL;
+
+    if (by_offset)
+	zone = zone / core.media->geo.sec_zn;
 
     return ((struct app_zmd_entry *) zmd->tbl) + zone;
 }

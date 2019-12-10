@@ -84,6 +84,12 @@ int zrocks_new (uint64_t id, void *buf, uint32_t size, uint16_t level);
 int zrocks_delete (uint64_t id);
 
 /**
+ * Invalidate a piece of data represented by a mapping entry provided
+ * by the 'zrocks_write' function.
+ */
+int zrocks_trim (struct zrocks_map *map, uint16_t level);
+
+/**
  * Read an offset within an object
  *
  * @id - Unique integer identifier of the object

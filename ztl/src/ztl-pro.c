@@ -94,7 +94,7 @@ int ztl_pro_put_zone (struct app_group *grp, uint32_t zid)
 
 int ztl_pro_finish_zone (struct app_group *grp, uint32_t zid, uint8_t type)
 {
-    return 0;
+    return ztl_pro_grp_finish_zn (grp, zid, type);
 }
 
 void ztl_pro_check_gc (struct app_group *grp)

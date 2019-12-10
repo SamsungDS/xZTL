@@ -170,6 +170,9 @@ static inline int znd_media_zone_manage (struct xapp_zn_mcmd *cmd, uint8_t op)
     lba = ( (zndmedia.devgeo->nzone * cmd->addr.g.grp) +
 	    cmd->addr.g.zone) * zndmedia.devgeo->nsect;
 
+    devret.async.ctx    = NULL;
+    devret.async.cb_arg = NULL;
+
     ret = znd_cmd_mgmt_send (zndmedia.dev,
 			     xnvme_dev_get_nsid (zndmedia.dev),
 			     lba,
