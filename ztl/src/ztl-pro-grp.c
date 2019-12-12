@@ -65,7 +65,7 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     pthread_spin_lock (&pro->spin);
     zone = TAILQ_FIRST (&pro->free_head);
     if (!zone) {
-	log_infoa ("ztl-pro: No zones left. Grp %d.", grp->id);
+	log_infoa ("ztl-pro (open): No zones left. Grp %d.", grp->id);
 	pthread_spin_unlock (&pro->spin);
 	return NULL;
     }
@@ -155,8 +155,10 @@ int ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
 	zone = ztl_pro_grp_get_best_zone (grp, nsec, ptype, multi);
 	if (!zone) {
 	    zone = ztl_pro_grp_zone_open (grp, ptype);
-	    if (!zone)
+	    if (!zone) {
+		log_erra ("ztl-pro-grp: Zone open failed. Type %x", ptype);
 		return -1;
+	    }
 	}
 	zone->lock = 1;
 
@@ -198,6 +200,8 @@ NO_LEFT:
 	ctx->addr[zn_i].addr = 0;
 	ctx->nsec[zn_i] = 0;
     }
+
+    log_erra ("ztl-pro (get): No zones left. Group %d", grp->id);
 
     return -1;
 }
@@ -251,9 +255,10 @@ int ztl_pro_grp_finish_zn (struct app_group *grp, uint32_t zid, uint8_t type)
     if ( !(zmde->flags & XAPP_ZMD_USED) )
 	return 0;
 
+    /* TODO: Finish zone has specific constraints, not yet implemented */
+
     /* Zone is already finished */
-    if (zmde->wptr == zone->addr.g.sect + zone->capacity)
-	return 0;
+    return (zmde->wptr == zone->addr.g.sect + zone->capacity) ? 0 : 1;
 
     /* TODO: Collect here the wasted space for write-amplification */
     printf ("ztl-pro-grp (finish): Wasted space: %lu sectors\n",
@@ -337,6 +342,10 @@ int ztl_pro_grp_put_zone (struct app_group *grp, uint32_t zone_i)
     pthread_spin_unlock (&pro->spin);
 
     xapp_atomic_int32_update (&pro->nfree, pro->nfree + 1);
+
+    xapp_stats_inc (XAPP_STATS_RECYCLED_ZONES, 1);
+    xapp_stats_inc (XAPP_STATS_RECYCLED_BYTES,
+				zone->capacity * core.media->geo.nbytes);
 
     if (ZDEBUG_PRO_GRP)
 	ztl_pro_grp_print_status (grp);

@@ -76,7 +76,7 @@ void zrocks_free (void *ptr);
 /**
  * Create a new variable-sized object belonging to a certain level
  */
-int zrocks_new (uint64_t id, void *buf, uint32_t size, uint16_t level);
+int zrocks_new (uint64_t id, void *buf, size_t size, uint16_t level);
 
 /**
  * Delete an object
@@ -96,7 +96,7 @@ int zrocks_trim (struct zrocks_map *map, uint16_t level);
  * @offset - Offset in bytes within the object
  * @buf - Pointer to a buffer where data must be copied into
  * @size - Size in bytes starting from offset */
-int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size);
+int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, size_t size);
 
 /**
  * Write to ZNS device and return the mapping multi-piece list
@@ -106,7 +106,7 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size);
  * calling 'zrocks_free' and free 'map' by passing its value as
  * parameter.
  */
-int zrocks_write (void *buf, uint32_t size, uint16_t level,
+int zrocks_write (void *buf, size_t size, uint16_t level,
 				struct zrocks_map **map, uint16_t *pieces);
 
 /**
@@ -117,7 +117,7 @@ int zrocks_write (void *buf, uint32_t size, uint16_t level,
  * @buf - Pointer to a buffer where data must be copied into
  * @size - Size in bytes starting from offset
  */
-int zrocks_read (uint64_t offset, void *buf, uint64_t size);
+int zrocks_read (uint64_t offset, void *buf, size_t size);
 
 #ifdef __cplusplus
 }; // closing brace for extern "C"

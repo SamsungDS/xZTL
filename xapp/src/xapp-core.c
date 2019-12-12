@@ -96,11 +96,13 @@ void xapp_media_dma_free (void *ptr)
 int xapp_media_submit_io (struct xapp_io_mcmd *cmd)
 {
     // xapp_print_mcmd (cmd);
+    xapp_stats_add_io (cmd);
     return core.media->submit_io (cmd);
 }
 
 int xapp_media_submit_zn (struct xapp_zn_mcmd *cmd)
 {
+
     return core.media->zone_fn (cmd);
 }
 
@@ -219,6 +221,9 @@ int xapp_exit (void)
 
     log_info ("core: libztl is closed succesfully.");
 
+    xapp_stats_print_io_simple ();
+    xapp_stats_exit ();
+
     return ret;
 }
 
@@ -248,6 +253,8 @@ int xapp_init (const char *dev_name)
     ret = ztl_init ();
     if (ret)
 	goto MEDIA;
+
+    xapp_stats_init ();
 
     log_info ("core: libztl started successfully.");
 

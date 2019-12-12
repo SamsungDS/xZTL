@@ -48,13 +48,20 @@ void zrocks_free (void *ptr)
 }
 
 static int __zrocks_write (struct xapp_io_ucmd *ucmd,
-			uint64_t id, void *buf, uint32_t size, uint16_t level)
+			uint64_t id, void *buf, size_t size, uint16_t level)
 {
+    uint32_t misalign;
+    size_t new_sz;
+
+    misalign = size % ZNS_ALIGMENT;
+    if (misalign != 0)
+	new_sz = size + (ZNS_ALIGMENT - misalign);
+
     ucmd->prov_type = level;
 
     ucmd->id        = id;
     ucmd->buf       = buf;
-    ucmd->size      = size;
+    ucmd->size      = new_sz;
     ucmd->status    = 0;
     ucmd->completed = 0;
     ucmd->callback  = NULL;
@@ -68,16 +75,19 @@ static int __zrocks_write (struct xapp_io_ucmd *ucmd,
 	usleep (1);
     }
 
+    xapp_stats_inc (XAPP_STATS_APPEND_BYTES_U, size);
+    xapp_stats_inc (XAPP_STATS_APPEND_UCMD, 1);
+
     return 0;
 }
 
-int zrocks_new (uint64_t id, void *buf, uint32_t size, uint16_t level)
+int zrocks_new (uint64_t id, void *buf, size_t size, uint16_t level)
 {
     struct xapp_io_ucmd ucmd;
     int ret;
 
     if (ZROCKS_DEBUG)
-	log_infoa ("zrocks (write_obj): ID %lu, level %d, size %d\n",
+	log_infoa ("zrocks (write_obj): ID %lu, level %d, size %lu\n",
 							    id, level, size);
 
     ucmd.app_md = 0;
@@ -86,7 +96,7 @@ int zrocks_new (uint64_t id, void *buf, uint32_t size, uint16_t level)
     return (!ret) ? ucmd.status : ret;
 }
 
-int zrocks_write (void *buf, uint32_t size, uint16_t level,
+int zrocks_write (void *buf, size_t size, uint16_t level,
 				    struct zrocks_map **map, uint16_t *pieces)
 {
     struct xapp_io_ucmd ucmd;
@@ -94,7 +104,7 @@ int zrocks_write (void *buf, uint32_t size, uint16_t level,
     int ret, off_i;
 
     if (ZROCKS_DEBUG)
-	log_infoa ("zrocks (write): level %d, size %d\n", level, size);
+	log_infoa ("zrocks (write): level %d, size %lu\n", level, size);
 
     ucmd.app_md = 1;
     ret = __zrocks_write (&ucmd, 0, buf, size, level);
@@ -121,7 +131,7 @@ int zrocks_write (void *buf, uint32_t size, uint16_t level,
     return 0;
 }
 
-static int __zrocks_read (uint64_t offset, void *buf, uint32_t size) {
+static int __zrocks_read (uint64_t offset, void *buf, size_t size) {
     struct xapp_io_mcmd cmd;
     struct xapp_mp_entry *mp_entry;
     uint64_t sec_off, sec_size, sec_end, misalign;
@@ -178,16 +188,19 @@ static int __zrocks_read (uint64_t offset, void *buf, uint32_t size) {
     xapp_mempool_put (mp_entry, ZROCKS_MEMORY, 0);
     pthread_spin_unlock (&zrocks_mp_spin);
 
+    xapp_stats_inc (XAPP_STATS_READ_BYTES_U, size);
+    xapp_stats_inc (XAPP_STATS_READ_UCMD, 1);
+
     return (!ret) ? cmd.status : ret;
 }
 
-int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
+int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, size_t size)
 {
     int ret;
     uint64_t objsec_off;
 
     if (ZROCKS_DEBUG)
-	log_infoa ("zrocks (read_obj): ID %lu, off %lu, size %d\n",
+	log_infoa ("zrocks (read_obj): ID %lu, off %lu, size %lu\n",
 							id, offset, size);
 
     /* This assumes a single zone offset per object */
@@ -198,7 +211,7 @@ int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, uint32_t size)
 
     ret = __zrocks_read ((objsec_off * ZNS_ALIGMENT) + offset, buf, size);
     if (ret)
-	log_erra ("zrocks: Read failure. ID %lu, off 0x%lx, sz %d. ret %d",
+	log_erra ("zrocks: Read failure. ID %lu, off 0x%lx, sz %lu. ret %d",
 							    id, offset, size, ret);
     return ret;
 }
@@ -228,6 +241,7 @@ int zrocks_trim (struct zrocks_map *map, uint16_t level)
 {
     struct app_zmd_entry *zmd;
     struct app_group *grp;
+    int ret;
 
     if (ZROCKS_DEBUG) log_infoa ("zrocks (trim): (0x%lu/%d)\n",
 					(uint64_t) map->g.offset, map->g.nsec);
@@ -240,9 +254,9 @@ int zrocks_trim (struct zrocks_map *map, uint16_t level)
 
     if (zmd->npieces == zmd->ndeletes) {
 
-	ztl()->pro->finish_zn_fn (grp, zmd->addr.g.zone, level);
+	ret = ztl()->pro->finish_zn_fn (grp, zmd->addr.g.zone, level);
 
-	if (ztl()->pro->put_zone_fn (grp, zmd->addr.g.zone)) {
+	if (!ret && ztl()->pro->put_zone_fn (grp, zmd->addr.g.zone)) {
 	    log_erra ("zrocks-trim: Failed to return zone to provisioning. "
 						"ID %d", zmd->addr.g.zone);
 	}

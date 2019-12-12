@@ -70,6 +70,7 @@ struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint16_t type, uint8_t multi)
     ret = ztl_pro_grp_get (grp, ctx, nsec, type, multi);
     if (ret) {
 	xapp_mempool_put (mpe, XAPP_ZTL_PRO_CTX, type);
+	log_erra ("ztl-pro: Get group zone failed. Type %x", type);
 	return NULL;
     }
 

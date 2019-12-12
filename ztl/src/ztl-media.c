@@ -216,6 +216,7 @@ static int znd_media_zone_mgmt (struct xapp_zn_mcmd *cmd)
 	case XAPP_ZONE_MGMT_OPEN:
 	    return znd_media_zone_manage (cmd, ZND_SEND_OPEN);
 	case XAPP_ZONE_MGMT_RESET:
+	    xapp_stats_inc (XAPP_STATS_RESET_MCMD, 1);
 	    return znd_media_zone_manage (cmd, ZND_SEND_RESET);
 	case XAPP_ZONE_MGMT_REPORT:
 	    return znd_media_zone_report (cmd);

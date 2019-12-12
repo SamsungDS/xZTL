@@ -148,6 +148,22 @@ enum xapp_status {
     XAPP_MEDIA_ERROR	= 0x100,
 };
 
+enum xapp_stats_io_types {
+    XAPP_STATS_READ_BYTES = 0,
+    XAPP_STATS_APPEND_BYTES,
+    XAPP_STATS_READ_MCMD,
+    XAPP_STATS_APPEND_MCMD,
+    XAPP_STATS_RESET_MCMD,
+
+    XAPP_STATS_READ_BYTES_U,
+    XAPP_STATS_APPEND_BYTES_U,
+    XAPP_STATS_READ_UCMD,
+    XAPP_STATS_APPEND_UCMD,
+
+    XAPP_STATS_RECYCLED_BYTES,
+    XAPP_STATS_RECYCLED_ZONES
+};
+
 /* Compare and swap atomic operations */
 
 void xapp_atomic_int8_update (uint8_t *ptr, uint8_t value);
@@ -183,5 +199,13 @@ int xapp_media_init (void);
 int xapp_media_exit (void);
 
 void xapp_print_mcmd (struct xapp_io_mcmd *cmd);
+
+/* Statistics */
+int  xapp_stats_init (void);
+void xapp_stats_exit (void);
+void xapp_stats_add_io (struct xapp_io_mcmd *cmd);
+void xapp_stats_inc (uint32_t type, uint64_t val);
+void xapp_stats_print_io (void);
+void xapp_stats_print_io_simple (void);
 
 #endif /* XAPP_H */
