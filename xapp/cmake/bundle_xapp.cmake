@@ -4,7 +4,6 @@ function(bundle_xapp tgt_name bundled_tgt_name)
 	list(APPEND static_libs "lib${LNAME}_slim.a")
 
 	# These are expected to be available on the system
-	list(APPEND system_deps rt)
 	list(APPEND system_deps xnvme)
 
 	message( STATUS "system_deps(${system_deps})")
@@ -23,7 +22,7 @@ function(bundle_xapp tgt_name bundled_tgt_name)
 	endforeach()
 
 	# For the slim library
-	target_link_libraries(${LNAME} ${system_deps})
+	target_link_libraries(${LNAME} ${system_deps} rt numa uuid)
 
 	# For the bundled library
 	list(REMOVE_DUPLICATES static_libs)

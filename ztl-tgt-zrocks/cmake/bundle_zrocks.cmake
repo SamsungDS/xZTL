@@ -26,7 +26,7 @@ function(bundle_zrocks tgt_name bundled_tgt_name)
 	endforeach()
 
 	# For the slim library
-	target_link_libraries(${LNAME} ${system_deps})
+	target_link_libraries(${LNAME} ${system_deps} rt numa uuid)
 
 	# For the bundled library
 	list(REMOVE_DUPLICATES static_libs)
