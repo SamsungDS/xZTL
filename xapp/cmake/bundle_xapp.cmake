@@ -5,16 +5,10 @@ function(bundle_xapp tgt_name bundled_tgt_name)
 
 	# These are expected to be available on the system
 	list(APPEND system_deps rt)
-	if (CMAKE_SYSTEM MATCHES "Linux")
-		list(APPEND system_deps numa)
-	elseif (CMAKE_SYSTEM MATCHES "FreeBSD")
-		list(APPEND system_deps execinfo)
-	endif()
-	list(APPEND system_deps uuid)
 	list(APPEND system_deps xnvme)
 
 	message( STATUS "system_deps(${system_deps})")
-	
+
 	foreach(dep IN LISTS system_deps)
 		set(dep_fname "lib${dep}.a")
 		unset(dep_path CACHE)
