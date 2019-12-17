@@ -85,6 +85,12 @@ void xapp_stats_print_io_simple (void)
 	fprintf(fp, "%lu",flush_w);
 	fclose(fp);
     }
+    fp = fopen ("/tmp/app_written_bytes", "w+");
+    if (fp) {
+	fprintf(fp, "%lu",app_w);
+	fclose(fp);
+    }
+
 }
 
 void xapp_stats_add_io (struct xapp_io_mcmd *cmd)
