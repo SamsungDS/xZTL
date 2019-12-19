@@ -29,15 +29,15 @@
 static struct znd_media zndmedia;
 extern char *dev_name;
 
-static void znd_media_async_cb (struct xnvme_ret *ret, void *cb_arg)
+static void znd_media_async_cb (struct xnvme_req *xreq, void *cb_arg)
 {
     struct xapp_io_mcmd *cmd;
 
     cmd = (struct xapp_io_mcmd *) cb_arg;
-    cmd->status = xnvme_ret_cpl_status (ret);
+    cmd->status = xnvme_req_cpl_status (xreq);
 
     if (cmd->opcode == XAPP_ZONE_APPEND && !cmd->status)
-	cmd->paddr[0] = *(uint64_t *) &ret->cpl.cdw0;
+	cmd->paddr[0] = *(uint64_t *) &xreq->cpl.cdw0;
 
     if (cmd->status)
 	xapp_print_mcmd (cmd);
@@ -47,13 +47,13 @@ static void znd_media_async_cb (struct xnvme_ret *ret, void *cb_arg)
 
 static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
 {
-    struct xnvme_ret *xret;
+    struct xnvme_req *xreq;
     uint64_t slba;
     uint16_t sec_i = 0;
 
-    xret = &cmd->media_ctx;
-    xret->async.ctx    = NULL;
-    xret->async.cb_arg = NULL;
+    xreq = &cmd->media_ctx;
+    xreq->async.ctx    = NULL;
+    xreq->async.cb_arg = NULL;
 
     /* The read path is not group based. It uses only sectors */
     slba = cmd->addr[sec_i].g.sect;
@@ -66,7 +66,7 @@ static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
 			    (void *) cmd->prp[sec_i],
 			    NULL,
 			    0,
-			    xret);
+			    xreq);
 
     if (ret)
 	xapp_print_mcmd (cmd);
@@ -80,19 +80,19 @@ static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
     uint64_t slba;
     void *dbuf;
     struct xapp_mthread_ctx *tctx;
-    struct xnvme_ret *xret;
+    struct xnvme_req *xreq;
 
     tctx = cmd->async_ctx;
-    xret = &cmd->media_ctx;
+    xreq = &cmd->media_ctx;
 
     dbuf = (void *) cmd->prp[sec_i];
 
     /* The read path is not group based. It uses only sectors */
     slba = cmd->addr[sec_i].g.sect;
 
-    xret->async.ctx    = tctx->asynch;
-    xret->async.cb     = znd_media_async_cb;
-    xret->async.cb_arg = (void *) cmd;
+    xreq->async.ctx    = tctx->asynch;
+    xreq->async.cb     = znd_media_async_cb;
+    xreq->async.cb_arg = (void *) cmd;
 
     return xnvme_cmd_read (zndmedia.dev,
 			    xnvme_dev_get_nsid (zndmedia.dev),
@@ -101,7 +101,7 @@ static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
 			    dbuf,
 			    NULL,
 			    XNVME_CMD_ASYNC,
-			    xret);
+			    xreq);
 }
 
 static int znd_media_submit_append_synch (struct xapp_io_mcmd *cmd)
@@ -115,11 +115,11 @@ static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
     uint64_t zlba;
     const void *dbuf;
     struct xapp_mthread_ctx *tctx;
-    struct xnvme_ret *xret;
+    struct xnvme_req *xreq;
     int ret;
 
     tctx      = cmd->async_ctx;
-    xret      = &cmd->media_ctx;
+    xreq      = &cmd->media_ctx;
 
     dbuf = (const void *) cmd->prp[zone_i];
 
@@ -127,9 +127,9 @@ static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
     zlba = (zndmedia.media.geo.zn_grp * cmd->addr[zone_i].g.grp +
 	    cmd->addr[zone_i].g.zone) * zndmedia.devgeo->nsect;
 
-    xret->async.ctx    = tctx->asynch;
-    xret->async.cb     = znd_media_async_cb;
-    xret->async.cb_arg = (void *) cmd;
+    xreq->async.ctx    = tctx->asynch;
+    xreq->async.cb     = znd_media_async_cb;
+    xreq->async.cb_arg = (void *) cmd;
 
     ret = znd_cmd_append (zndmedia.dev,
 			  xnvme_dev_get_nsid (zndmedia.dev),
@@ -138,7 +138,7 @@ static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
 			  dbuf,
 			  NULL,
 			  XNVME_CMD_ASYNC,
-			  xret);
+			  xreq);
 
     if (ret)
 	xapp_print_mcmd (cmd);
@@ -164,14 +164,14 @@ static int znd_media_submit_io (struct xapp_io_mcmd *cmd)
 static inline int znd_media_zone_manage (struct xapp_zn_mcmd *cmd, uint8_t op)
 {
     uint32_t lba;
-    struct xnvme_ret devret;
+    struct xnvme_req devreq;
     int ret;
 
     lba = ( (zndmedia.devgeo->nzone * cmd->addr.g.grp) +
 	    cmd->addr.g.zone) * zndmedia.devgeo->nsect;
 
-    devret.async.ctx    = NULL;
-    devret.async.cb_arg = NULL;
+    devreq.async.ctx    = NULL;
+    devreq.async.cb_arg = NULL;
 
     ret = znd_cmd_mgmt_send (zndmedia.dev,
 			     xnvme_dev_get_nsid (zndmedia.dev),
@@ -180,9 +180,9 @@ static inline int znd_media_zone_manage (struct xapp_zn_mcmd *cmd, uint8_t op)
 			     0,
 			     NULL,
 			     0,
-			     &devret);
+			     &devreq);
 
-    cmd->status = (ret) ? xnvme_ret_cpl_status (&devret) : XAPP_OK;
+    cmd->status = (ret) ? xnvme_req_cpl_status (&devreq) : XAPP_OK;
 
     return (ret) ? op : XAPP_OK;
 }

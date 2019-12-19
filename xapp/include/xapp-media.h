@@ -100,7 +100,7 @@ struct xapp_io_mcmd {
      struct xapp_mp_entry    *mp_cmd;
 
      /* change to pointer when xnvme is updated */
-     struct xnvme_ret media_ctx;
+     struct xnvme_req media_ctx;
 };
 
 struct xapp_zn_mcmd {
