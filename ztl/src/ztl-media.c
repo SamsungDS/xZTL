@@ -310,11 +310,12 @@ static void *znd_media_asynch_comp_th (void *args)
 static int znd_media_asynch_init (struct xapp_misc_cmd *cmd)
 {
     struct xapp_mthread_ctx *tctx;
+    int ret;
 
     tctx = cmd->asynch.ctx_ptr;
 
-    tctx->asynch = xnvme_async_init (zndmedia.dev, cmd->asynch.depth, 0);
-    if (!tctx->asynch) {
+    ret = xnvme_async_init (zndmedia.dev, &tctx->asynch, cmd->asynch.depth);
+    if (ret) {
 	return ZND_MEDIA_ASYNCH_ERR;
     }
 
