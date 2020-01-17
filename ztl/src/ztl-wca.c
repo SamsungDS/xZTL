@@ -229,8 +229,10 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
     nsec = ucmd->size / core.media->geo.nbytes;
 
     /* We do not support non-aligned buffers */
-    if (ucmd->size % core.media->geo.nbytes != 0)
+    if (ucmd->size % core.media->geo.nbytes != 0) {
+	log_erra ("ztl-wca: Buffer is not aligned: %lu bytes", ucmd->size);
 	goto FAILURE;
+    }
 
     /* First we check the number of commands based on ZTL_WCA_SEC_MCMD */
     ncmd = nsec / ZTL_WCA_SEC_MCMD;
@@ -246,8 +248,11 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
     /* Note: Provisioning types are user level metadata, if other
      * types of provisioning are added we need to support it here */
     prov = ztl()->pro->new_fn (nsec, ucmd->prov_type, ucmd->app_md);
-    if (!prov)
+    if (!prov) {
+	log_erra ("ztl-wca: Provisioning failed. nsec %d, prov_type %d",
+						    nsec, ucmd->prov_type);
 	goto FAILURE;
+    }
 
     /* We check the number of commands again based on the provisioning */
     ncmd = ztl_wca_ncmd_prov_based (prov);
@@ -280,8 +285,10 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	     * such as GC in introduceds, we need to choose the provisioning
 	     * type here */
 	    mp_cmd = xapp_mempool_get (XAPP_MEMPOOL_MCMD, ZTL_PRO_TUSER);
-	    if (!mp_cmd)
+	    if (!mp_cmd) {
+		log_err ("ztl-wca: Mempool failed.");
 		goto FAIL_MP;
+	    }
 
 	    mcmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
 

@@ -39,8 +39,10 @@ static void znd_media_async_cb (struct xnvme_req *xreq, void *cb_arg)
     if (cmd->opcode == XAPP_ZONE_APPEND && !cmd->status)
 	cmd->paddr[0] = *(uint64_t *) &xreq->cpl.cdw0;
 
-    if (cmd->status)
+    if (cmd->status) {
 	xapp_print_mcmd (cmd);
+	xnvme_req_pr (xreq, 0);
+    }
 
     cmd->callback (cmd);
 }

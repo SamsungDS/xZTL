@@ -95,7 +95,7 @@ struct xapp_maddr {
 struct xapp_io_ucmd {
     uint64_t 	   id;
     void	  *buf;
-    uint32_t 	   size;
+    size_t 	   size;
     uint16_t 	   prov_type;
     uint8_t 	   app_md;  /* Application is responsible for mapping/recovery */
     uint8_t 	   status;
