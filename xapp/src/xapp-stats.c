@@ -118,6 +118,11 @@ void xapp_stats_add_io (struct xapp_io_mcmd *cmd)
 					xapp_stats.io[type_c] + 1);
     xapp_atomic_int64_update (&xapp_stats.io[type_b],
 		xapp_stats.io[type_b] + (nsec * core.media->geo.nbytes));
+
+#if XAPP_PROMETHEUS
+    /* Prometheus */
+    xapp_prometheus_add_io (cmd);
+#endif
 }
 
 void xapp_stats_inc (uint32_t type, uint64_t val)
@@ -136,11 +141,15 @@ void xapp_stats_reset_io (void)
 
 void xapp_stats_exit (void)
 {
+    xapp_prometheus_exit();
 }
 
 int xapp_stats_init (void)
 {
     memset (xapp_stats.io, 0x0, sizeof(uint64_t) * XAPP_STATS_IO_TYPES);
+
+    if (xapp_prometheus_init())
+	return -1;
 
     return 0;
 }

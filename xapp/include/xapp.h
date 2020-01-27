@@ -25,7 +25,8 @@
 #include <sys/queue.h>
 #include <syslog.h>
 
-#define XAPP_MP_DEBUG 0
+#define XAPP_MP_DEBUG 	0
+#define XAPP_PROMETHEUS 1
 
 #define XAPP_DEV_NAME "pci://0000:03:00.0/2"
 
@@ -207,5 +208,10 @@ void xapp_stats_add_io (struct xapp_io_mcmd *cmd);
 void xapp_stats_inc (uint32_t type, uint64_t val);
 void xapp_stats_print_io (void);
 void xapp_stats_print_io_simple (void);
+
+/* Prometheus */
+int  xapp_prometheus_init (void);
+void xapp_prometheus_exit (void);
+void xapp_prometheus_add_io (struct xapp_io_mcmd *cmd);
 
 #endif /* XAPP_H */

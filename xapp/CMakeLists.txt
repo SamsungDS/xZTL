@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.1.0)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(XAPP_VERSION_MAJOR 0)
 set(XAPP_VERSION_MINOR 0)
-set(XAPP_VERSION_PATCH 2)
+set(XAPP_VERSION_PATCH 5)
 set(XAPP_VERSION "${XAPP_VERSION_MAJOR}.${XAPP_VERSION_MINOR}.${XAPP_VERSION_PATCH}")
 
 project(xapp C)
@@ -40,6 +40,7 @@ set(SOURCE_FILES
     ${PROJECT_SOURCE_DIR}/src/xapp-ztl.c
     ${PROJECT_SOURCE_DIR}/src/xapp-groups.c
     ${PROJECT_SOURCE_DIR}/src/xapp-stats.c
+    ${PROJECT_SOURCE_DIR}/src/xapp-prometheus.c
 )
 
 include_directories("${PROJECT_SOURCE_DIR}/include")

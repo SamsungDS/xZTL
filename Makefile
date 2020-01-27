@@ -90,7 +90,7 @@ build-tests: info
 	cd $(BUILD_DIR)/tests && ${MAKE}
 
 .PHONY: build
-build: info build-xapp build-ztl build-ztl-tgt-zrocks build-tests
+build: info build-xapp build-ztl build-ztl-tgt-zrocks
 	@echo "### Eureka!"
 
 .PHONY: install
