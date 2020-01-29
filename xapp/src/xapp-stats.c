@@ -129,6 +129,14 @@ void xapp_stats_inc (uint32_t type, uint64_t val)
 {
     xapp_atomic_int64_update (&xapp_stats.io[type],
 			       xapp_stats.io[type] + val);
+
+#if XAPP_PROMETHEUS
+    /* Prometheus */
+    if (type == XAPP_STATS_APPEND_BYTES_U) {
+	xapp_prometheus_add_wa(xapp_stats.io[XAPP_STATS_APPEND_BYTES_U],
+			       xapp_stats.io[XAPP_STATS_APPEND_BYTES]);
+    }
+#endif
 }
 
 void xapp_stats_reset_io (void)

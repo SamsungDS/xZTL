@@ -213,5 +213,6 @@ void xapp_stats_print_io_simple (void);
 int  xapp_prometheus_init (void);
 void xapp_prometheus_exit (void);
 void xapp_prometheus_add_io (struct xapp_io_mcmd *cmd);
+void xapp_prometheus_add_wa (uint64_t user_writes, uint64_t zns_writes);
 
 #endif /* XAPP_H */

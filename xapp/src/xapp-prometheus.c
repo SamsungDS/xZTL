@@ -11,6 +11,8 @@ struct xapp_prometheus_stats {
     uint64_t written_bytes;
     uint64_t read_bytes;
     uint64_t io_count;
+    uint64_t user_write_bytes;
+    uint64_t zns_write_bytes;
 
     struct timespec ts_s;
     struct timespec ts_e;
@@ -39,7 +41,7 @@ static void xapp_prometheus_file_double (const char *fname, double val)
 
     fp = fopen(fname, "w+");
     if (fp) {
-	fprintf(fp, "%.4lf", val);
+	fprintf(fp, "%.6lf", val);
 	fclose(fp);
     }
 }
@@ -47,7 +49,7 @@ static void xapp_prometheus_file_double (const char *fname, double val)
 static void xapp_prometheus_reset (void)
 {
     uint64_t write, read, io;
-    double thput_w, thput_r, thput;
+    double thput_w, thput_r, thput, wa;
 
     GET_MICROSECONDS(pr_stats.us_s, pr_stats.ts_s);
 
@@ -63,14 +65,24 @@ static void xapp_prometheus_reset (void)
     thput_r = (double) read / (double) 1048576;
     thput   = thput_w + thput_r;
 
+    if (pr_stats.user_write_bytes) {
+	wa  = (double) pr_stats.zns_write_bytes /
+	      (double) pr_stats.user_write_bytes;
+    } else {
+	wa  = 1;
+    }
+
     xapp_prometheus_file_double("/tmp/ztl_prometheus_thput_w", thput_w);
     xapp_prometheus_file_double("/tmp/ztl_prometheus_thput_r", thput_r);
     xapp_prometheus_file_double("/tmp/ztl_prometheus_thput", thput);
     xapp_prometheus_file_int64 ("/tmp/ztl_prometheus_iops", io);
+    xapp_prometheus_file_double("/tmp/ztl_prometheus_wamp_ztl", wa);
 }
 
 void *xapp_prometheus_flush (void *arg)
 {
+    double wa;
+
     GET_MICROSECONDS(pr_stats.us_s, pr_stats.ts_s);
 
     xapp_pr_running = 1;
@@ -88,10 +100,14 @@ void *xapp_prometheus_flush (void *arg)
     }
     xapp_prometheus_reset();
     usleep(1200000);
+
+    wa = (double) pr_stats.zns_write_bytes /
+	 (double) pr_stats.user_write_bytes;
     xapp_prometheus_file_double("/tmp/ztl_prometheus_thput_w", 0);
     xapp_prometheus_file_double("/tmp/ztl_prometheus_thput_r", 0);
     xapp_prometheus_file_double("/tmp/ztl_prometheus_thput", 0);
     xapp_prometheus_file_int64 ("/tmp/ztl_prometheus_iops", 0);
+    xapp_prometheus_file_double("/tmp/ztl_prometheus_wamp_ztl", 1);
 
     return NULL;
 }
@@ -119,6 +135,12 @@ void xapp_prometheus_add_io (struct xapp_io_mcmd *cmd)
     }
 
     xapp_atomic_int64_update (&pr_stats.io_count, pr_stats.io_count + 1);
+}
+
+void xapp_prometheus_add_wa (uint64_t user_writes, uint64_t zns_writes)
+{
+    xapp_atomic_int64_update (&pr_stats.user_write_bytes, user_writes);
+    xapp_atomic_int64_update (&pr_stats.zns_write_bytes, zns_writes);
 }
 
 void xapp_prometheus_exit (void)
