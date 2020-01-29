@@ -81,8 +81,6 @@ static void xapp_prometheus_reset (void)
 
 void *xapp_prometheus_flush (void *arg)
 {
-    double wa;
-
     GET_MICROSECONDS(pr_stats.us_s, pr_stats.ts_s);
 
     xapp_pr_running = 1;
@@ -101,8 +99,6 @@ void *xapp_prometheus_flush (void *arg)
     xapp_prometheus_reset();
     usleep(1200000);
 
-    wa = (double) pr_stats.zns_write_bytes /
-	 (double) pr_stats.user_write_bytes;
     xapp_prometheus_file_double("/tmp/ztl_prometheus_thput_w", 0);
     xapp_prometheus_file_double("/tmp/ztl_prometheus_thput_r", 0);
     xapp_prometheus_file_double("/tmp/ztl_prometheus_thput", 0);
