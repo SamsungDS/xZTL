@@ -140,6 +140,15 @@ MEMERR:
     return XAPP_MP_MEMERROR;
 }
 
+int xapp_mempool_left (uint32_t type, uint16_t tid)
+{
+    struct xapp_mp_pool_i *pool;
+
+    pool = &xappmp.mp[type].pool[tid];
+
+    return pool->entries - pool->out_count + pool->in_count;
+}
+
 /* Only 1 thread is allowed to remove but a concurrent thread may insert */
 struct xapp_mp_entry *xapp_mempool_get (uint32_t type, uint16_t tid)
 {

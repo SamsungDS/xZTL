@@ -156,8 +156,10 @@ int xapp_stats_init (void)
 {
     memset (xapp_stats.io, 0x0, sizeof(uint64_t) * XAPP_STATS_IO_TYPES);
 
-    if (xapp_prometheus_init())
+    if (xapp_prometheus_init()) {
+	log_err("xapp-stats: Prometheus not started.");
 	return -1;
+    }
 
     return 0;
 }

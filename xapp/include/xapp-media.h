@@ -99,6 +99,10 @@ struct xapp_io_mcmd {
      struct xapp_mthread_ctx *async_ctx;
      struct xapp_mp_entry    *mp_cmd;
 
+    /* For latency */
+     uint64_t us_start;
+     uint64_t us_end;
+
      /* change to pointer when xnvme is updated */
      struct xnvme_req media_ctx;
 };

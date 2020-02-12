@@ -25,7 +25,7 @@
 #include <libxnvme.h>
 
 #define XAPPMP_THREADS 		64
-#define XAPPMP_TYPES   		3
+#define XAPPMP_TYPES   		4
 #define XAPPMP_MAX_ENT 		(65536 + 2)
 #define XAPPMP_MAX_ENT_SZ	(1024 * 1024)  /* 1 MB */
 
@@ -33,9 +33,10 @@ typedef void *(xapp_mp_alloc)(size_t size);
 typedef void  (xapp_mp_free)(void *ptr);
 
 enum xapp_mp_types {
-    XAPP_MEMPOOL_MCMD =	0x0,
-    XAPP_ZTL_PRO_CTX  = 0x1,
-    ZROCKS_MEMORY     = 0x2
+    XAPP_MEMPOOL_MCMD   = 0x0,
+    XAPP_ZTL_PRO_CTX    = 0x1,
+    ZROCKS_MEMORY       = 0x2,
+    XAPP_PROMETHEUS_LAT = 0x3
 };
 
 enum xapp_mp_status {
@@ -72,17 +73,14 @@ struct xapp_mempool {
     struct xapp_mp_pool mp[XAPPMP_TYPES];
 };
 
-/* Initialize and close the mempool module */
+/* Mempool related functions */
 int xapp_mempool_init (void);
 int xapp_mempool_exit (void);
-
-/* Create and destroy memory pools */
 int xapp_mempool_create (uint32_t type, uint16_t tid, uint32_t entries,
 		    uint32_t ent_sz, xapp_mp_alloc *alloc, xapp_mp_free *free);
 int xapp_mempool_destroy (uint32_t type, uint16_t tid);
-
-/* Insert and remove elements */
 struct xapp_mp_entry *xapp_mempool_get (uint32_t type, uint16_t tid);
 void xapp_mempool_put (struct xapp_mp_entry *ent, uint32_t type, uint16_t tid);
+int  xapp_mempool_left (uint32_t type, uint16_t tid);
 
 #endif /* XAPPMEMPOOL */

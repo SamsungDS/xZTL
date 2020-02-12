@@ -52,6 +52,7 @@ static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
     struct xnvme_req *xreq;
     uint64_t slba;
     uint16_t sec_i = 0;
+    struct timespec ts_s, ts_e;
 
     xreq = &cmd->media_ctx;
     xreq->async.ctx    = NULL;
@@ -61,6 +62,8 @@ static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
     slba = cmd->addr[sec_i].g.sect;
 
     int ret;
+
+    GET_MICROSECONDS(cmd->us_start, ts_s);
     ret = xnvme_cmd_read (zndmedia.dev,
 			    xnvme_dev_get_nsid (zndmedia.dev),
 			    slba,
@@ -69,6 +72,8 @@ static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
 			    NULL,
 			    0,
 			    xreq);
+    GET_MICROSECONDS(cmd->us_end, ts_e);
+    xapp_prometheus_add_read_latency (cmd->us_end - cmd->us_start);
 
     if (ret)
 	xapp_print_mcmd (cmd);
