@@ -44,6 +44,7 @@ struct latency_entry {
 };
 
 static pthread_t latency_tid;
+static pthread_spinlock_t lat_spin;
 STAILQ_HEAD (latency_head, latency_entry) lat_head;
 
 static void xapp_prometheus_file_int64 (const char *fname, uint64_t val)
@@ -159,19 +160,29 @@ static void xapp_prometheus_flush_latency (void)
     FILE *fp;
     int dequeued = 0;
     struct latency_entry *ent;
+    uint64_t lat;
 
     GET_MICROSECONDS(pr_stats.us_l_s, pr_stats.ts_l_s);
 
     fp = fopen("/tmp/ztl_prometheus_read_lat", "w");
     if (fp) {
-	while (!STAILQ_EMPTY(&lat_head) ||
-		dequeued < MAX_LATENCY_ENTS) {
+	while (!STAILQ_EMPTY(&lat_head) || dequeued < MAX_LATENCY_ENTS) {
+
+	    pthread_spin_lock (&lat_spin);
 
 	    ent = STAILQ_FIRST(&lat_head);
 	    if (ent) {
-		fprintf(fp, "%lu\n", ent->usec);
+		lat = ent->usec;
 		STAILQ_REMOVE_HEAD (&lat_head, entry);
 		xapp_mempool_put (ent->mp_entry, XAPP_PROMETHEUS_LAT, 0);
+
+		pthread_spin_unlock (&lat_spin);
+
+		fprintf(fp, "%lu\n", lat);
+//		if (ent->usec > 10000)
+//		    printf("TOO HIGH LATENCY (flush): %lu\n", ent->usec);
+	    } else {
+		pthread_spin_unlock (&lat_spin);
 	    }
 	    dequeued++;
 
@@ -208,6 +219,8 @@ void xapp_prometheus_add_read_latency (uint64_t usec)
     struct xapp_mp_entry *mp_ent;
     struct latency_entry *ent;
 
+    pthread_spin_lock (&lat_spin);
+
     /* Discard latency if queue is full */
     if (xapp_mempool_left (XAPP_PROMETHEUS_LAT, 0) == 0)
 	return;
@@ -218,6 +231,11 @@ void xapp_prometheus_add_read_latency (uint64_t usec)
     ent->usec = usec;
 
     STAILQ_INSERT_TAIL (&lat_head, ent, entry);
+
+    pthread_spin_unlock (&lat_spin);
+
+//    if (usec > 10000)
+//	printf("TOO HIGH LATENCY (add): %lu\n", usec);
 }
 
 void xapp_prometheus_exit (void)
@@ -227,6 +245,7 @@ void xapp_prometheus_exit (void)
     pthread_join(th_flush, NULL);
     pthread_join(latency_tid, NULL);
     xapp_mempool_destroy (XAPP_PROMETHEUS_LAT, 0);
+    pthread_spin_destroy (&lat_spin);
 }
 
 int xapp_prometheus_init (void) {
@@ -237,31 +256,39 @@ int xapp_prometheus_init (void) {
     /* Create layency memory pool and queue */
     STAILQ_INIT (&lat_head);
 
+    if (pthread_spin_init (&lat_spin, 0))
+	return -1;
+
     ret = xapp_mempool_create (XAPP_PROMETHEUS_LAT, 0, MAX_LATENCY_ENTS,
 			       sizeof(struct latency_entry), NULL, NULL);
     if (ret) {
 	log_err("xapp-prometheus: Latency memory pool not started.");
-	return -1;
+	goto SPIN;
     }
 
     xapp_flush_l_running = 0;
     if (pthread_create(&latency_tid, NULL, xapp_prometheus_latency_th, NULL)) {
 	log_err("xapp-prometheus: Flushing latency thread not started.");
-	xapp_mempool_destroy (XAPP_PROMETHEUS_LAT, 0);
-	return -1;
+	goto MP;
     }
 
     xapp_flush_running = 0;
     if (pthread_create(&th_flush, NULL, xapp_prometheus_flush, NULL)) {
 	log_err("xapp-prometheus: Flushing thread not started.");
-	while (!xapp_flush_l_running) {}
-	xapp_flush_l_running = 0;
-	pthread_join(th_flush, NULL);
-	xapp_mempool_destroy (XAPP_PROMETHEUS_LAT, 0);
-	return -1;
+	goto LAT_TH;
     }
 
     while (!xapp_flush_running || !xapp_flush_l_running) {}
 
     return 0;
+
+LAT_TH:
+    while (!xapp_flush_l_running) {}
+    xapp_flush_l_running = 0;
+    pthread_join(th_flush, NULL);
+MP:
+    xapp_mempool_destroy (XAPP_PROMETHEUS_LAT, 0);
+SPIN:
+    pthread_spin_destroy (&lat_spin);
+    return -1;
 }
