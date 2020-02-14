@@ -149,17 +149,21 @@ void xapp_stats_reset_io (void)
 
 void xapp_stats_exit (void)
 {
+#if XAPP_PROMETHEUS
     xapp_prometheus_exit();
+#endif
 }
 
 int xapp_stats_init (void)
 {
     memset (xapp_stats.io, 0x0, sizeof(uint64_t) * XAPP_STATS_IO_TYPES);
 
+#if XAPP_PROMETHEUS
     if (xapp_prometheus_init()) {
 	log_err("xapp-stats: Prometheus not started.");
 	return -1;
     }
+#endif
 
     return 0;
 }
