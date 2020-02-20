@@ -32,12 +32,16 @@ extern char *dev_name;
 static void znd_media_async_cb (struct xnvme_req *xreq, void *cb_arg)
 {
     struct xapp_io_mcmd *cmd;
+    uint16_t sec_i = 0;
 
     cmd = (struct xapp_io_mcmd *) cb_arg;
     cmd->status = xnvme_req_cpl_status (xreq);
 
-    if (cmd->opcode == XAPP_ZONE_APPEND && !cmd->status)
-	cmd->paddr[0] = *(uint64_t *) &xreq->cpl.cdw0;
+    if (!cmd->status && ((cmd->opcode == XAPP_ZONE_APPEND) ||
+			 (cmd->opcode == XAPP_CMD_WRITE))) {
+	cmd->paddr[0] = (XAPP_WRITE_APPEND) ? *(uint64_t *) &xreq->cpl.cdw0:
+					      cmd->addr[sec_i].g.sect;
+    }
 
     if (cmd->status) {
 	xapp_print_mcmd (cmd);
@@ -111,6 +115,41 @@ static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
 			    xreq);
 }
 
+static int znd_media_submit_write_synch (struct xapp_io_mcmd *cmd)
+{
+    return ZND_INVALID_OPCODE;
+}
+
+static int znd_media_submit_write_asynch (struct xapp_io_mcmd *cmd)
+{
+    uint16_t sec_i = 0;
+    uint64_t slba;
+    void *dbuf;
+    struct xapp_mthread_ctx *tctx;
+    struct xnvme_req *xreq;
+
+    tctx = cmd->async_ctx;
+    xreq = &cmd->media_ctx;
+
+    dbuf = (void *) cmd->prp[sec_i];
+
+    /* The write path is not group based. It uses only sectors */
+    slba = cmd->addr[sec_i].g.sect;
+
+    xreq->async.ctx    = tctx->asynch;
+    xreq->async.cb     = znd_media_async_cb;
+    xreq->async.cb_arg = (void *) cmd;
+
+    return xnvme_cmd_write (zndmedia.dev,
+			    xnvme_dev_get_nsid (zndmedia.dev),
+			    slba,
+			    (uint16_t) cmd->nsec[sec_i] - 1,
+			    dbuf,
+			    NULL,
+			    XNVME_CMD_ASYNC,
+			    xreq);
+}
+
 static int znd_media_submit_append_synch (struct xapp_io_mcmd *cmd)
 {
     return ZND_INVALID_OPCODE;
@@ -138,15 +177,15 @@ static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
     xreq->async.cb     = znd_media_async_cb;
     xreq->async.cb_arg = (void *) cmd;
 
-    ret = znd_cmd_append (zndmedia.dev,
-			  xnvme_dev_get_nsid (zndmedia.dev),
-			  zlba,
-			  (uint16_t) cmd->nsec[zone_i] - 1,
-			  dbuf,
-			  NULL,
-			  XNVME_CMD_ASYNC,
-			  xreq);
-
+    ret = (!XAPP_WRITE_APPEND) ? znd_cmd_append (zndmedia.dev,
+				    xnvme_dev_get_nsid (zndmedia.dev),
+				    zlba,
+				    (uint16_t) cmd->nsec[zone_i] - 1,
+				    dbuf,
+				    NULL,
+				    XNVME_CMD_ASYNC,
+				    xreq) :
+				-1;
     if (ret)
 	xapp_print_mcmd (cmd);
 
@@ -162,6 +201,9 @@ static int znd_media_submit_io (struct xapp_io_mcmd *cmd)
 	case XAPP_CMD_READ:
 	    return (cmd->synch) ? znd_media_submit_read_synch (cmd) :
 				  znd_media_submit_read_asynch (cmd);
+	case XAPP_CMD_WRITE:
+	    return (cmd->synch) ? znd_media_submit_write_synch (cmd) :
+				  znd_media_submit_write_asynch (cmd);
 	default:
 	    return ZND_INVALID_OPCODE;
     }

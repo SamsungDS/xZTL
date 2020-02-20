@@ -25,6 +25,9 @@
 #include <stdlib.h>
 #include <xapp.h>
 
+/* Append Command support */
+#define XAPP_WRITE_APPEND 0
+
 /* A single address is needed for zone append. We should increase
  * this number in case of possible vectored I/Os */
 #define XAPP_MAX_MADDR  1

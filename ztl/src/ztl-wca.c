@@ -282,7 +282,7 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	for (zncmd_i = 0; zncmd_i < ncmd_zn; zncmd_i++) {
 
 	    /* We are using a memory pool for user commands, if other types
-	     * such as GC in introduceds, we need to choose the provisioning
+	     * such as GC in introduced, we need to choose the provisioning
 	     * type here */
 	    mp_cmd = xapp_mempool_get (XAPP_MEMPOOL_MCMD, ZTL_PRO_TUSER);
 	    if (!mp_cmd) {
@@ -294,18 +294,23 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
 	    memset (mcmd, 0x0, sizeof (struct xapp_io_mcmd));
 	    mcmd->mp_cmd    = mp_cmd;
-	    mcmd->opcode    = XAPP_ZONE_APPEND;
+	    mcmd->opcode    = (XAPP_WRITE_APPEND) ? XAPP_ZONE_APPEND : XAPP_CMD_WRITE;
 	    mcmd->synch     = 0;
 	    mcmd->sequence  = cmd_i;
 	    mcmd->naddr     = 1;
 	    mcmd->status    = 0;
 	    mcmd->nsec[0]   = (nsec_zn >= ZTL_WCA_SEC_MCMD) ?
 					  ZTL_WCA_SEC_MCMD : nsec_zn;
-	    nsec_zn -= mcmd->nsec[0];
-	    ucmd->msec[cmd_i] = mcmd->nsec[0];
 
 	    mcmd->addr[0].g.grp  = prov->addr[zn_i].g.grp;
 	    mcmd->addr[0].g.zone = prov->addr[zn_i].g.zone;
+
+	    if (!XAPP_WRITE_APPEND)
+		mcmd->addr[0].g.sect = (uint64_t) prov->addr[zn_i].g.sect +
+				       (uint64_t) (prov->nsec[zn_i] - nsec_zn);
+
+	    nsec_zn -= mcmd->nsec[0];
+	    ucmd->msec[cmd_i] = mcmd->nsec[0];
 
 	    mcmd->prp[0] = boff;
 	    boff += core.media->geo.nbytes * mcmd->nsec[0];
@@ -323,6 +328,11 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
     /* Submit media commands */
     for (cmd_i = 0; cmd_i < ncmd; cmd_i++) {
+
+	/* Limit the QD to 1 if append is not supported */
+	if (!XAPP_WRITE_APPEND)
+	    while (ucmd->ncb < cmd_i) { usleep(1); }
+
 	ret = xapp_media_submit_io (ucmd->mcmd[cmd_i]);
 	if (ret)
 	    goto FAIL_SUBMIT;

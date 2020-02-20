@@ -47,6 +47,7 @@ static int ztl_zmd_create (struct app_group *grp)
 	zn->level = 0;
 	zn->npieces = 0;
 	zn->ndeletes = 0;
+	zn->wptr_inflight = 0;
     }
 
     return 0;

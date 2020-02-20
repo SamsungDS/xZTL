@@ -164,12 +164,14 @@ int ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
 
 	ctx->naddr++;
 	ctx->addr[zn_i].addr = zone->addr.addr;
+	ctx->addr[zn_i].g.sect = zone->zmd_entry->addr.g.sect +
+				 zone->zmd_entry->wptr_inflight;
 
 	sec_avlb = zone->zmd_entry->addr.g.sect + zone->capacity -
 						    zone->zmd_entry->wptr;
 
 	ctx->nsec[zn_i] = (sec_avlb > sec_left) ? sec_left : sec_avlb;
-
+	zone->zmd_entry->wptr_inflight += ctx->nsec[zn_i];
 	sec_left -= ctx->nsec[zn_i];
 
 	ZDEBUG (ZDEBUG_PRO, "ztl-pro-grp  (get): (%d/%d/0x%lx/0x%lx) "
@@ -211,6 +213,8 @@ void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
 {
     struct ztl_pro_zone *zone;
     struct ztl_pro_grp  *pro;
+    struct xapp_zn_mcmd  cmd;
+    int ret;
 
     pro = (struct ztl_pro_grp *) grp->pro;
     zone = &((struct ztl_pro_grp *) grp->pro)->vzones[zone_i];
@@ -224,6 +228,15 @@ void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
 	xapp_atomic_int16_update (&zone->zmd_entry->flags,
 				    zone->zmd_entry->flags ^ XAPP_ZMD_OPEN);
 	xapp_atomic_int32_update (&pro->nopen[type], pro->nopen[type] - 1);
+
+	/* Explicit closes the zone */
+        cmd.opcode    = XAPP_ZONE_MGMT_FINISH;
+        cmd.addr.addr = zone->addr.addr;
+        ret = xapp_media_submit_zn (&cmd);
+	if (ret || cmd.status) {
+	    log_erra ("ztl-pro: Zone finish failure (%d/%d). status %d",
+			    zone->addr.g.grp, zone->addr.g.zone, cmd.status);
+	}
     }
 
     zone->lock = 0;

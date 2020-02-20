@@ -96,10 +96,12 @@ struct app_zmd_entry {
     uint16_t		 level; /* Used to define user level metadata to the zone */
     struct xapp_maddr    addr;
     uint64_t             wptr;
+    uint32_t		 wptr_inflight; /* In-flight writing LBAs (not completed yet) */
     uint32_t             ndeletes;
     uint32_t		 npieces;
     /* TODO: Decide how to store LPID list here */
-} __attribute__((packed));
+    /* Make this struct packed if we flush to flash */
+};
 
 struct app_tiny_entry {
         struct xapp_maddr   addr;
@@ -132,7 +134,7 @@ struct app_map_entry {
 
 	uint64_t addr;
     };
-} __attribute__((packed)); /* 8 bytes entry */
+}; /* 8 bytes entry */
 
 struct app_mpe {
     struct app_magic byte;
