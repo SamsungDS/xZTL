@@ -94,14 +94,18 @@ static int groups_zmd_init (struct app_group *grp)
     zmd->byte.magic = 0;
 
     ret = ztl()->zmd->load_fn (grp);
-    if (ret)
+    if (ret){
+	log_erra ("err report %d", ret);
 	goto FREE;
+    }
 
     /* Create and flush zmd table if it does not exist */
     if (zmd->byte.magic == APP_MAGIC) {
 	ret = ztl()->zmd->create_fn (grp);
-	if (ret)
+	if (ret) {
+	    log_erra ("err report2: %d", ret);
 	    goto FREE_REP;
+	}
     }
 
     /* TODO: Setup tiny table */

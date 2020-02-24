@@ -96,7 +96,7 @@ struct app_zmd_entry {
     uint16_t		 level; /* Used to define user level metadata to the zone */
     struct xapp_maddr    addr;
     uint64_t             wptr;
-    uint32_t		 wptr_inflight; /* In-flight writing LBAs (not completed yet) */
+    uint64_t		 wptr_inflight; /* In-flight writing LBAs (not completed yet) */
     uint32_t             ndeletes;
     uint32_t		 npieces;
     /* TODO: Decide how to store LPID list here */

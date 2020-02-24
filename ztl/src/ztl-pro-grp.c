@@ -41,11 +41,12 @@ static void ztl_pro_grp_print_status (struct app_group *grp)
 	if (pro->nopen[type_i])
 	    printf (" OPEN: %d (T%d)\n", pro->nopen[type_i], type_i);
 	TAILQ_FOREACH (zone, &pro->open_head[type_i], open_entry) {
-	    printf ("  Zone: (%d/%d/0x%lx/0x%lx). Lock: %d\n",
+	    printf ("  Zone: (%d/%d/0x%lx/0x%lx/0x%lx). Lock: %d\n",
 					zone->addr.g.grp,
 					zone->addr.g.zone,
 	    		     (uint64_t) zone->addr.g.sect,
 	    				zone->zmd_entry->wptr,
+					zone->zmd_entry->wptr_inflight,
 					zone->lock);
 	}
     }
@@ -97,6 +98,7 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     xapp_atomic_int32_update (&pro->nopen[ptype], pro->nopen[ptype] + 1);
 
     xapp_atomic_int64_update (&zmde->wptr, zone->addr.g.sect);
+    xapp_atomic_int64_update (&zmde->wptr_inflight, zone->addr.g.sect);
     xapp_atomic_int32_update (&zmde->npieces, 0);
     xapp_atomic_int32_update (&zmde->ndeletes, 0);
     xapp_atomic_int16_update (&zmde->level, ptype);
@@ -164,22 +166,22 @@ int ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
 
 	ctx->naddr++;
 	ctx->addr[zn_i].addr = zone->addr.addr;
-	ctx->addr[zn_i].g.sect = zone->zmd_entry->addr.g.sect +
-				 zone->zmd_entry->wptr_inflight;
+	ctx->addr[zn_i].g.sect = zone->zmd_entry->wptr_inflight;
 
 	sec_avlb = zone->zmd_entry->addr.g.sect + zone->capacity -
-						    zone->zmd_entry->wptr;
+						zone->zmd_entry->wptr_inflight;
 
 	ctx->nsec[zn_i] = (sec_avlb > sec_left) ? sec_left : sec_avlb;
 	zone->zmd_entry->wptr_inflight += ctx->nsec[zn_i];
 	sec_left -= ctx->nsec[zn_i];
 
-	ZDEBUG (ZDEBUG_PRO, "ztl-pro-grp  (get): (%d/%d/0x%lx/0x%lx) "
+	ZDEBUG (ZDEBUG_PRO, "ztl-pro-grp  (get): (%d/%d/0x%lx/0x%lx/0x%lx) "
 						    "type %d. sp: %d, sl: %lu",
 			zone->addr.g.grp,
 			zone->addr.g.zone,
 	     (uint64_t) zone->addr.g.sect,
 			zone->zmd_entry->wptr,
+			zone->zmd_entry->wptr_inflight,
 			ptype,
 			ctx->nsec[zn_i],
 			sec_left);
@@ -223,7 +225,11 @@ void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
     /* A single thread touches the write pointer, no lock needed */
     zone->zmd_entry->wptr += nsec;
 
-    if (zone->zmd_entry->wptr == zone->addr.g.sect + zone->capacity) {
+    /* Check if the zone should be finished according to minimum write size */
+    if (zone->zmd_entry->wptr >= zone->addr.g.sect
+				 + zone->capacity
+				 - (ZTL_WCA_SEC_MCMD_MIN - 1)) {
+
 	TAILQ_REMOVE (&pro->open_head[type], zone, open_entry);
 	xapp_atomic_int16_update (&zone->zmd_entry->flags,
 				    zone->zmd_entry->flags ^ XAPP_ZMD_OPEN);
@@ -237,6 +243,7 @@ void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
 	    log_erra ("ztl-pro: Zone finish failure (%d/%d). status %d",
 			    zone->addr.g.grp, zone->addr.g.zone, cmd.status);
 	}
+
     }
 
     zone->lock = 0;
@@ -521,7 +528,7 @@ int ztl_pro_grp_init (struct app_group *grp)
 			    grp->id * core.media->geo.zn_grp + zone_i, zinfo->zs);
 	}
 
-	zmde->wptr = zinfo->wp;
+	zmde->wptr = zmde->wptr_inflight = zinfo->wp;
     }
 
     log_infoa ("ztl-pro: Started. Group %d.", grp->id);

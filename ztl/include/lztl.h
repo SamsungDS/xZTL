@@ -25,12 +25,15 @@
 #define ZTL_PRO_TYPES    64  /* Number of provisioning types */
 #define ZTL_PRO_MP_SZ    32  /* Mempool size per thread */
 
+#define ZTL_WCA_SEC_MCMD 	16//64
+#define ZTL_WCA_SEC_MCMD_MIN	2
+
 /* Debug options */
-#define ZDEBUG_PRO_GRP 0
+#define ZDEBUG_PRO_GRP 1
 #define ZDEBUG_PRO     0
 #define ZDEBUG_MPE     0
 #define ZDRBUG_MAP     0
-#define ZDEBUG_WCA     0
+#define ZDEBUG_WCA     1
 
 #define ZDEBUG(type, format, ...) do {		\
     if ((type)) {				\

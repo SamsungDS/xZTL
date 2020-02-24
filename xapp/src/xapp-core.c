@@ -66,19 +66,19 @@ void xapp_atomic_int64_update (uint64_t *ptr, uint64_t value)
 void xapp_print_mcmd (struct xapp_io_mcmd *cmd)
 {
     printf ("\n");
-    printf ("opcode : %d\n", cmd->opcode);
+    //printf ("opcode : %d\n", cmd->opcode);
     printf ("synch  : %d\n", cmd->synch);
-    printf ("naddr  : %d\n", cmd->naddr);
-    printf ("status : %d\n", cmd->status);
+    //printf ("naddr  : %d\n", cmd->naddr);
+    //printf ("status : %d\n", cmd->status);
     printf ("nlba0  : %lu\n", cmd->nsec[0]);
     printf ("addr[0]: (%d/%d/%d/%lx)\n", cmd->addr[0].g.grp,
 				         cmd->addr[0].g.punit,
 			                 cmd->addr[0].g.zone,
 			      (uint64_t) cmd->addr[0].g.sect);
-    printf ("prp0   : 0x%lx\n", cmd->prp[0]);
-    printf ("callba : %s\n", (cmd->callback) ? "OK" : "NULL");
-    printf ("async_c: %p\n", (void *) cmd->async_ctx);
-    printf ("opaque : %p\n", cmd->opaque);
+    //printf ("prp0   : 0x%lx\n", cmd->prp[0]);
+    //printf ("callba : %s\n", (cmd->callback) ? "OK" : "NULL");
+    //printf ("async_c: %p\n", (void *) cmd->async_ctx);
+    //printf ("opaque : %p\n", cmd->opaque);
 }
 
 static xapp_register_media_fn *media_fn = NULL;
@@ -95,14 +95,14 @@ void xapp_media_dma_free (void *ptr)
 
 int xapp_media_submit_io (struct xapp_io_mcmd *cmd)
 {
-    // xapp_print_mcmd (cmd);
+    if (cmd->opcode == XAPP_CMD_WRITE)
+	xapp_print_mcmd (cmd);
     xapp_stats_add_io (cmd);
     return core.media->submit_io (cmd);
 }
 
 int xapp_media_submit_zn (struct xapp_zn_mcmd *cmd)
 {
-
     return core.media->zone_fn (cmd);
 }
 

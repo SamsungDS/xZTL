@@ -37,11 +37,11 @@ static void znd_media_async_cb (struct xnvme_req *xreq, void *cb_arg)
     cmd = (struct xapp_io_mcmd *) cb_arg;
     cmd->status = xnvme_req_cpl_status (xreq);
 
-    if (!cmd->status && ((cmd->opcode == XAPP_ZONE_APPEND) ||
-			 (cmd->opcode == XAPP_CMD_WRITE))) {
-	cmd->paddr[0] = (XAPP_WRITE_APPEND) ? *(uint64_t *) &xreq->cpl.cdw0:
-					      cmd->addr[sec_i].g.sect;
-    }
+    if (!cmd->status && cmd->opcode == XAPP_ZONE_APPEND)
+	cmd->paddr[sec_i] = *(uint64_t *) &xreq->cpl.cdw0;
+
+    if (cmd->opcode == XAPP_CMD_WRITE)
+	cmd->paddr[sec_i] = cmd->addr[sec_i].g.sect;
 
     if (cmd->status) {
 	xapp_print_mcmd (cmd);
@@ -135,6 +135,7 @@ static int znd_media_submit_write_asynch (struct xapp_io_mcmd *cmd)
 
     /* The write path is not group based. It uses only sectors */
     slba = cmd->addr[sec_i].g.sect;
+    printf("Writing 0x%lx, nsec %d\n", slba, (uint16_t) cmd->nsec[sec_i] - 1);
 
     xreq->async.ctx    = tctx->asynch;
     xreq->async.cb     = znd_media_async_cb;
@@ -361,7 +362,7 @@ static int znd_media_asynch_init (struct xapp_misc_cmd *cmd)
 
     tctx = cmd->asynch.ctx_ptr;
 
-    ret = xnvme_async_init (zndmedia.dev, &tctx->asynch, cmd->asynch.depth);
+    ret = xnvme_async_init (zndmedia.dev, &tctx->asynch, cmd->asynch.depth, XNVME_ASYNC_SQPOLL | XNVME_ASYNC_IOPOLL);
     if (ret) {
 	return ZND_MEDIA_ASYNCH_ERR;
     }

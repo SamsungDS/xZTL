@@ -47,7 +47,7 @@ static int ztl_zmd_create (struct app_group *grp)
 	zn->level = 0;
 	zn->npieces = 0;
 	zn->ndeletes = 0;
-	zn->wptr_inflight = 0;
+	zn->wptr_inflight = zn->wptr = zn->addr.g.sect;
     }
 
     return 0;
@@ -66,6 +66,10 @@ static int ztl_zmd_load_report (struct app_group *grp)
     ret = xapp_media_submit_zn (&cmd);
     if (!ret) {
 	grp->zmd.report = (struct znd_report *) cmd.opaque;
+    }
+
+    if (ret) {
+	log_erra ("zmd err report: %d", cmd.status);
     }
 
     return ret;

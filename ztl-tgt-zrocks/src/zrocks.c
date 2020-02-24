@@ -57,6 +57,9 @@ static int __zrocks_write (struct xapp_io_ucmd *ucmd,
     if (misalign != 0)
 	new_sz = size + (ZNS_ALIGMENT - misalign);
 
+    if (new_sz % 8192 != 0)
+	new_sz += 4096;
+
     ucmd->prov_type = level;
 
     ucmd->id        = id;
@@ -135,7 +138,7 @@ static int __zrocks_read (uint64_t offset, void *buf, size_t size) {
     struct xapp_io_mcmd cmd;
     struct xapp_mp_entry *mp_entry;
     uint64_t sec_off, sec_size, sec_end, misalign;
-    int ret;
+    int ret, offs, offb, ncmd, cmd_i, ok = 0;
 
     sec_size = size / ZNS_ALIGMENT;
     if (size % ZNS_ALIGMENT != 0)
@@ -172,14 +175,30 @@ static int __zrocks_read (uint64_t offset, void *buf, size_t size) {
     cmd.opcode  = XAPP_CMD_READ;
     cmd.naddr   = 1;
     cmd.synch   = 1;
-    cmd.nsec[0] = sec_size;
-    cmd.status  = 0;
-    cmd.addr[0].addr = 0;
-    cmd.addr[0].g.sect = sec_off;
-    cmd.prp[0]  = (uint64_t) mp_entry->opaque;
 
-    ret = xapp_media_submit_io (&cmd);
-    if (!ret && !cmd.status) {
+    cmd.addr[0].addr = 0;
+
+    offs = offb = 0;
+    ncmd = sec_size / 16;
+    if (sec_size % 16 != 0)
+	ncmd++;
+
+    for (cmd_i = 0; cmd_i < ncmd; cmd_i++) {
+	cmd.prp[0]  = (uint64_t) mp_entry->opaque + offb;
+	cmd.addr[0].g.sect = sec_off + offs;
+	cmd.nsec[0] = (cmd_i == ncmd - 1) ? sec_size - (cmd_i * 16) : 16;
+	cmd.status  = 0;
+
+	ret = xapp_media_submit_io (&cmd);
+	if (ret || cmd.status) {
+	    ok++;
+	    log_erra("read err: ret %d, status %x", ret, cmd.status);
+	}
+
+	offb += cmd.nsec[0] * ZNS_ALIGMENT;
+	offs += cmd.nsec[0];
+    }
+    if (!ok) {
 	/* If I/O succeeded, we copy the data from the correct offset to the user */
 	memcpy (buf, (char *) mp_entry->opaque + misalign, size);
     }
@@ -191,7 +210,7 @@ static int __zrocks_read (uint64_t offset, void *buf, size_t size) {
     xapp_stats_inc (XAPP_STATS_READ_BYTES_U, size);
     xapp_stats_inc (XAPP_STATS_READ_UCMD, 1);
 
-    return (!ret) ? cmd.status : ret;
+    return ok;
 }
 
 int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, size_t size)
