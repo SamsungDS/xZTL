@@ -118,6 +118,8 @@ static void ztl_wca_callback_mcmd (void *arg)
     mcmd = (struct xapp_io_mcmd *) arg;
     ucmd = (struct xapp_io_ucmd *) mcmd->opaque;
 
+    ucmd->minflight[mcmd->sequence_zn] = 0;
+
     if (mcmd->status) {
 	ucmd->status = mcmd->status;
     } else {
@@ -126,7 +128,7 @@ static void ztl_wca_callback_mcmd (void *arg)
 
     xapp_atomic_int16_update (&ucmd->ncb, ucmd->ncb + 1);
 
-//    if (mcmd->status)
+    if (mcmd->status)
 	ZDEBUG (ZDEBUG_WCA, "ztl-wca: Callback. (ID %lu, S %d/%d, C %d, WOFF 0x%lx). St: %d",
 						    ucmd->id,
 						    mcmd->sequence,
@@ -220,7 +222,8 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
     struct app_pro_addr *prov;
     struct xapp_mp_entry *mp_cmd;
     struct xapp_io_mcmd *mcmd;
-    uint32_t nsec, nsec_zn, ncmd, cmd_i, zn_i;
+    uint32_t nsec, nsec_zn, ncmd, cmd_i, zn_i, submitted;
+    int zn_cmd_id[ZTL_PRO_STRIPE * 2];
     uint64_t boff;
     int ret, ncmd_zn, zncmd_i;
 
@@ -272,6 +275,9 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
     ZDEBUG (ZDEBUG_WCA, "ztl-wca: NMCMD: %d", ncmd);
 
+    for (zn_i = 0; zn_i < ZTL_PRO_STRIPE * 2; zn_i++)
+	zn_cmd_id[zn_i] = -1;
+
     /* Populate media commands */
     cmd_i = 0;
     for (zn_i = 0; zn_i < prov->naddr; zn_i++) {
@@ -298,7 +304,9 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	    mcmd->mp_cmd    = mp_cmd;
 	    mcmd->opcode    = (XAPP_WRITE_APPEND) ? XAPP_ZONE_APPEND : XAPP_CMD_WRITE;
 	    mcmd->synch     = 0;
+	    mcmd->submitted = 0;
 	    mcmd->sequence  = cmd_i;
+	    mcmd->sequence_zn = zn_i;
 	    mcmd->naddr     = 1;
 	    mcmd->status    = 0;
 	    mcmd->nsec[0]   = (nsec_zn >= ZTL_WCA_SEC_MCMD) ?
@@ -322,6 +330,10 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	    mcmd->async_ctx = tctx;
 
 	    ucmd->mcmd[cmd_i] = mcmd;
+
+	    if (zn_cmd_id[zn_i] == -1)
+		zn_cmd_id[zn_i] = cmd_i;
+
 	    cmd_i++;
 	}
     }
@@ -329,18 +341,58 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
     ZDEBUG (ZDEBUG_WCA, "ztl-wca: Populated: %d", cmd_i);
 
     /* Submit media commands */
-    for (cmd_i = 0; cmd_i < ncmd; cmd_i++) {
+    for (cmd_i = 0; cmd_i < ZTL_PRO_STRIPE * 2; cmd_i++)
+	ucmd->minflight[cmd_i] = 0;
 
-	/* Limit the QD to 1 if append is not supported */
-	if (!XAPP_WRITE_APPEND)
-	    while (ucmd->ncb < cmd_i) { usleep(1); }
+    submitted = 0;
+    while (submitted < ncmd) {
+	usleep(1);
+	for (zn_i = 0; zn_i < prov->naddr; zn_i++) {
 
-	ret = xapp_media_submit_io (ucmd->mcmd[cmd_i]);
-	if (ret)
-	    goto FAIL_SUBMIT;
+/*
+	    printf ("ZN %d: ", zn_i);
+	    for (cmd_i = 0; cmd_i < ZTL_PRO_STRIPE + 1; cmd_i++)
+		printf ("(%d/%d/%d)", cmd_i, zn_cmd_id[cmd_i], ucmd->minflight[cmd_i]);
+	    printf ("\n");
+	    printf ("Submitted: %d\n", submitted);
+*/
+	    if (zn_cmd_id[zn_i] < 0)
+		continue;
+
+/*
+	    if (zn_cmd_id[zn_i] < ncmd)
+		printf ("OK1 - %d\n", ucmd->mcmd[zn_cmd_id[zn_i]]->sequence_zn);
+*/
+
+	    if (zn_cmd_id[zn_i] >= ncmd ||
+		    ucmd->mcmd[zn_cmd_id[zn_i]]->sequence_zn != zn_i) {
+		zn_cmd_id[zn_i] = -1;
+		continue;
+	    }
+
+//	    printf ("OK2\n");
+
+	    /* Limit to 1 write per zone if append is not supported */
+	    if (!XAPP_WRITE_APPEND) {
+		if (ucmd->minflight[zn_i])
+		    continue;
+
+		ucmd->minflight[zn_i] = 1;
+	    }
+
+//	    printf ("OK3\n");
+
+	    ucmd->mcmd[zn_cmd_id[zn_i]]->submitted = 1;
+	    ret = xapp_media_submit_io (ucmd->mcmd[zn_cmd_id[zn_i]]);
+	    if (ret)
+		goto FAIL_SUBMIT;
+
+	    submitted++;
+	    zn_cmd_id[zn_i]++;
+	}
     }
 
-    ZDEBUG (ZDEBUG_WCA, "  Submitted: %d", cmd_i);
+    ZDEBUG (ZDEBUG_WCA, "  Submitted: %d", submitted);
 
     return;
 
@@ -348,15 +400,18 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
  * submitted, we fail all subsequent I/Os and completion is
  * performed by the callback function */
 FAIL_SUBMIT:
-    if (cmd_i) {
+    if (submitted) {
 	ucmd->status = XAPP_ZTL_WCA_S2_ERR;
-	xapp_atomic_int16_update (&ucmd->ncb, ncmd - cmd_i);
+	for (cmd_i = 0; cmd_i < ncmd; cmd_i++) {
+	    if (!ucmd->mcmd[cmd_i]->submitted)
+		xapp_atomic_int16_update (&ucmd->ncb, ucmd->ncb + 1);
+	}
 
 	/* Check for completion in case of completion concurrence */
 	if (ucmd->ncb == ucmd->nmcmd) {
 	    ucmd->completed = 1;
 	    /* TODO: We do not perform cleanup here yet. We need to lock
-	     * the callback thread to avoid double cleanup */
+	    * the callback thread to avoid double cleanup */
 	}
     } else {
 	cmd_i = ncmd;

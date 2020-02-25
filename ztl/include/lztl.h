@@ -27,7 +27,7 @@
 #define ZTL_PRO_STRIPE	 32  /* Number of zones for parallel write */
 
 /* Debug options */
-#define ZDEBUG_PRO_GRP 1
+#define ZDEBUG_PRO_GRP 0
 #define ZDEBUG_PRO     0
 #define ZDEBUG_MPE     0
 #define ZDRBUG_MAP     0

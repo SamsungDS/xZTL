@@ -26,6 +26,7 @@
 #include <ztl-media.h>
 #include <libzrocks.h>
 #include <libxnvme.h>
+#include <omp.h>
 
 #define ZROCKS_DEBUG 		0
 #define ZROCKS_BUF_ENTS 	128
@@ -133,10 +134,9 @@ int zrocks_write (void *buf, size_t size, uint16_t level,
 }
 
 static int __zrocks_read (uint64_t offset, void *buf, size_t size) {
-    struct xapp_io_mcmd cmd;
     struct xapp_mp_entry *mp_entry;
     uint64_t sec_off, sec_size, sec_end, misalign;
-    int ret, offs, offb, ncmd, cmd_i, ok = 0;
+    int ret, ncmd, cmd_i, ok = 0;
 
     sec_size = size / ZNS_ALIGMENT;
     if (size % ZNS_ALIGMENT != 0)
@@ -170,21 +170,22 @@ static int __zrocks_read (uint64_t offset, void *buf, size_t size) {
     }
     pthread_spin_unlock (&zrocks_mp_spin);
 
-    cmd.opcode  = XAPP_CMD_READ;
-    cmd.naddr   = 1;
-    cmd.synch   = 1;
-
-    cmd.addr[0].addr = 0;
-
-    offs = offb = 0;
     ncmd = sec_size / 16;
     if (sec_size % 16 != 0)
 	ncmd++;
 
+    #pragma omp parallel for num_threads(ncmd)
     for (cmd_i = 0; cmd_i < ncmd; cmd_i++) {
-	cmd.prp[0]  = (uint64_t) mp_entry->opaque + offb;
-	cmd.addr[0].g.sect = sec_off + offs;
+	struct xapp_io_mcmd cmd;
+
+	cmd.opcode  = XAPP_CMD_READ;
+	cmd.naddr   = 1;
+	cmd.synch   = 1;
+	cmd.addr[0].addr = 0;
 	cmd.nsec[0] = (cmd_i == ncmd - 1) ? sec_size - (cmd_i * 16) : 16;
+
+	cmd.prp[0]  = (uint64_t) mp_entry->opaque + (cmd_i * 16 * ZNS_ALIGMENT);
+	cmd.addr[0].g.sect = sec_off + (cmd_i * 16);
 	cmd.status  = 0;
 
 	ret = xapp_media_submit_io (&cmd);
@@ -192,9 +193,6 @@ static int __zrocks_read (uint64_t offset, void *buf, size_t size) {
 	    ok++;
 	    log_erra("read err: ret %d, status %x", ret, cmd.status);
 	}
-
-	offb += cmd.nsec[0] * ZNS_ALIGMENT;
-	offs += cmd.nsec[0];
     }
     if (!ok) {
 	/* If I/O succeeded, we copy the data from the correct offset to the user */
