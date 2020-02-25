@@ -126,7 +126,7 @@ static void ztl_wca_callback_mcmd (void *arg)
 
     xapp_atomic_int16_update (&ucmd->ncb, ucmd->ncb + 1);
 
-    if (mcmd->status)
+//    if (mcmd->status)
 	ZDEBUG (ZDEBUG_WCA, "ztl-wca: Callback. (ID %lu, S %d/%d, C %d, WOFF 0x%lx). St: %d",
 						    ucmd->id,
 						    mcmd->sequence,
@@ -222,7 +222,7 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
     struct xapp_io_mcmd *mcmd;
     uint32_t nsec, nsec_zn, ncmd, cmd_i, zn_i;
     uint64_t boff;
-    int ret, ncmd_zn, zncmd_i, move1;
+    int ret, ncmd_zn, zncmd_i;
 
     ZDEBUG (ZDEBUG_WCA, "ztl-wca: Processing user write. ID %lu", ucmd->id);
 
@@ -230,15 +230,9 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
     /* We do not support non-aligned buffers */
     if (ucmd->size % (core.media->geo.nbytes * ZTL_WCA_SEC_MCMD_MIN != 0)) {
-	log_erra ("ztl-wca: Buffer is not aligned: %lu bytes", ucmd->size);
+	log_erra ("ztl-wca: Buffer is not aligned to %d bytes: %lu bytes.",
+		    core.media->geo.nbytes * ZTL_WCA_SEC_MCMD_MIN, ucmd->size);
 	goto FAILURE;
-    }
-
-    /* Check for the minimum number of sectors */
-    if (nsec < ZTL_WCA_SEC_MCMD_MIN) {
-	log_erra ("ztl-wca: User command too small (%d of %d bytes required)",
-		   nsec * core.media->geo.nbytes,
-		   ZTL_WCA_SEC_MCMD_MIN * core.media->geo.nbytes);
     }
 
     /* First we check the number of commands based on ZTL_WCA_SEC_MCMD */
@@ -287,8 +281,6 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
 	nsec_zn = prov->nsec[zn_i];
 
-	move1 = 0;
-
 	for (zncmd_i = 0; zncmd_i < ncmd_zn; zncmd_i++) {
 
 	    /* We are using a memory pool for user commands, if other types
@@ -298,22 +290,6 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	    if (!mp_cmd) {
 		log_err ("ztl-wca: Mempool failed.");
 		goto FAIL_MP;
-	    }
-
-	    /* Move sectors to the last command if needed */
-	    if ((zncmd_i == ncmd_zn - 2) &&
-		(nsec_zn - ZTL_WCA_SEC_MCMD < ZTL_WCA_SEC_MCMD_MIN)) {
-
-		printf ("WARNING: MOVING 1 SECTOR TO THE LAST CMD\n");
-		move1 = 1;
-
-	    } else if (zncmd_i == ncmd_zn - 1) {
-		move1 = 0;
-		if (nsec_zn < ZTL_WCA_SEC_MCMD_MIN)  {
-		    printf ("WARNING: 1 SECTOR IN THE LAST ZONE, FAILING IO\n");
-		    goto FAIL_SUBMIT;
-		    //move1 = 2;
-		}
 	    }
 
 	    mcmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
@@ -326,7 +302,7 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	    mcmd->naddr     = 1;
 	    mcmd->status    = 0;
 	    mcmd->nsec[0]   = (nsec_zn >= ZTL_WCA_SEC_MCMD) ?
-					  ZTL_WCA_SEC_MCMD - move1 : nsec_zn;
+					  ZTL_WCA_SEC_MCMD : nsec_zn;
 
 	    mcmd->addr[0].g.grp  = prov->addr[zn_i].g.grp;
 	    mcmd->addr[0].g.zone = prov->addr[zn_i].g.zone;

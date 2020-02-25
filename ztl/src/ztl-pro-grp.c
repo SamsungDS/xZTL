@@ -134,7 +134,7 @@ struct ztl_pro_zone *ztl_pro_grp_get_best_zone (struct app_group *grp,
     /* Scan open zones: Pick the first available on the list */
     TAILQ_FOREACH (zone, &pro->open_head[ptype], open_entry) {
 	off = (zone->zmd_entry->addr.g.sect + zone->capacity) - min_piece;
-	if ( (zone->zmd_entry->wptr <= off) && !zone->lock)
+	if ( (zone->zmd_entry->wptr_inflight <= off) && !zone->lock)
 	    return zone;
 
 	/* TODO: Finish zone if space left is less than APP_PRO_MIN_PIECE_SZ */
@@ -147,14 +147,20 @@ int ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
 				uint32_t nsec, uint16_t ptype, uint8_t multi)
 {
     struct ztl_pro_zone *zone;
-    uint64_t sec_left, sec_avlb, zn_i;
+    uint64_t sec_left, zn_i, sec_zn, sec_avlb;
 
     sec_left = nsec;
     zn_i = 0;
     ctx->naddr = 0;
 
+    sec_zn = nsec / ZTL_PRO_STRIPE;
+    if (!sec_zn)
+	sec_zn = ZTL_WCA_SEC_MCMD_MIN;
+    else if (sec_zn % ZTL_WCA_SEC_MCMD_MIN != 0)
+	sec_zn += (ZTL_WCA_SEC_MCMD_MIN - (sec_zn % ZTL_WCA_SEC_MCMD_MIN));
+
     while (sec_left) {
-	zone = ztl_pro_grp_get_best_zone (grp, nsec, ptype, multi);
+	zone = ztl_pro_grp_get_best_zone (grp, sec_zn, ptype, multi);
 	if (!zone) {
 	    zone = ztl_pro_grp_zone_open (grp, ptype);
 	    if (!zone) {
@@ -169,9 +175,22 @@ int ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
 	ctx->addr[zn_i].g.sect = zone->zmd_entry->wptr_inflight;
 
 	sec_avlb = zone->zmd_entry->addr.g.sect + zone->capacity -
-						zone->zmd_entry->wptr_inflight;
+					zone->zmd_entry->wptr_inflight;
 
-	ctx->nsec[zn_i] = (sec_avlb > sec_left) ? sec_left : sec_avlb;
+	/* Zone has less space than the stripe */
+	if (sec_zn > sec_avlb) {
+	    /* This is the last zone */
+	    if (sec_zn > sec_left)
+		/* Check if we need one more zone */
+		ctx->nsec[zn_i] = (sec_left > sec_avlb) ? sec_avlb : sec_left;
+	    else
+		ctx->nsec[zn_i] = sec_avlb;
+	} else {
+	    /* Check if this is the last zone */
+	    ctx->nsec[zn_i] = (sec_zn > sec_left) ?
+			       sec_left : sec_zn;
+	}
+
 	zone->zmd_entry->wptr_inflight += ctx->nsec[zn_i];
 	sec_left -= ctx->nsec[zn_i];
 

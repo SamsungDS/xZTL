@@ -51,14 +51,12 @@ static int __zrocks_write (struct xapp_io_ucmd *ucmd,
 			uint64_t id, void *buf, size_t size, uint16_t level)
 {
     uint32_t misalign;
-    size_t new_sz;
+    size_t new_sz, alignment;
 
-    misalign = size % ZNS_ALIGMENT;
+    alignment = ZNS_ALIGMENT * ZTL_WCA_SEC_MCMD_MIN;
+    misalign = size % alignment;
     if (misalign != 0)
-	new_sz = size + (ZNS_ALIGMENT - misalign);
-
-    if (new_sz % 8192 != 0)
-	new_sz += 4096;
+	new_sz = size + (alignment - misalign);
 
     ucmd->prov_type = level;
 

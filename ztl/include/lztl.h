@@ -24,12 +24,10 @@
 
 #define ZTL_PRO_TYPES    64  /* Number of provisioning types */
 #define ZTL_PRO_MP_SZ    32  /* Mempool size per thread */
-
-#define ZTL_WCA_SEC_MCMD 	16//64
-#define ZTL_WCA_SEC_MCMD_MIN	2
+#define ZTL_PRO_STRIPE	 32  /* Number of zones for parallel write */
 
 /* Debug options */
-#define ZDEBUG_PRO_GRP 0
+#define ZDEBUG_PRO_GRP 1
 #define ZDEBUG_PRO     0
 #define ZDEBUG_MPE     0
 #define ZDRBUG_MAP     0
@@ -40,7 +38,6 @@
 	log_infoa (format, ## __VA_ARGS__);	\
     }						\
 } while ( 0 )
-
 
 enum ztl_pro_type_list {
     ZTL_PRO_TUSER = 0x0
