@@ -29,7 +29,7 @@
 #define ZTL_WCA_SEC_MCMD_MIN	2
 
 /* Debug options */
-#define ZDEBUG_PRO_GRP 1
+#define ZDEBUG_PRO_GRP 0
 #define ZDEBUG_PRO     0
 #define ZDEBUG_MPE     0
 #define ZDRBUG_MAP     0

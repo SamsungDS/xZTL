@@ -126,7 +126,8 @@ static void ztl_wca_callback_mcmd (void *arg)
 
     xapp_atomic_int16_update (&ucmd->ncb, ucmd->ncb + 1);
 
-    ZDEBUG (ZDEBUG_WCA, "ztl-wca: Callback. (ID %lu, S %d/%d, C %d, WOFF 0x%lx). St: %d",
+    if (mcmd->status)
+	ZDEBUG (ZDEBUG_WCA, "ztl-wca: Callback. (ID %lu, S %d/%d, C %d, WOFF 0x%lx). St: %d",
 						    ucmd->id,
 						    mcmd->sequence,
 						    ucmd->nmcmd,

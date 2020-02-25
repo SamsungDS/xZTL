@@ -95,8 +95,8 @@ void xapp_media_dma_free (void *ptr)
 
 int xapp_media_submit_io (struct xapp_io_mcmd *cmd)
 {
-    if (cmd->opcode == XAPP_CMD_WRITE)
-	xapp_print_mcmd (cmd);
+//    if (cmd->opcode == XAPP_CMD_WRITE)
+//	xapp_print_mcmd (cmd);
     xapp_stats_add_io (cmd);
     return core.media->submit_io (cmd);
 }

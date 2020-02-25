@@ -135,7 +135,6 @@ static int znd_media_submit_write_asynch (struct xapp_io_mcmd *cmd)
 
     /* The write path is not group based. It uses only sectors */
     slba = cmd->addr[sec_i].g.sect;
-    printf("Writing 0x%lx, nsec %d\n", slba, (uint16_t) cmd->nsec[sec_i] - 1);
 
     xreq->async.ctx    = tctx->asynch;
     xreq->async.cb     = znd_media_async_cb;
