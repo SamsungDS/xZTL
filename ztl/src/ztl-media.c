@@ -77,7 +77,7 @@ static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
 			    0,
 			    xreq);
     GET_MICROSECONDS(cmd->us_end, ts_e);
-    xapp_prometheus_add_read_latency (cmd->us_end - cmd->us_start);
+//    xapp_prometheus_add_read_latency (cmd->us_end - cmd->us_start);
 
     if (ret)
 	xapp_print_mcmd (cmd);
