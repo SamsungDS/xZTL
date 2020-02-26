@@ -118,7 +118,9 @@ static void ztl_wca_callback_mcmd (void *arg)
     mcmd = (struct xapp_io_mcmd *) arg;
     ucmd = (struct xapp_io_ucmd *) mcmd->opaque;
 
+    pthread_spin_lock (&ucmd->inflight_spin);
     ucmd->minflight[mcmd->sequence_zn] = 0;
+    pthread_spin_unlock (&ucmd->inflight_spin);
 
     if (mcmd->status) {
 	ucmd->status = mcmd->status;
@@ -182,6 +184,7 @@ static void ztl_wca_callback_mcmd (void *arg)
 
 	if (ucmd->callback) {
 	    ucmd->completed = 1;
+	    pthread_spin_destroy (&ucmd->inflight_spin);
 	    ucmd->callback (ucmd);
 	} else {
 	    ucmd->completed = 1;
@@ -344,6 +347,8 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
     for (cmd_i = 0; cmd_i < ZTL_PRO_STRIPE * 2; cmd_i++)
 	ucmd->minflight[cmd_i] = 0;
 
+    pthread_spin_init(&ucmd->inflight_spin, 0);
+
     submitted = 0;
     while (submitted < ncmd) {
 	usleep(1);
@@ -377,7 +382,9 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 		if (ucmd->minflight[zn_i])
 		    continue;
 
+		pthread_spin_lock (&ucmd->inflight_spin);
 		ucmd->minflight[zn_i] = 1;
+		pthread_spin_unlock (&ucmd->inflight_spin);
 	    }
 
 //	    printf ("OK3\n");
@@ -439,6 +446,7 @@ FAILURE:
 
     if (ucmd->callback) {
 	ucmd->completed = 1;
+	pthread_spin_destroy (&ucmd->inflight_spin);
         ucmd->callback (ucmd);
     } else {
 	ucmd->completed = 1;

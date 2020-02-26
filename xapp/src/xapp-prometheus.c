@@ -133,6 +133,7 @@ void xapp_prometheus_add_io (struct xapp_io_mcmd *cmd)
 
     switch (cmd->opcode) {
 	case XAPP_ZONE_APPEND:
+	case XAPP_CMD_WRITE:
 	    xapp_atomic_int64_update (&pr_stats.written_bytes,
 				      pr_stats.written_bytes +
 				      (nsec * core.media->geo.nbytes));

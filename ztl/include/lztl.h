@@ -24,7 +24,7 @@
 
 #define ZTL_PRO_TYPES    64  /* Number of provisioning types */
 #define ZTL_PRO_MP_SZ    32  /* Mempool size per thread */
-#define ZTL_PRO_STRIPE	 32  /* Number of zones for parallel write */
+#define ZTL_PRO_STRIPE	 8  /* Number of zones for parallel write */
 
 /* Debug options */
 #define ZDEBUG_PRO_GRP 0

@@ -102,6 +102,7 @@ void xapp_stats_add_io (struct xapp_io_mcmd *cmd)
 
     switch (cmd->opcode) {
 	case XAPP_ZONE_APPEND:
+	case XAPP_CMD_WRITE:
 	    type_b = XAPP_STATS_APPEND_BYTES;
 	    type_c = XAPP_STATS_APPEND_MCMD;
 	    break;

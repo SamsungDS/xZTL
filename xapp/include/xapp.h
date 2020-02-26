@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <sys/queue.h>
 #include <syslog.h>
+#include <pthread.h>
 
 #define XAPP_MP_DEBUG 	0
 #define XAPP_PROMETHEUS 1
@@ -112,6 +113,8 @@ struct xapp_io_ucmd {
     uint32_t 	   msec[XAPP_IO_MAX_MCMD];
     uint16_t 	   ncb;
     uint16_t 	   completed;
+
+    pthread_spinlock_t inflight_spin;
     volatile uint8_t minflight[128];
 
     STAILQ_ENTRY (xapp_io_ucmd)	entry;
