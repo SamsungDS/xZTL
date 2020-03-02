@@ -35,12 +35,18 @@ This repository contain three projects::
 
 And ``tests``, exercising the projects above.
 
+Dependencies
+============
+
+Debian: apt install libnuma-dev libcunit1-dev libuuid1
+
 Usage
 =====
 
 Type::
 
   make
+  make install
 
 The different libraries and their tests are build in::
 
@@ -54,5 +60,3 @@ For example::
 
   cd build/tests
   make install
-
-Will install the tests.
