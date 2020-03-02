@@ -1,0 +1,3 @@
+[submodule "third-party/xnvme"]
+	path = third-party/xnvme
+	url = https://github.com/OpenMPDK/xNVMe.git
