@@ -5,6 +5,8 @@
 #include <xapp.h>
 #include "CUnit/Basic.h"
 
+static const char **devname;
+
 static void cunit_zrocks_assert_ptr (char *fn, void *ptr)
 {
     CU_ASSERT ((uint64_t) ptr != 0);
@@ -33,7 +35,7 @@ static void test_zrocks_init (void)
 {
     int ret;
 
-    ret = zrocks_init (XAPP_DEV_NAME);
+    ret = zrocks_init (*devname);
     cunit_zrocks_assert_int ("zrocks_init", ret);
 }
 
@@ -42,7 +44,7 @@ static void test_zrocks_exit (void)
     zrocks_exit ();
 }
 
-#define TEST_N_BUFFERS 1
+#define TEST_N_BUFFERS 4
 #define TEST_BUFFER_SZ (1024 * 1024 * 16) /* 1 MB */
 #define TEST_RANDOM_ID 2
 
@@ -92,6 +94,7 @@ static void test_zrocks_new (void)
 	/* Allocate DMA memory */
 	wbuf[id] = xapp_media_dma_alloc (size, &phys[id]);
 	cunit_zrocks_assert_ptr ("xapp_media_dma_alloc", wbuf[id]);
+
 	if (!wbuf[id])
 	    continue;
 
@@ -110,7 +113,7 @@ static void test_zrocks_read (void)
     size_t read_sz, size;
 
     ids = TEST_N_BUFFERS;
-    read_sz = 1024 * 256; /* 256 KB */
+    read_sz = 1024 * 64; /* 64 KB */
     size = TEST_BUFFER_SZ;
 
     for (id = 0; id < ids; id++) {
@@ -186,8 +189,16 @@ static void test_zrocks_random_read (void)
 	xapp_media_dma_free (wbuf[i]);
 }
 
-int main (void)
+int main (int argc, const char **argv)
 {
+    if (argc < 2) {
+	printf ("Please provide the device path. e.g. liou:/dev/nvme0n2\n");
+	return -1;
+    }
+
+    devname = &argv[1];
+    printf ("Device: %s\n", *devname);
+
     CU_pSuite pSuite = NULL;
 
     if (CUE_SUCCESS != CU_initialize_registry())

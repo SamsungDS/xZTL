@@ -9,6 +9,7 @@
 #include "CUnit/Basic.h"
 
 extern struct xapp_core core;
+static const char **devname;
 
 static void cunit_znd_assert_ptr (char *fn, void *ptr)
 {
@@ -44,7 +45,7 @@ static int cunit_znd_media_exit (void)
 static void test_znd_media_register (void)
 {
     cunit_znd_assert_int ("znd_media_register",
-				    znd_media_register (XAPP_DEV_NAME));
+				    znd_media_register (*devname));
 }
 
 static void test_znd_media_init (void)
@@ -95,6 +96,7 @@ static void test_znd_manage_single (uint8_t op, uint8_t devop,
     int ret;
 
     cmd.opcode = op;
+    cmd.addr.addr = 0;
     cmd.addr.g.zone = zone;
 
     ret = xapp_media_submit_zn (&cmd);
@@ -107,7 +109,7 @@ static void test_znd_manage_single (uint8_t op, uint8_t devop,
 	cmd.nzones = 1;
 
 	ret = xapp_media_submit_zn (&cmd);
-	cunit_znd_assert_int ("xapp_media_submit_zn:report", ret);
+	cunit_znd_assert_int ("xapp_media_submit_zn:report", cmd.status);
 
 	if (!ret) {
 	    report = (struct znd_report *) cmd.opaque;
@@ -239,8 +241,8 @@ static void test_znd_append_zone (void)
 
     tid     = 0;
     ents    = 128;
-    nlbas   = 64;
-    zone    = 50;
+    nlbas   = 16;
+    zone    = 10;
     bsize = nlbas * core.media->geo.nbytes;
 
     /* Initialize mempool module */
@@ -275,7 +277,8 @@ static void test_znd_append_zone (void)
 
     /* Fill up command structure */
     cmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
-    cmd->opcode    = XAPP_ZONE_APPEND;
+    cmd->opcode    = (XAPP_WRITE_APPEND) ? XAPP_ZONE_APPEND :
+					   XAPP_CMD_WRITE;
     cmd->synch     = 0;
     cmd->async_ctx = tctx;
     cmd->prp[0]    = (uint64_t) wbuf;
@@ -283,6 +286,7 @@ static void test_znd_append_zone (void)
     cmd->callback  = test_znd_callback;
 
     cmd->addr[0].g.zone = zone;
+    cmd->addr[0].g.sect = zone * core.media->geo.sec_zn;
 
     /* Submit append */
     outstanding = 1;
@@ -316,8 +320,8 @@ static void test_znd_read_zone (void)
 
     tid     = 0;
     ents    = 128;
-    nlbas   = 64;
-    zone    = 50;
+    nlbas   = 16;
+    zone    = 10;
     bsize = nlbas * core.media->geo.nbytes;
 
     /* Initialize mempool module */
@@ -376,8 +380,16 @@ MP:
     cunit_znd_assert_int ("", ret);
 }
 
-int main (void)
+int main (int argc, const char **argv)
 {
+    if (argc < 2) {
+	printf ("Please provide the device path. e.g. liou:/dev/nvme0n2\n");
+	return -1;
+    }
+
+    devname = &argv[1];
+    printf ("Device: %s\n", *devname);
+
     CU_pSuite pSuite = NULL;
 
     if (CUE_SUCCESS != CU_initialize_registry())
@@ -401,9 +413,9 @@ int main (void)
 		      test_znd_asynch_ctx) == NULL) ||
         (CU_add_test (pSuite, "Allocate/Free DMA aligned buffer",
 		      test_znd_dma_memory) == NULL) ||
-        (CU_add_test (pSuite, "Append 64 sectors to zone 50",
+        (CU_add_test (pSuite, "Append/Write 16 sectors to a zone",
 		      test_znd_append_zone) == NULL) ||
-        (CU_add_test (pSuite, "Read 64 sectors from zone 50",
+        (CU_add_test (pSuite, "Read 16 sectors from a zone",
 		      test_znd_read_zone) == NULL) ||
 	(CU_add_test (pSuite, "Close media",
 		      test_znd_media_exit) == NULL)) {

@@ -18,7 +18,7 @@ add_definitions(-DZROCKS_VERSION_MAJOR=${ZROCKS_VERSION_MAJOR})
 add_definitions(-DZROCKS_VERSION_MINOR=${ZROCKS_VERSION_MINOR})
 add_definitions(-DZROCKS_VERSION_PATCH=${ZROCKS_VERSION_PATCH})
 add_definitions(-DZROCKS_VERSION=${ZROCKS_VERSION})
-add_definitions(-DZROCKS_LABEL="ZRocks: Zoned RocksDB target")
+add_definitions(-DZROCKS_LABEL="ZRocks: Zoned RocksDB Backend")
 
 use_c11()
 enable_c_flag("-std=c11")

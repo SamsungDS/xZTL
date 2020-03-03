@@ -15,6 +15,7 @@
 #define TEST_NSECT   	4096
 
 extern struct xapp_core core;
+static const char **devname;
 
 struct test_params {
     uint16_t tid;
@@ -205,13 +206,22 @@ EXIT:
     return NULL;
 }
 
-int main () {
+int main (int argc, const char **argv)
+{
     pthread_t thread_id[TEST_THREAD];
     uint32_t tid, zone_th, left;
     int ret, err;
 
+    if (argc < 2) {
+	printf ("Please provide the device path. e.g. liou:/dev/nvme0n2\n");
+	return -1;
+    }
+
+    devname = &argv[1];
+    printf ("Device: %s\n", *devname);
+
     /* Register the ZNS media layer */
-    znd_media_register (XAPP_DEV_NAME);
+    znd_media_register (*devname);
 
     /* Initialize media */
     ret = xapp_media_init ();

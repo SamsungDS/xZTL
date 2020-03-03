@@ -28,7 +28,7 @@
 #include <libxnvme.h>
 #include <omp.h>
 
-#define ZROCKS_DEBUG 		0
+#define ZROCKS_DEBUG 		1
 #define ZROCKS_BUF_ENTS 	128
 #define ZROCKS_MAX_READ_SZ	(128 * 4096) /* 512KB */
 
@@ -56,8 +56,13 @@ static int __zrocks_write (struct xapp_io_ucmd *ucmd,
 
     alignment = ZNS_ALIGMENT * ZTL_WCA_SEC_MCMD_MIN;
     misalign = size % alignment;
-    if (misalign != 0)
-	new_sz = size + (alignment - misalign);
+
+    new_sz = (misalign != 0) ? size + (alignment - misalign) : size;
+
+    if (ZROCKS_DEBUG)
+	log_infoa ("zrocks (write): ID %lu, level %d, size %lu, new size %lu, "
+		"aligment %lu, misalign %d\n", id, level, size, new_sz,
+		 alignment, misalign);
 
     ucmd->prov_type = level;
 

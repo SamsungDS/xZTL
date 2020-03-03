@@ -1,24 +1,24 @@
 cmake_minimum_required(VERSION 3.1.0)
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
-set(XAPP_VERSION_MAJOR 0)
-set(XAPP_VERSION_MINOR 0)
-set(XAPP_VERSION_PATCH 6)
-set(XAPP_VERSION "${XAPP_VERSION_MAJOR}.${XAPP_VERSION_MINOR}.${XAPP_VERSION_PATCH}")
 
-project(xapp C)
+set(ZTL_VERSION_MAJOR 0)
+set(ZTL_VERSION_MINOR 0)
+set(ZTL_VERSION_PATCH 7)
+set(ZTL_VERSION "${ZTL_VERSION_MAJOR}.${ZTL_VERSION_MINOR}.${ZTL_VERSION_PATCH}")
+
+project(ztl C)
 include(FeatureSummary)
 include(use_c11)
-include(bundle_xapp)
+include(bundle_ztl)
 include(CheckLibraryExists)
 include(CheckFunctionExists)
 
 # versioning
-add_definitions(-DXAPP_VERSION_MAJOR=${XAPP_VERSION_MAJOR})
-add_definitions(-DXAPP_VERSION_MINOR=${XAPP_VERSION_MINOR})
-add_definitions(-DXAPP_VERSION_PATCH=${XAPP_VERSION_PATCH})
-add_definitions(-DXAPP_VERSION=${XAPP_VERSION})
-add_definitions(-DXAPP_LABEL="xapp: ztl library core")
+add_definitions(-DZTL_VERSION_MAJOR=${ZTL_VERSION_MAJOR})
+add_definitions(-DZTL_VERSION_MINOR=${ZTL_VERSION_MINOR})
+add_definitions(-DZTL_VERSION_PATCH=${ZTL_VERSION_PATCH})
+add_definitions(-DZTL_VERSION=${ZTL_VERSION})
+add_definitions(-DZTL_LABEL="libztl: User-space Zone Translation Layer Library")
 
 use_c11()
 enable_c_flag("-std=c11")
@@ -32,6 +32,8 @@ set(HEADER_FILES
     ${PROJECT_SOURCE_DIR}/include/xapp-media.h
     ${PROJECT_SOURCE_DIR}/include/xapp-mempool.h
     ${PROJECT_SOURCE_DIR}/include/xapp-ztl.h
+    ${PROJECT_SOURCE_DIR}/include/lztl.h
+    ${PROJECT_SOURCE_DIR}/include/ztl-media.h
 )
 
 set(SOURCE_FILES
@@ -42,17 +44,24 @@ set(SOURCE_FILES
     ${PROJECT_SOURCE_DIR}/src/xapp-groups.c
     ${PROJECT_SOURCE_DIR}/src/xapp-stats.c
     ${PROJECT_SOURCE_DIR}/src/xapp-prometheus.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-media.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-zmd.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-pro.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-pro-grp.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-mpe.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-map.c
+    ${PROJECT_SOURCE_DIR}/src/ztl-wca.c
 )
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
-set(LNAME "xapp")
+set(LNAME "ztl")
 
 add_library(${LNAME} STATIC ${HEADER_FILES} ${SOURCE_FILES})
 set_target_properties(${LNAME} PROPERTIES OUTPUT_NAME "${LNAME}_slim")
 
-bundle_xapp("${LNAME}" "${LNAME}_bundle")
-message(STATUS "bundle_xapp(${BUNDLE_LIBS})")
+bundle_ztl("${LNAME}" "${LNAME}_bundle")
+message(STATUS "bundle_ztl(${BUNDLE_LIBS})")
 if ("${dep_path}" STREQUAL "dep_path-NOTFOUND")
 	message( FATAL_ERROR "bundling libs failed")
 endif()
@@ -60,10 +69,10 @@ if ("${BUNDLE_LIBS}" STREQUAL "FAILED")
 	message( FATAL_ERROR "bundling libs failed")
 endif()
 
-install(FILES "${PROJECT_SOURCE_DIR}/include/xapp.h"
+install(FILES ${PROJECT_SOURCE_DIR}/include/xapp.h
+	      ${PROJECT_SOURCE_DIR}/include/xapp-media.h
+	      ${PROJECT_SOURCE_DIR}/include/xapp-ztl.h
+	      ${PROJECT_SOURCE_DIR}/include/xapp-mempool.h
 	DESTINATION include COMPONENT dev)
-install(FILES "${PROJECT_SOURCE_DIR}/include/xapp-ztl.h"
-	DESTINATION include COMPONENT dev)
-install(FILES "${PROJECT_SOURCE_DIR}/include/xapp-media.h"
-	DESTINATION include COMPONENT dev)
+
 install(TARGETS ${LNAME} DESTINATION lib COMPONENT lib)

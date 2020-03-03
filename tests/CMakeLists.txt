@@ -12,27 +12,16 @@ enable_c_flag("-std=c11")
 enable_c_flag("-Wall")
 enable_c_flag("-pedantic")
 enable_c_flag("-fopenmp")
+enable_c_flag("-g")
 
-include_directories("${PROJECT_SOURCE_DIR}/../xapp/include")
-include_directories("${PROJECT_SOURCE_DIR}/../ztl/include")
-include_directories("${PROJECT_SOURCE_DIR}/../ztl-tgt-zrocks/include")
+include_directories("${PROJECT_SOURCE_DIR}/../include")
+include_directories("${PROJECT_SOURCE_DIR}/../zrocks/include")
 
-link_directories("${PROJECT_SOURCE_DIR}/../build/xapp")
 link_directories("${PROJECT_SOURCE_DIR}/../build/ztl")
-link_directories("${PROJECT_SOURCE_DIR}/../build/ztl-tgt-zrocks")
-
-set(XAPP_TESTS
-    ${PROJECT_SOURCE_DIR}/src/test-media-layer.c
-)
-foreach(SRC_FN ${XAPP_TESTS})
-    get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
-    set(EXE_FN "xapp-${SRC_FN_WE}")
-    add_executable(${EXE_FN} ${SRC_FN})
-    target_link_libraries ( ${EXE_FN} cunit rt numa uuid)
-    target_link_libraries ( ${EXE_FN} xapp )
-endforeach()
+link_directories("${PROJECT_SOURCE_DIR}/../build/zrocks")
 
 set(ZTL_TESTS
+    ${PROJECT_SOURCE_DIR}/src/test-media-layer.c
     ${PROJECT_SOURCE_DIR}/src/test-znd-media.c
     ${PROJECT_SOURCE_DIR}/src/test-mempool.c
     ${PROJECT_SOURCE_DIR}/src/test-append-mthread.c
@@ -40,21 +29,19 @@ set(ZTL_TESTS
 )
 foreach(SRC_FN ${ZTL_TESTS})
     get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
-    set(EXE_FN "lztl-${SRC_FN_WE}")
+    set(EXE_FN "ztl-${SRC_FN_WE}")
     add_executable(${EXE_FN} ${SRC_FN})
-    target_link_libraries ( ${EXE_FN} cunit rt numa uuid)
-    target_link_libraries ( ${EXE_FN} pthread )
+    target_link_libraries ( ${EXE_FN} cunit rt uuid numa pthread)
     target_link_libraries ( ${EXE_FN} ztl )
 endforeach()
 
 set(ZROCKS_TESTS
     ${PROJECT_SOURCE_DIR}/src/test-zrocks.c
 )
-foreach(SRC_FN ${ZTL_TESTS})
+foreach(SRC_FN ${ZROCKS_TESTS})
     get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
     set(EXE_FN "zrocks-${SRC_FN_WE}")
     add_executable(${EXE_FN} ${SRC_FN})
-    target_link_libraries ( ${EXE_FN} cunit rt numa uuid)
-    target_link_libraries ( ${EXE_FN} pthread )
+    target_link_libraries ( ${EXE_FN} cunit rt uuid numa pthread)
     target_link_libraries ( ${EXE_FN} zrocks )
 endforeach()

@@ -1,21 +1,22 @@
-function(bundle_zrocks tgt_name bundled_tgt_name)
+function(bundle_ztl tgt_name bundled_tgt_name)
 	message( STATUS "Bundling libraries")
 
 	list(APPEND static_libs "lib${LNAME}_slim.a")
 
 	# These are expected to be available on the system
-	list(APPEND system_deps ztl)
+	list(APPEND system_deps xnvme)
+	list(APPEND system_deps uuid)
+	list(APPEND system_deps numa)
 
 	message( STATUS "system_deps(${system_deps})")
-	include_directories("${PROJECT_SOURCE_DIR}/../xapp/include")
-	include_directories("${PROJECT_SOURCE_DIR}/../ztl/include")
+	include_directories("${PROJECT_SOURCE_DIR}/third-party/xnvme/include")
 
 	foreach(dep IN LISTS system_deps)
 		set(dep_fname "lib${dep}.a")
 		unset(dep_path CACHE)
 		find_library(dep_path
 			NAMES ${dep_fname}
-			HINTS "${PROJECT_SOURCE_DIR}/../build/ztl")
+			HINTS "${PROJECT_SOURCE_DIR}/third-party/xnvme/build")
 		if ("${dep_path}" STREQUAL "dep_path-NOTFOUND")
 			message( STATUS "FAILED: find_library(${dep_fname})")
 			set(BUNDLE_LIBS "FAILED" PARENT_SCOPE)
@@ -75,7 +76,7 @@ function(bundle_zrocks tgt_name bundled_tgt_name)
 	add_dependencies(${bundled_tgt_name} bundling_target)
 
 	install(FILES ${bundled_tgt_full_name} DESTINATION lib COMPONENT dev)
-	
+
 	set(BUNDLE_LIBS "SUCCESS" PARENT_SCOPE)
 
 endfunction()

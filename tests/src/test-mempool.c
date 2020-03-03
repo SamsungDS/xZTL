@@ -5,6 +5,8 @@
 #include <ztl-media.h>
 #include "CUnit/Basic.h"
 
+static const char **devname;
+
 static void cunit_mempool_assert_ptr (char *fn, void *ptr)
 {
     CU_ASSERT ((uint64_t) ptr != 0);
@@ -33,7 +35,7 @@ static void test_mempool_init (void)
 {
     int ret;
 
-    ret = znd_media_register (XAPP_DEV_NAME);
+    ret = znd_media_register (*devname);
     cunit_mempool_assert_int ("znd_media_register", ret);
     if (ret)
 	return;
@@ -128,8 +130,16 @@ static void test_mempool_exit (void)
     cunit_mempool_assert_int ("xapp_media_exit", xapp_media_exit ());
 }
 
-int main (void)
+int main (int argc, const char **argv)
 {
+    if (argc < 2) {
+	printf ("Please provide the device path. e.g. liou:/dev/nvme0n2\n");
+	return -1;
+    }
+
+    devname = &argv[1];
+    printf ("Device: %s\n", *devname);
+
     CU_pSuite pSuite = NULL;
 
     if (CUE_SUCCESS != CU_initialize_registry())

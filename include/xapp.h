@@ -26,10 +26,10 @@
 #include <syslog.h>
 #include <pthread.h>
 
+#define XAPP_DEV_NAME "q"
+
 #define XAPP_MP_DEBUG 	0
 #define XAPP_PROMETHEUS 1
-
-#define XAPP_DEV_NAME "pci://0000:03:00.0/2"
 
 #define log_erra(format, ...)         syslog(LOG_ERR, format, ## __VA_ARGS__)
 #define log_infoa(format, ...)        syslog(LOG_INFO, format, ## __VA_ARGS__)

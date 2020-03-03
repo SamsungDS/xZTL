@@ -36,7 +36,7 @@ PTARGET = $$( \
 BUILD_DIR?=build
 
 .PHONY: default
-default: build
+default: all
 
 .PHONY: info
 info:
@@ -49,39 +49,29 @@ info:
 	@echo "nproc: $(NPROC)"
 	@echo "build_dir: $(BUILD_DIR)"
 
-.PHONY: build-xapp
-build-xapp: info
-	@echo "## meta: make build-xapp"
-	@if [ ! -d "$(BUILD_DIR)/xapp" ]; then	\
-		mkdir -p $(BUILD_DIR)/xapp;	\
-		cd $(BUILD_DIR)/xapp;		\
-		cmake ../../xapp;		\
-	fi
-	cd $(BUILD_DIR)/xapp && ${MAKE}
-
-.PHONY: build-ztl
-build-ztl: info
-	@echo "## meta: make build-ztl"
+.PHONY: ztl
+ztl: info
+	@echo "## meta: make ztl"
 	@if [ ! -d "$(BUILD_DIR)/ztl" ]; then	\
 		mkdir -p "$(BUILD_DIR)/ztl";	\
 		cd $(BUILD_DIR)/ztl;		\
-		cmake ../../ztl;		\
+		cmake ../..;			\
 	fi
 	cd $(BUILD_DIR)/ztl && ${MAKE}
 
-.PHONY: build-ztl-tgt-zrocks
-build-ztl-tgt-zrocks: info
-	@echo "## meta: make build-ztl-tgt-zrocks"
-	@if [ ! -d "$(BUILD_DIR)/ztl-tgt-zrocks" ]; then	\
-		mkdir -p "$(BUILD_DIR)/ztl-tgt-zrocks";		\
-		cd $(BUILD_DIR)/ztl-tgt-zrocks;			\
-		cmake ../../ztl-tgt-zrocks;			\
+.PHONY: zrocks
+zrocks: info
+	@echo "## meta: make zrocks"
+	@if [ ! -d "$(BUILD_DIR)/zrocks" ]; then	\
+		mkdir -p "$(BUILD_DIR)/zrocks";		\
+		cd $(BUILD_DIR)/zrocks;			\
+		cmake ../../zrocks;			\
 	fi
-	cd $(BUILD_DIR)/ztl-tgt-zrocks && ${MAKE}
+	cd $(BUILD_DIR)/zrocks && ${MAKE}
 
-.PHONY: build-tests
-build-tests: info
-	@echo "## meta: make build-tests"
+.PHONY: tests
+tests: info
+	@echo "## meta: make tests"
 	@if [ ! -d "$(BUILD_DIR)/tests" ]; then	\
 		mkdir -p "$(BUILD_DIR)/tests";	\
 		cd $(BUILD_DIR)/tests;		\
@@ -89,14 +79,17 @@ build-tests: info
 	fi
 	cd $(BUILD_DIR)/tests && ${MAKE}
 
-.PHONY: build
-build: info deps-xnvme build-xapp build-ztl build-ztl-tgt-zrocks
-	@echo "### Eureka!"
+.PHONY: lib-only
+lib-only: info ztl zrocks tests
+	@echo "### Congrats! Your library is ready!"
+
+.PHONY: all
+all: info deps-xnvme lib-only
 
 .PHONY: install
 install:
 	@echo "## meta: make install"
-	cd $(BUILD_DIR)/ztl-tgt-zrocks && ${MAKE} install
+	cd $(BUILD_DIR)/zrocks && ${MAKE} install
 
 .PHONY: clean
 clean:
@@ -145,4 +138,3 @@ deps-xnvme:
 	fi
 	@$(MAKE) deps-xnvme-fetch;
 	@$(MAKE) deps-xnvme-build
-	@$(MAKE) deps-xnvme-install

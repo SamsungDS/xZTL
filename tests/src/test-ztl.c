@@ -4,6 +4,8 @@
 #include <lztl.h>
 #include "CUnit/Basic.h"
 
+static const char **devname;
+
 static void cunit_ztl_assert_ptr (char *fn, void *ptr)
 {
     CU_ASSERT ((uint64_t) ptr != 0);
@@ -29,7 +31,7 @@ static void test_ztl_init (void)
 {
     int ret;
 
-    ret = znd_media_register (XAPP_DEV_NAME);
+    ret = znd_media_register (*devname);
     cunit_ztl_assert_int ("znd_media_register", ret);
     if (ret)
 	return;
@@ -64,17 +66,21 @@ static void test_ztl_pro_new_free (void)
     struct app_pro_addr *proe[2];
     struct app_zmd_entry *zmde;
     uint32_t nsec = 128;
+    int i;
 
     proe[0] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER, 0);
     cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[0]);
     if (!proe[0])
 	return;
 
+    for (i = 0; i < proe[0]->naddr; i++) {
+	zmde = ztl()->zmd->get_fn (proe[0]->grp, proe[0]->addr[i].g.zone, 0);
+	cunit_ztl_assert_int_equal ("ztl()->pro->new_fn:zmd:wptr_inflight",
+		    zmde->wptr_inflight, zmde->wptr + proe[0]->nsec[i]);
+    }
+
     ztl()->pro->free_fn (proe[0]);
 
-    zmde = ztl()->zmd->get_fn (proe[0]->grp, proe[0]->addr[0].g.zone, 0);
-    cunit_ztl_assert_int_equal ("ztl()->pro->new_fn:zmd:wptr",
-				zmde->wptr, zmde->addr.g.sect + nsec);
     proe[0] = NULL;
 
     for (int i = 0; i < 2; i++) {
@@ -139,8 +145,15 @@ static int cunit_ztl_exit (void)
     return 0;
 }
 
-int main (void)
+int main (int argc, const char **argv)
 {
+    if (argc < 2) {
+	printf ("Please provide the device path. e.g. liou:/dev/nvme0n2\n");
+	return -1;
+    }
+
+    devname = &argv[1];
+    printf ("Device: %s\n", *devname);
     CU_pSuite pSuite = NULL;
 
     if (CUE_SUCCESS != CU_initialize_registry())
