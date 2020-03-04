@@ -29,7 +29,7 @@ set(ZTL_TESTS
 )
 foreach(SRC_FN ${ZTL_TESTS})
     get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
-    set(EXE_FN "ztl-${SRC_FN_WE}")
+    set(EXE_FN "${SRC_FN_WE}")
     add_executable(${EXE_FN} ${SRC_FN})
     target_link_libraries ( ${EXE_FN} cunit rt uuid numa pthread)
     target_link_libraries ( ${EXE_FN} ztl )
@@ -37,10 +37,11 @@ endforeach()
 
 set(ZROCKS_TESTS
     ${PROJECT_SOURCE_DIR}/src/test-zrocks.c
+    ${PROJECT_SOURCE_DIR}/src/test-zrocks-rw.c
 )
 foreach(SRC_FN ${ZROCKS_TESTS})
     get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
-    set(EXE_FN "zrocks-${SRC_FN_WE}")
+    set(EXE_FN "${SRC_FN_WE}")
     add_executable(${EXE_FN} ${SRC_FN})
     target_link_libraries ( ${EXE_FN} cunit rt uuid numa pthread)
     target_link_libraries ( ${EXE_FN} zrocks )
