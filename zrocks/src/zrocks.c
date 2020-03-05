@@ -28,7 +28,7 @@
 #include <libxnvme.h>
 #include <omp.h>
 
-#define ZROCKS_DEBUG 		1
+#define ZROCKS_DEBUG 		0
 #define ZROCKS_BUF_ENTS 	128
 #define ZROCKS_MAX_READ_SZ	(128 * 4096) /* 512KB */
 

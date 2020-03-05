@@ -31,7 +31,7 @@
 #define ZDEBUG_PRO     0
 #define ZDEBUG_MPE     0
 #define ZDRBUG_MAP     0
-#define ZDEBUG_WCA     1
+#define ZDEBUG_WCA     0
 
 #define ZDEBUG(type, format, ...) do {		\
     if ((type)) {				\

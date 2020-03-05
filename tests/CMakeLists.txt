@@ -12,7 +12,7 @@ enable_c_flag("-std=c11")
 enable_c_flag("-Wall")
 enable_c_flag("-pedantic")
 enable_c_flag("-fopenmp")
-enable_c_flag("-g")
+#enable_c_flag("-g")
 
 include_directories("${PROJECT_SOURCE_DIR}/../include")
 include_directories("${PROJECT_SOURCE_DIR}/../zrocks/include")
