@@ -40,23 +40,21 @@ Dependencies
 
 Debian: apt install libnuma-dev libcunit1-dev libuuid1
 
-Usage
-=====
+Installation
+============
 
-Type::
+If you have xNVMe already installed in your system, type:
 
-  make
-  make install
+  $ make lib-only
+  $ make install
 
-The different libraries and their tests are build in::
+If you want libztl to compile xNVMe for you, type:
 
-  build/tests
-  build/xapp
-  build/ztl
-  build/ztl-tgt-zrocks
+  $ make
+  $ make install
 
-You can enter the build-directories and install each individual project.
-For example::
+The library and tests are built in::
 
-  cd build/tests
-  make install
+  build/ztl     (Core Library)
+  build/zrocks  (RocksDB ZRocks target)
+  build/tests   (Library Tests)
