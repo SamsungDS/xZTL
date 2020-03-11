@@ -115,7 +115,7 @@ struct xapp_io_ucmd {
     uint16_t 	   completed;
 
     pthread_spinlock_t inflight_spin;
-    volatile uint8_t minflight[128];
+    volatile uint8_t minflight[256];
 
     STAILQ_ENTRY (xapp_io_ucmd)	entry;
 };

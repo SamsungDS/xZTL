@@ -128,7 +128,9 @@ static void ztl_wca_callback_mcmd (void *arg)
 	ucmd->moffset[mcmd->sequence] = mcmd->paddr[0];
     }
 
+    pthread_spin_lock (&ucmd->inflight_spin);
     xapp_atomic_int16_update (&ucmd->ncb, ucmd->ncb + 1);
+    pthread_spin_unlock (&ucmd->inflight_spin);
 
     if (mcmd->status)
 	ZDEBUG (ZDEBUG_WCA, "ztl-wca: Callback. (ID %lu, S %d/%d, C %d, WOFF 0x%lx). St: %d",
@@ -351,31 +353,16 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
     submitted = 0;
     while (submitted < ncmd) {
-	usleep(1);
 	for (zn_i = 0; zn_i < prov->naddr; zn_i++) {
 
-/*
-	    printf ("ZN %d: ", zn_i);
-	    for (cmd_i = 0; cmd_i < ZTL_PRO_STRIPE + 1; cmd_i++)
-		printf ("(%d/%d/%d)", cmd_i, zn_cmd_id[cmd_i], ucmd->minflight[cmd_i]);
-	    printf ("\n");
-	    printf ("Submitted: %d\n", submitted);
-*/
 	    if (zn_cmd_id[zn_i] < 0)
 		continue;
-
-/*
-	    if (zn_cmd_id[zn_i] < ncmd)
-		printf ("OK1 - %d\n", ucmd->mcmd[zn_cmd_id[zn_i]]->sequence_zn);
-*/
 
 	    if (zn_cmd_id[zn_i] >= ncmd ||
 		    ucmd->mcmd[zn_cmd_id[zn_i]]->sequence_zn != zn_i) {
 		zn_cmd_id[zn_i] = -1;
 		continue;
 	    }
-
-//	    printf ("OK2\n");
 
 	    /* Limit to 1 write per zone if append is not supported */
 	    if (!XAPP_WRITE_APPEND) {
@@ -387,16 +374,15 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 		pthread_spin_unlock (&ucmd->inflight_spin);
 	    }
 
-//	    printf ("OK3\n");
-
-	    ucmd->mcmd[zn_cmd_id[zn_i]]->submitted = 1;
 	    ret = xapp_media_submit_io (ucmd->mcmd[zn_cmd_id[zn_i]]);
 	    if (ret)
 		goto FAIL_SUBMIT;
 
+	    ucmd->mcmd[zn_cmd_id[zn_i]]->submitted = 1;
 	    submitted++;
 	    zn_cmd_id[zn_i]++;
 	}
+	usleep(1);
     }
 
     ZDEBUG (ZDEBUG_WCA, "  Submitted: %d", submitted);

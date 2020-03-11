@@ -6,14 +6,14 @@
 #include "CUnit/Basic.h"
 
 
-#define WRITE_TBUFFER_SZ (1024 * 1024 * 2) // 2 MB
+#define WRITE_TBUFFER_SZ (1024 * 1024 * 32) // 2 MB
 #define WRITE_COUNT      (1024 * 4) // 8GB
 //#define WRITE_COUNT    (128097 * 16) // full device
 
 #define READ_NTHREADS    48
 #define READ_ZONE_SEC    24768
 #define READ_SZ    	(16 * ZNS_ALIGMENT)
-#define READ_ITERATIONS  128
+#define READ_ITERATIONS  32
 
 static const char **devname;
 
