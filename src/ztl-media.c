@@ -127,6 +127,7 @@ static int znd_media_submit_write_asynch (struct xapp_io_mcmd *cmd)
     void *dbuf;
     struct xapp_mthread_ctx *tctx;
     struct xnvme_req *xreq;
+    int ret;
 
     tctx = cmd->async_ctx;
     xreq = &cmd->media_ctx;
@@ -140,7 +141,9 @@ static int znd_media_submit_write_asynch (struct xapp_io_mcmd *cmd)
     xreq->async.cb     = znd_media_async_cb;
     xreq->async.cb_arg = (void *) cmd;
 
-    return xnvme_cmd_write (zndmedia.dev,
+    pthread_spin_lock (&tctx->qpair_spin);
+
+    ret = xnvme_cmd_write (zndmedia.dev,
 			    xnvme_dev_get_nsid (zndmedia.dev),
 			    slba,
 			    (uint16_t) cmd->nsec[sec_i] - 1,
@@ -148,6 +151,13 @@ static int znd_media_submit_write_asynch (struct xapp_io_mcmd *cmd)
 			    NULL,
 			    XNVME_CMD_ASYNC,
 			    xreq);
+
+    pthread_spin_unlock (&tctx->qpair_spin);
+
+    if (ret)
+	xapp_print_mcmd (cmd);
+
+    return ret;
 }
 
 static int znd_media_submit_append_synch (struct xapp_io_mcmd *cmd)
@@ -342,13 +352,17 @@ static void *znd_media_asynch_comp_th (void *args)
     tctx->comp_active = 1;
 
     while (tctx->comp_active) {
-	/* TODO: Define polling time */
 	usleep (1);
+
+	pthread_spin_lock (&tctx->qpair_spin);
 	znd_media_async_poke (tctx->asynch, &processed, limit);
+	pthread_spin_unlock (&tctx->qpair_spin);
 
 	if (!processed) {
 	    /* Check outs in case of hanging controller */
+	    pthread_spin_lock (&tctx->qpair_spin);
 	    znd_media_async_outs (tctx->asynch, &outs);
+	    pthread_spin_unlock (&tctx->qpair_spin);
 	}
     }
 
@@ -362,7 +376,8 @@ static int znd_media_asynch_init (struct xapp_misc_cmd *cmd)
 
     tctx = cmd->asynch.ctx_ptr;
 
-    ret = xnvme_async_init (zndmedia.dev, &tctx->asynch, cmd->asynch.depth, XNVME_ASYNC_SQPOLL | XNVME_ASYNC_IOPOLL);
+    ret = xnvme_async_init (zndmedia.dev, &tctx->asynch, cmd->asynch.depth,
+				    XNVME_ASYNC_SQPOLL | XNVME_ASYNC_IOPOLL);
     if (ret) {
 	return ZND_MEDIA_ASYNCH_ERR;
     }
