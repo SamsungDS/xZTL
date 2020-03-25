@@ -30,7 +30,7 @@
 
 #define ZROCKS_DEBUG 		0
 #define ZROCKS_BUF_ENTS 	128
-#define ZROCKS_MAX_READ_SZ	(128 * 4096) /* 512KB */
+#define ZROCKS_MAX_READ_SZ	(128 * ZNS_ALIGMENT) /* 512 KB */
 
 extern struct xapp_core core;
 
@@ -159,10 +159,9 @@ static int __zrocks_read (uint64_t offset, void *buf, size_t size) {
 
     if (ZROCKS_DEBUG)
 	log_infoa ("zrocks (__read): sec_size %lu, sec_off %lx, misalign %lu, "
-			    "nsec %lu\n", sec_size, sec_off, misalign, sec_size);
+			"nsec %lu\n", sec_size, sec_off, misalign, sec_size);
 
-    /* Maximum read size is 512 KB (128 sectors)
-     * Multiple media commands are necessary for larger reads */
+    /* Return an error if read is larger the maximum size */
     if (sec_size * ZNS_ALIGMENT > ZROCKS_MAX_READ_SZ)
 	return -1;
 
@@ -175,8 +174,8 @@ static int __zrocks_read (uint64_t offset, void *buf, size_t size) {
     }
     pthread_spin_unlock (&zrocks_mp_spin);
 
-    ncmd = sec_size / 16;
-    if (sec_size % 16 != 0)
+    ncmd = sec_size / ZTL_READ_SEC_MCMD;
+    if (sec_size % ZTL_READ_SEC_MCMD != 0)
 	ncmd++;
 
     #pragma omp parallel for num_threads(ncmd)
@@ -187,16 +186,20 @@ static int __zrocks_read (uint64_t offset, void *buf, size_t size) {
 	cmd.naddr   = 1;
 	cmd.synch   = 1;
 	cmd.addr[0].addr = 0;
-	cmd.nsec[0] = (cmd_i == ncmd - 1) ? sec_size - (cmd_i * 16) : 16;
+	cmd.nsec[0] = (cmd_i == ncmd - 1) ?
+			    sec_size - (cmd_i * ZTL_READ_SEC_MCMD) :
+			    ZTL_READ_SEC_MCMD;
 
-	cmd.prp[0]  = (uint64_t) mp_entry->opaque + (cmd_i * 16 * ZNS_ALIGMENT);
-	cmd.addr[0].g.sect = sec_off + (cmd_i * 16);
+	cmd.prp[0]  = (uint64_t) mp_entry->opaque +
+			    (cmd_i * ZTL_READ_SEC_MCMD * ZNS_ALIGMENT);
+
+	cmd.addr[0].g.sect = sec_off + (cmd_i * ZTL_READ_SEC_MCMD);
 	cmd.status  = 0;
 
 	ret = xapp_media_submit_io (&cmd);
 	if (ret || cmd.status) {
 	    ok++;
-	    log_erra("read err: ret %d, status %x", ret, cmd.status);
+	    log_erra("zrocks (__read) error: ret %d, status %x", ret, cmd.status);
 	}
     }
     if (!ok) {

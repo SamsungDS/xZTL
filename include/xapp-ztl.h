@@ -33,9 +33,12 @@
 #define ZTL_MPE_PG_SEC	 8   /* 32K/4K page for 4K/512b sec sz */
 #define ZTL_MPE_CPGS	 256 /* Small mapping always follows this granularity */
 
-/* Media minimum/maximum write sizes */
+/* Media minimum/maximum write size in sectors */
 #define ZTL_WCA_SEC_MCMD 	16
-#define ZTL_WCA_SEC_MCMD_MIN	2
+#define ZTL_WCA_SEC_MCMD_MIN	1
+
+/* Media maximum read size in sectors */
+#define ZTL_READ_SEC_MCMD	16
 
 enum xapp_mod_types {
     ZTLMOD_BAD = 0x0,

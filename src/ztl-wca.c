@@ -307,7 +307,8 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
 	    memset (mcmd, 0x0, sizeof (struct xapp_io_mcmd));
 	    mcmd->mp_cmd    = mp_cmd;
-	    mcmd->opcode    = (XAPP_WRITE_APPEND) ? XAPP_ZONE_APPEND : XAPP_CMD_WRITE;
+	    mcmd->opcode    = (XAPP_WRITE_APPEND) ? XAPP_ZONE_APPEND :
+						    XAPP_CMD_WRITE;
 	    mcmd->synch     = 0;
 	    mcmd->submitted = 0;
 	    mcmd->sequence  = cmd_i;
