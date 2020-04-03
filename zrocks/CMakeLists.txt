@@ -36,11 +36,17 @@ set(SOURCE_FILES
 )
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
+#include_directories("${PROJECT_SOURCE_DIR}/../third-party/xnvme/build")
+#include_directories("${PROJECT_SOURCE_DIR}/../third-party/xnvme/include")
 
 set(LNAME "zrocks")
 
 add_library(${LNAME} STATIC ${HEADER_FILES} ${SOURCE_FILES})
 set_target_properties(${LNAME} PROPERTIES OUTPUT_NAME "${LNAME}_slim")
+target_compile_options(${LNAME} PUBLIC -MMD)
+target_compile_options(${LNAME} PUBLIC -MP)
+target_compile_options(${LNAME} PUBLIC -MF)
+target_compile_options(${LNAME} PUBLIC -fPIE)
 
 bundle_zrocks("${LNAME}" "${LNAME}_bundle")
 message(STATUS "bundle_zrocks(${BUNDLE_LIBS})")

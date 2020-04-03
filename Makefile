@@ -121,7 +121,7 @@ deps-xnvme-fetch:
 	@echo "# deps-fetch: fetching xnvme"
 	@git submodule update --init --recursive
 	@echo "# deps-fetch: checkout xnvme"
-	cd third-party/xnvme && git checkout ocpv1
+	cd third-party/xnvme && git checkout release-v2020.03.20
 
 .PHONY: deps-xnvme-install
 deps-xnvme-install:
@@ -136,5 +136,5 @@ deps-xnvme:
 	@if [ ! -d "third-party/xnvme" ]; then  \
 	    mkdir third-party/xnvme;		\
 	fi
-	@$(MAKE) deps-xnvme-fetch;
+	@$(MAKE) deps-xnvme-fetch
 	@$(MAKE) deps-xnvme-build

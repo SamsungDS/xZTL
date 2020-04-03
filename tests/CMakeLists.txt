@@ -29,10 +29,22 @@ set(ZTL_TESTS
 )
 foreach(SRC_FN ${ZTL_TESTS})
     get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
+
     set(EXE_FN "${SRC_FN_WE}")
     add_executable(${EXE_FN} ${SRC_FN})
+    set_target_properties(${EXE_FN} PROPERTIES
+		INTERPROCEDURAL_OPTIMIZATION HAS_IPO)
+    target_compile_options(${EXE_FN} PUBLIC -MMD)
+    target_compile_options(${EXE_FN} PUBLIC -MP)
+    target_compile_options(${EXE_FN} PUBLIC -MF)
+    target_compile_options(${EXE_FN} PUBLIC -fPIE)
+
+    target_link_libraries(${EXE_FN} -Wl,--whole-archive)
+    target_link_libraries(${EXE_FN} -Wl,--no-as-needed)
     target_link_libraries ( ${EXE_FN} cunit rt uuid numa pthread)
     target_link_libraries ( ${EXE_FN} ztl )
+    target_link_libraries(${EXE_FN} -Wl,--no-whole-archive)
+    target_link_libraries(${EXE_FN} -Wl,--as-needed)
 endforeach()
 
 set(ZROCKS_TESTS
@@ -41,8 +53,20 @@ set(ZROCKS_TESTS
 )
 foreach(SRC_FN ${ZROCKS_TESTS})
     get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
+
     set(EXE_FN "${SRC_FN_WE}")
     add_executable(${EXE_FN} ${SRC_FN})
+    set_target_properties(${EXE_FN} PROPERTIES
+		INTERPROCEDURAL_OPTIMIZATION HAS_IPO)
+    target_compile_options(${EXE_FN} PUBLIC -MMD)
+    target_compile_options(${EXE_FN} PUBLIC -MP)
+    target_compile_options(${EXE_FN} PUBLIC -MF)
+    target_compile_options(${EXE_FN} PUBLIC -fPIE)
+
+    target_link_libraries(${EXE_FN} -Wl,--whole-archive)
+    target_link_libraries(${EXE_FN} -Wl,--no-as-needed)
     target_link_libraries ( ${EXE_FN} cunit rt uuid numa pthread)
     target_link_libraries ( ${EXE_FN} zrocks )
+    target_link_libraries(${EXE_FN} -Wl,--no-whole-archive)
+    target_link_libraries(${EXE_FN} -Wl,--as-needed)
 endforeach()
