@@ -20,6 +20,8 @@
 #ifndef XAPP_H
 #define XAPP_H
 
+#define _GNU_SOURCE
+
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/queue.h>

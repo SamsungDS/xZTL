@@ -40,6 +40,10 @@
 /* Media maximum read size in sectors */
 #define ZTL_READ_SEC_MCMD	16
 
+/* Set ZTL_WRITE_AFFINITY to 1 to enable thread affinity to a single core */
+#define ZTL_WRITE_AFFINITY 1
+#define ZTL_WRITE_CORE     0
+
 enum xapp_mod_types {
     ZTLMOD_BAD = 0x0,
     ZTLMOD_ZMD = 0x1,

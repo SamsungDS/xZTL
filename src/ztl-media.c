@@ -26,6 +26,7 @@
 #include <libznd.h>
 #include <pthread.h>
 #include <sys/queue.h>
+#include <sched.h>
 
 static struct znd_media zndmedia;
 extern char *dev_name;
@@ -348,6 +349,15 @@ static void *znd_media_asynch_comp_th (void *args)
     struct xapp_misc_cmd    *cmd_misc;
     struct xapp_io_mcmd	    *cmd;
     struct xapp_mthread_ctx *tctx;
+
+#if ZTL_WRITE_AFFINITY
+    cpu_set_t cpuset;
+
+    /* Set affinity to writing core */
+    CPU_ZERO(&cpuset);
+    CPU_SET(ZTL_WRITE_CORE, &cpuset);
+    pthread_setaffinity_np (pthread_self(), sizeof(cpu_set_t), &cpuset);
+#endif
 
     cmd_misc   = (struct xapp_misc_cmd *) args;
     tctx       = cmd_misc->asynch.ctx_ptr;

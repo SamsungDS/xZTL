@@ -22,6 +22,7 @@
 #include <xapp-ztl.h>
 #include <lztl.h>
 #include <unistd.h>
+#include <sched.h>
 
 #define ZTL_MCMD_ENTS	 XAPP_IO_MAX_MCMD
 
@@ -477,6 +478,15 @@ FAILURE:
 static void *ztl_wca_write_th (void *arg)
 {
     struct xapp_io_ucmd *ucmd;
+
+#if ZTL_WRITE_AFFINITY
+    cpu_set_t cpuset;
+
+    /* Set affinity to writing core */
+    CPU_ZERO(&cpuset);
+    CPU_SET(ZTL_WRITE_CORE, &cpuset);
+    pthread_setaffinity_np (pthread_self(), sizeof(cpu_set_t), &cpuset);
+#endif
 
     wca_running = 1;
 
