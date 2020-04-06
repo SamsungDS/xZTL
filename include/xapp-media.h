@@ -110,6 +110,9 @@ struct xapp_io_mcmd {
 
      /* change to pointer when xnvme is updated */
      struct xnvme_req media_ctx;
+
+     /* Completion queue */
+     STAILQ_ENTRY(xapp_io_mcmd) entry;
 };
 
 struct xapp_zn_mcmd {

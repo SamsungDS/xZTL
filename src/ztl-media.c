@@ -25,9 +25,13 @@
 #include <unistd.h>
 #include <libznd.h>
 #include <pthread.h>
+#include <sys/queue.h>
 
 static struct znd_media zndmedia;
 extern char *dev_name;
+
+static pthread_spinlock_t cb_spin;
+STAILQ_HEAD (callback_head, xapp_io_mcmd) cb_head;
 
 static void znd_media_async_cb (struct xnvme_req *xreq, void *cb_arg)
 {
@@ -48,7 +52,9 @@ static void znd_media_async_cb (struct xnvme_req *xreq, void *cb_arg)
 	xnvme_req_pr (xreq, 0);
     }
 
-    cmd->callback (cmd);
+    pthread_spin_lock (&cb_spin);
+    STAILQ_INSERT_TAIL (&cb_head, cmd, entry);
+    pthread_spin_unlock (&cb_spin);
 }
 
 static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
@@ -339,30 +345,34 @@ static int znd_media_async_wait (struct xnvme_async_ctx *ctx, uint32_t *c)
 
 static void *znd_media_asynch_comp_th (void *args)
 {
-    struct xapp_misc_cmd    *cmd;
+    struct xapp_misc_cmd    *cmd_misc;
+    struct xapp_io_mcmd	    *cmd;
     struct xapp_mthread_ctx *tctx;
-    uint32_t processed, outs;
-    uint16_t limit;
 
-    cmd        = (struct xapp_misc_cmd *) args;
-    tctx       = cmd->asynch.ctx_ptr;
+    cmd_misc   = (struct xapp_misc_cmd *) args;
+    tctx       = cmd_misc->asynch.ctx_ptr;
 
-    /* Set poke limit (we should tune) */
-    limit = 0;
     tctx->comp_active = 1;
 
     while (tctx->comp_active) {
 	usleep (1);
 
-	pthread_spin_lock (&tctx->qpair_spin);
-	znd_media_async_poke (tctx->asynch, &processed, limit);
-	pthread_spin_unlock (&tctx->qpair_spin);
+NEXT:
+	if (!STAILQ_EMPTY (&cb_head)) {
 
-	if (!processed) {
-	    /* Check outs in case of hanging controller */
-	    pthread_spin_lock (&tctx->qpair_spin);
-	    znd_media_async_outs (tctx->asynch, &outs);
-	    pthread_spin_unlock (&tctx->qpair_spin);
+	    pthread_spin_lock (&cb_spin);
+	    cmd = STAILQ_FIRST (&cb_head);
+	    if (!cmd) {
+		pthread_spin_unlock (&cb_spin);
+		continue;
+	    }
+
+	    STAILQ_REMOVE_HEAD (&cb_head, entry);
+	    pthread_spin_unlock (&cb_spin);
+
+	    cmd->callback (cmd);
+
+	    goto NEXT;
 	}
     }
 
@@ -382,6 +392,11 @@ static int znd_media_asynch_init (struct xapp_misc_cmd *cmd)
 	return ZND_MEDIA_ASYNCH_ERR;
     }
 
+    STAILQ_INIT (&cb_head);
+    if (pthread_spin_init (&cb_spin, 0)) {
+	return ZND_MEDIA_ASYNCH_ERR;
+    }
+
     tctx->comp_active = 0;
 
     if (pthread_create (&tctx->comp_tid,
@@ -391,6 +406,8 @@ static int znd_media_asynch_init (struct xapp_misc_cmd *cmd)
 
 	xnvme_async_term (zndmedia.dev, tctx->asynch);
 	tctx->asynch = NULL;
+	pthread_spin_destroy (&cb_spin);
+
 	return ZND_MEDIA_ASYNCH_TH;
     }
 
@@ -412,6 +429,8 @@ static int znd_media_asynch_term (struct xapp_misc_cmd *cmd)
     ret = xnvme_async_term (zndmedia.dev, cmd->asynch.ctx_ptr->asynch);
     if (ret)
 	return ZND_MEDIA_ASYNCH_ERR;
+
+    pthread_spin_destroy (&cb_spin);
 
     return XAPP_OK;
 }

@@ -222,6 +222,20 @@ static uint32_t ztl_wca_ncmd_prov_based (struct app_pro_addr *prov)
     return ncmd;
 }
 
+static void ztl_wca_poke_ctx (void) {
+    struct xapp_misc_cmd misc;
+    misc.opcode		  = XAPP_MISC_ASYNCH_POKE;
+    misc.asynch.ctx_ptr   = tctx;
+    misc.asynch.limit     = 0;
+    misc.asynch.count     = 0;
+
+    if (!xapp_media_submit_misc (&misc)) {
+	if (!misc.asynch.count) {
+	    // Check Outstanding
+	}
+    }
+}
+
 static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 {
     struct app_pro_addr *prov;
@@ -367,8 +381,10 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
 	    /* Limit to 1 write per zone if append is not supported */
 	    if (!XAPP_WRITE_APPEND) {
-		if (ucmd->minflight[zn_i])
+		if (ucmd->minflight[zn_i]) {
+		    ztl_wca_poke_ctx ();
 		    continue;
+		}
 
 		pthread_spin_lock (&ucmd->inflight_spin);
 		ucmd->minflight[zn_i] = 1;
@@ -382,8 +398,18 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	    ucmd->mcmd[zn_cmd_id[zn_i]]->submitted = 1;
 	    submitted++;
 	    zn_cmd_id[zn_i]++;
+
+	    if (submitted % ZTL_PRO_STRIPE == 0)
+		ztl_wca_poke_ctx ();
 	}
 	usleep(1);
+    }
+
+    /* Poke the context for completions */
+    while (ucmd->ncb < ucmd->nmcmd) {
+	ztl_wca_poke_ctx ();
+	if (!STAILQ_EMPTY (&ucmd_head))
+	    break;
     }
 
     ZDEBUG (ZDEBUG_WCA, "  Submitted: %d", submitted);
@@ -411,6 +437,14 @@ FAIL_SUBMIT:
 	cmd_i = ncmd;
 	goto FAIL_MP;
     }
+
+    /* Poke the context for completions */
+    while (ucmd->ncb < ucmd->nmcmd) {
+	ztl_wca_poke_ctx ();
+	if (!STAILQ_EMPTY (&ucmd_head))
+	    break;
+    }
+
     return;
 
 FAIL_MP:
