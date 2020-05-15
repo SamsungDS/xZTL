@@ -264,7 +264,7 @@ static int znd_media_zone_report (struct xapp_zn_mcmd *cmd)
     lba = 0;/* ( (zndmedia.devgeo->nzone * cmd->addr.g.grp) +
 	       cmd->addr.g.zone) * zndmedia.devgeo->nsect; */
     limit = /*cmd->nzones;*/ 0;
-    rep = znd_report_from_dev (zndmedia.dev, lba, limit);
+    rep = znd_report_from_dev (zndmedia.dev, lba, limit, 0);
     if (!rep)
 	return ZND_MEDIA_REPORT_ERR;
 
