@@ -113,7 +113,7 @@ deps-xnvme-build:
 	@echo "## libztl: make deps-xnvme-build"
 	@echo "# Installing xNVMe dependencies"
 	@echo "# Building xNVMe"
-	cd third-party/xnvme && ${MAKE} clean && ${MAKE} linux && ${MAKE} deps-liburing && ${MAKE}
+	cd third-party/xnvme && ${MAKE} clean && ${MAKE}
 
 .PHONY: deps-xnvme-fetch
 deps-xnvme-fetch:
@@ -121,7 +121,7 @@ deps-xnvme-fetch:
 	@echo "# deps-fetch: fetching xnvme"
 	@git submodule update --init --recursive
 	@echo "# deps-fetch: checkout xnvme"
-	cd third-party/xnvme && git checkout release-v2020.03.20
+	cd third-party/xnvme && git fetch && git checkout master
 
 .PHONY: deps-xnvme-install
 deps-xnvme-install:
