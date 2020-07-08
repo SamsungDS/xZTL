@@ -20,6 +20,9 @@ include_directories("${PROJECT_SOURCE_DIR}/../zrocks/include")
 link_directories("${PROJECT_SOURCE_DIR}/../build/ztl")
 link_directories("${PROJECT_SOURCE_DIR}/../build/zrocks")
 
+include_directories("${PROJECT_SOURCE_DIR}/../third-party/xnvme/build")
+include_directories("${PROJECT_SOURCE_DIR}/../third-party/xnvme/include")
+
 set(ZTL_TESTS
     ${PROJECT_SOURCE_DIR}/src/test-media-layer.c
     ${PROJECT_SOURCE_DIR}/src/test-znd-media.c

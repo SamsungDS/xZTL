@@ -36,8 +36,8 @@ set(SOURCE_FILES
 )
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
-#include_directories("${PROJECT_SOURCE_DIR}/../third-party/xnvme/build")
-#include_directories("${PROJECT_SOURCE_DIR}/../third-party/xnvme/include")
+include_directories("${PROJECT_SOURCE_DIR}/../third-party/xnvme/build")
+include_directories("${PROJECT_SOURCE_DIR}/../third-party/xnvme/include")
 
 set(LNAME "zrocks")
 

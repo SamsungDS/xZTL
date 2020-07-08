@@ -57,6 +57,10 @@ ztl: info
 		cd $(BUILD_DIR)/ztl;		\
 		cmake ../..;			\
 	fi
+	@if [ ! -d "third-party/xnvme/build" ]; then	\
+		mkdir -p "third-party/xnvme/build";	\
+		mkdir -p "third-party/xnvme/include";	\
+	fi
 	cd $(BUILD_DIR)/ztl && ${MAKE}
 
 .PHONY: zrocks
@@ -80,7 +84,7 @@ tests: info
 	cd $(BUILD_DIR)/tests && ${MAKE}
 
 .PHONY: lib-only
-lib-only: info ztl zrocks
+lib-only: info ztl zrocks tests
 	@echo "### Congrats! Your library is ready!"
 
 .PHONY: all
@@ -119,10 +123,8 @@ deps-xnvme-build:
 deps-xnvme-fetch:
 	@echo "## libztl: make deps-xnvme-fetch"
 	@echo "# deps-fetch: fetching xnvme"
-	@git submodule update --init --recursive
 	@echo "# deps-fetch: checkout xnvme"
-	cd third-party/xnvme && git fetch && git checkout master
-
+	cd third-party/xnvme && git fetch && git checkout master && if [ ! -d third-party/xnvme/build ]; then git submodule update --init --recursive; fi
 .PHONY: deps-xnvme-install
 deps-xnvme-install:
 	@echo "## libztl: make deps-xnvme-install"
