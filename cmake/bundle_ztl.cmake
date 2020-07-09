@@ -5,9 +5,9 @@ function(bundle_ztl tgt_name bundled_tgt_name)
 
 	# These are expected to be available on the system
 	list(APPEND system_deps xnvme)
-	list(APPEND system_deps uuid)
-	list(APPEND system_deps numa)
-	list(APPEND system_deps aio)
+	#list(APPEND system_deps uuid)
+	#list(APPEND system_deps numa)
+	#list(APPEND system_deps aio)
 
 	message( STATUS "system_deps(${system_deps})")
 	include_directories("${PROJECT_SOURCE_DIR}/third-party/xnvme/include")
