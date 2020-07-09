@@ -124,6 +124,7 @@ deps-xnvme-fetch:
 	@echo "## libztl: make deps-xnvme-fetch"
 	@echo "# deps-fetch: fetching xnvme"
 	@echo "# deps-fetch: checkout xnvme"
+	@git submodule update --init
 	cd third-party/xnvme && git fetch && git checkout master && if [ ! -d third-party/xnvme/build ]; then git submodule update --init --recursive; fi
 .PHONY: deps-xnvme-install
 deps-xnvme-install:
