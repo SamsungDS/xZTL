@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -25,11 +25,11 @@
 #include <string.h>
 #include <libznd.h>
 #include <libxnvme.h>
-#include <xapp.h>
-#include <xapp-media.h>
-#include <xapp-ztl.h>
+#include <xztl.h>
+#include <xztl-media.h>
+#include <xztl-ztl.h>
 
-extern struct xapp_core core;
+extern struct xztl_core core;
 
 LIST_HEAD(app_grp, app_group) app_grp_head = LIST_HEAD_INITIALIZER(app_grp_head);
 
@@ -77,7 +77,7 @@ static void groups_zmd_exit (void)
 static int groups_zmd_init (struct app_group *grp)
 {
     struct app_zmd *zmd;
-    struct xapp_mgeo *g;
+    struct xztl_mgeo *g;
     int ret;
 
     zmd = &grp->zmd;
@@ -112,7 +112,7 @@ static int groups_zmd_init (struct app_group *grp)
 
     log_infoa ("ztl-group: Zone MD started. Grp: %d", grp->id);
 
-    return XAPP_OK;
+    return XZTL_OK;
 
 FREE_REP:
     xnvme_buf_virt_free (zmd->report);

@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -19,8 +19,8 @@
 
 #include <pthread.h>
 #include <sys/queue.h>
-#include <xapp.h>
-#include <xapp-ztl.h>
+#include <xztl.h>
+#include <xztl-ztl.h>
 
 #define ZTL_PRO_TYPES    64  /* Number of provisioning types */
 #define ZTL_PRO_MP_SZ    32  /* Mempool size per thread */
@@ -44,7 +44,7 @@ enum ztl_pro_type_list {
 };
 
 struct ztl_pro_zone {
-    struct xapp_maddr		addr;
+    struct xztl_maddr		addr;
     struct app_zmd_entry       *zmd_entry;
     uint64_t 			capacity;
     uint8_t 			lock;

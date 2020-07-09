@@ -18,7 +18,7 @@ add_definitions(-DZTL_VERSION_MAJOR=${ZTL_VERSION_MAJOR})
 add_definitions(-DZTL_VERSION_MINOR=${ZTL_VERSION_MINOR})
 add_definitions(-DZTL_VERSION_PATCH=${ZTL_VERSION_PATCH})
 add_definitions(-DZTL_VERSION=${ZTL_VERSION})
-add_definitions(-DZTL_LABEL="libztl: User-space Zone Translation Layer Library")
+add_definitions(-DZTL_LABEL="xZTL: Zone Translation Layer User-space Library")
 
 use_c11()
 enable_c_flag("-std=c11")
@@ -28,22 +28,22 @@ enable_c_flag("-fopenmp")
 #enable_c_flag("-g")
 
 set(HEADER_FILES
-    ${PROJECT_SOURCE_DIR}/include/xapp.h
-    ${PROJECT_SOURCE_DIR}/include/xapp-media.h
-    ${PROJECT_SOURCE_DIR}/include/xapp-mempool.h
-    ${PROJECT_SOURCE_DIR}/include/xapp-ztl.h
+    ${PROJECT_SOURCE_DIR}/include/xztl.h
+    ${PROJECT_SOURCE_DIR}/include/xztl-media.h
+    ${PROJECT_SOURCE_DIR}/include/xztl-mempool.h
+    ${PROJECT_SOURCE_DIR}/include/xztl-ztl.h
     ${PROJECT_SOURCE_DIR}/include/lztl.h
     ${PROJECT_SOURCE_DIR}/include/ztl-media.h
 )
 
 set(SOURCE_FILES
-    ${PROJECT_SOURCE_DIR}/src/xapp-core.c
-    ${PROJECT_SOURCE_DIR}/src/xapp-mempool.c
-    ${PROJECT_SOURCE_DIR}/src/xapp-ctx.c
-    ${PROJECT_SOURCE_DIR}/src/xapp-ztl.c
-    ${PROJECT_SOURCE_DIR}/src/xapp-groups.c
-    ${PROJECT_SOURCE_DIR}/src/xapp-stats.c
-    ${PROJECT_SOURCE_DIR}/src/xapp-prometheus.c
+    ${PROJECT_SOURCE_DIR}/src/xztl-core.c
+    ${PROJECT_SOURCE_DIR}/src/xztl-mempool.c
+    ${PROJECT_SOURCE_DIR}/src/xztl-ctx.c
+    ${PROJECT_SOURCE_DIR}/src/xztl-groups.c
+    ${PROJECT_SOURCE_DIR}/src/xztl-stats.c
+    ${PROJECT_SOURCE_DIR}/src/xztl-prometheus.c
+    ${PROJECT_SOURCE_DIR}/src/ztl.c
     ${PROJECT_SOURCE_DIR}/src/ztl-media.c
     ${PROJECT_SOURCE_DIR}/src/ztl-zmd.c
     ${PROJECT_SOURCE_DIR}/src/ztl-pro.c
@@ -73,10 +73,10 @@ if ("${BUNDLE_LIBS}" STREQUAL "FAILED")
 	message( FATAL_ERROR "bundling libs failed")
 endif()
 
-install(FILES ${PROJECT_SOURCE_DIR}/include/xapp.h
-	      ${PROJECT_SOURCE_DIR}/include/xapp-media.h
-	      ${PROJECT_SOURCE_DIR}/include/xapp-ztl.h
-	      ${PROJECT_SOURCE_DIR}/include/xapp-mempool.h
+install(FILES ${PROJECT_SOURCE_DIR}/include/xztl.h
+	      ${PROJECT_SOURCE_DIR}/include/xztl-media.h
+	      ${PROJECT_SOURCE_DIR}/include/xztl-ztl.h
+	      ${PROJECT_SOURCE_DIR}/include/xztl-mempool.h
 	DESTINATION include COMPONENT dev)
 
 install(TARGETS ${LNAME} DESTINATION lib COMPONENT lib)

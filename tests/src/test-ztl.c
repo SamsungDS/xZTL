@@ -1,6 +1,6 @@
 #include <ztl-media.h>
-#include <xapp.h>
-#include <xapp-ztl.h>
+#include <xztl.h>
+#include <xztl-ztl.h>
 #include <lztl.h>
 #include "CUnit/Basic.h"
 
@@ -36,8 +36,8 @@ static void test_ztl_init (void)
     if (ret)
 	return;
 
-    ret = xapp_media_init ();
-    cunit_ztl_assert_int ("xapp_media_init", ret);
+    ret = xztl_media_init ();
+    cunit_ztl_assert_int ("xztl_media_init", ret);
     if (ret)
 	return;
 
@@ -57,7 +57,7 @@ static void test_ztl_init (void)
 static void test_ztl_exit (void)
 {
     ztl_exit();
-    xapp_media_exit();
+    xztl_media_exit();
 }
 
 

@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -17,11 +17,11 @@
  * limitations under the License.
 */
 
-#ifndef XAPP_ZTL_H
-#define XAPP_ZTL_H
+#ifndef XZTL_ZTL_H
+#define XZTL_ZTL_H
 
-#include <xapp.h>
-#include <xapp-mempool.h>
+#include <xztl.h>
+#include <xztl-mempool.h>
 
 #define APP_MOD_COUNT     9
 #define APP_FN_SLOTS      32
@@ -44,7 +44,7 @@
 #define ZTL_WRITE_AFFINITY 1
 #define ZTL_WRITE_CORE     0
 
-enum xapp_mod_types {
+enum xztl_mod_types {
     ZTLMOD_BAD = 0x0,
     ZTLMOD_ZMD = 0x1,
     ZTLMOD_PRO = 0x2,
@@ -83,18 +83,18 @@ enum xapp_mod_types {
 /* REC modules */
 #define LIBZTL_REC     0x2
 
-enum xapp_gl_functions {
-    XAPP_FN_GLOBAL      = 0,
-    XAPP_FN_TRANSACTION = 1
+enum xztl_gl_functions {
+    XZTL_FN_GLOBAL      = 0,
+    XZTL_FN_TRANSACTION = 1
 };
 
-enum xapp_zmd_flags {
-    XAPP_ZMD_USED = (1 << 0),
-    XAPP_ZMD_OPEN = (1 << 1),
-    XAPP_ZMD_RSVD = (1 << 2), /* Reserved zone */
-    XAPP_ZMD_AVLB = (1 << 3), /* Indicates the zone is valid and can be used */
-    XAPP_ZMD_COLD = (1 << 4), /* Contains cold data recycled by GC */
-    XAPP_ZMD_META = (1 << 5)  /* Contains metadata, such as log for recovery*/
+enum xztl_zmd_flags {
+    XZTL_ZMD_USED = (1 << 0),
+    XZTL_ZMD_OPEN = (1 << 1),
+    XZTL_ZMD_RSVD = (1 << 2), /* Reserved zone */
+    XZTL_ZMD_AVLB = (1 << 3), /* Indicates the zone is valid and can be used */
+    XZTL_ZMD_COLD = (1 << 4), /* Contains cold data recycled by GC */
+    XZTL_ZMD_META = (1 << 5)  /* Contains metadata, such as log for recovery*/
 };
 
 struct app_magic {
@@ -105,7 +105,7 @@ struct app_magic {
 struct app_zmd_entry {
     uint16_t             flags;
     uint16_t		 level; /* Used to define user level metadata to the zone */
-    struct xapp_maddr    addr;
+    struct xztl_maddr    addr;
     uint64_t             wptr;
     uint64_t		 wptr_inflight; /* In-flight writing LBAs (not completed yet) */
     uint32_t             ndeletes;
@@ -115,7 +115,7 @@ struct app_zmd_entry {
 };
 
 struct app_tiny_entry {
-        struct xapp_maddr   addr;
+        struct xztl_maddr   addr;
 } __attribute__((packed));
 
 struct app_tiny_tbl {
@@ -188,13 +188,13 @@ struct app_group {
 
 struct app_pro_addr {
     struct app_group    *grp;
-    struct xapp_maddr    addr[APP_PRO_MAX_OFFS];
+    struct xztl_maddr    addr[APP_PRO_MAX_OFFS];
     uint32_t 		 nsec[APP_PRO_MAX_OFFS];
     uint16_t             naddr;
     uint16_t 		 thread_id;
     uint16_t 		 ptype;
 
-    struct xapp_mp_entry *mp_entry;
+    struct xztl_mp_entry *mp_entry;
 };
 
 /* ------- XApp: MODULE FUNCTIONS DEFINITION ------- */
@@ -213,7 +213,7 @@ typedef struct app_zmd_entry *
 	        (app_zmd_get)   (struct app_group *grp, uint64_t zone,
 							    uint8_t by_offset);
 typedef void    (app_zmd_invalidate) (struct app_group *grp,
-                                      struct xapp_maddr *addr, uint8_t full);
+                                      struct xztl_maddr *addr, uint8_t full);
 
 typedef int     (app_pro_init) (void);
 typedef void    (app_pro_exit) (void);
@@ -243,8 +243,8 @@ typedef int      (app_map_upsert_md) (uint64_t index, uint64_t addr,
 
 typedef int  (app_wca_init) (void);
 typedef void (app_wca_exit) (void);
-typedef int  (app_wca_submit) (struct xapp_io_ucmd *ucmd);
-typedef void (app_wca_callback) (struct xapp_io_mcmd *mcmd);
+typedef int  (app_wca_submit) (struct xztl_io_ucmd *ucmd);
+typedef void (app_wca_callback) (struct xztl_io_mcmd *mcmd);
 
 struct app_groups {
     app_grp_init         *init_fn;
@@ -400,4 +400,4 @@ void ztl_mpe_register (void);
 void ztl_map_register (void);
 void ztl_wca_register (void);
 
-#endif /* XAPP_ZTL_H */
+#endif /* XZTL_ZTL_H */

@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
-#include <xapp.h>
-#include <xapp-media.h>
-#include <xapp-mempool.h>
+#include <xztl.h>
+#include <xztl-media.h>
+#include <xztl-mempool.h>
 #include <ztl-media.h>
 
 #define TEST_THREAD  	8
@@ -14,7 +14,7 @@
 #define TEST_NZONES  	512
 #define TEST_NSECT   	4096
 
-extern struct xapp_core core;
+extern struct xztl_core core;
 static const char **devname;
 
 struct test_params {
@@ -94,17 +94,17 @@ static void test_append_print (void)
 
 static void test_append_callback (void *arg)
 {
-    struct xapp_mp_entry *mp_cmd;
-    struct xapp_io_mcmd  *cmd;
+    struct xztl_mp_entry *mp_cmd;
+    struct xztl_io_mcmd  *cmd;
 
-    cmd = (struct xapp_io_mcmd *) arg;
-    mp_cmd = (struct xapp_mp_entry *) cmd->opaque;
+    cmd = (struct xztl_io_mcmd *) arg;
+    mp_cmd = (struct xztl_mp_entry *) cmd->opaque;
 
     if (cmd->status) {
 	th_params[mp_cmd->tid].errors++;
     }
 
-    xapp_mempool_put (mp_cmd, XAPP_MEMPOOL_MCMD, mp_cmd->tid);
+    xztl_mempool_put (mp_cmd, XZTL_MEMPOOL_MCMD, mp_cmd->tid);
 
     th_params[mp_cmd->tid].left--;
 
@@ -116,19 +116,19 @@ static void test_append_callback (void *arg)
 
 static int test_append_reset_zone (uint32_t zid)
 {
-    struct xapp_zn_mcmd cmd;
+    struct xztl_zn_mcmd cmd;
 
-    cmd.opcode = XAPP_ZONE_MGMT_RESET;
+    cmd.opcode = XZTL_ZONE_MGMT_RESET;
     cmd.addr.g.zone = zid;
 
-    return xapp_media_submit_zn (&cmd);
+    return xztl_media_submit_zn (&cmd);
 }
 
 static void *test_append_th (void *args) {
     struct test_params      *par;
-    struct xapp_mthread_ctx *tctx;
-    struct xapp_mp_entry    *mp_cmd;
-    struct xapp_io_mcmd     *cmd;
+    struct xztl_mthread_ctx *tctx;
+    struct xztl_mp_entry    *mp_cmd;
+    struct xztl_io_mcmd     *cmd;
     size_t   cmd_sz;
     uint32_t cmd_i, ncmd, zone_i;
     uint64_t phys, sec_cmd;
@@ -141,12 +141,12 @@ static void *test_append_th (void *args) {
     sec_cmd = TEST_SEC_CMD;
 
     /* Initialize thread media context */
-    tctx = xapp_ctx_media_init (par->tid, TEST_DEPTH);
+    tctx = xztl_ctx_media_init (par->tid, TEST_DEPTH);
     if (!tctx)
 	goto EXIT;
 
     /* Allocate DMA memory (+1 slot) */
-    wbuf = xapp_media_dma_alloc (cmd_sz * ncmd + cmd_sz, &phys);
+    wbuf = xztl_media_dma_alloc (cmd_sz * ncmd + cmd_sz, &phys);
     if (!wbuf)
 	goto CTX;
 
@@ -166,15 +166,15 @@ static void *test_append_th (void *args) {
 
 	for (cmd_i = 0; cmd_i < ncmd; cmd_i++) {
 RETRY:
-	    mp_cmd = xapp_mempool_get (XAPP_MEMPOOL_MCMD, par->tid);
+	    mp_cmd = xztl_mempool_get (XZTL_MEMPOOL_MCMD, par->tid);
 	    if (!mp_cmd) {
 		usleep (10);
 		goto RETRY;
 	    }
 
-	    cmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
-	    memset (cmd, 0x0, sizeof (struct xapp_io_mcmd));
-	    cmd->opcode    = XAPP_ZONE_APPEND;
+	    cmd = (struct xztl_io_mcmd *) mp_cmd->opaque;
+	    memset (cmd, 0x0, sizeof (struct xztl_io_mcmd));
+	    cmd->opcode    = XZTL_ZONE_APPEND;
 	    cmd->naddr	   = 1;
 	    cmd->synch     = 0;
 	    cmd->async_ctx = tctx;
@@ -184,11 +184,11 @@ RETRY:
 	    cmd->opaque    = (void *) mp_cmd;
 
 	    cmd->addr[0].g.zone = zone_i;
-	    ret = xapp_media_submit_io (cmd);
+	    ret = xztl_media_submit_io (cmd);
 	    if (ret) {
 	 	par->errors++;
 		par->left--;
-		xapp_mempool_put (mp_cmd, XAPP_MEMPOOL_MCMD, par->tid);
+		xztl_mempool_put (mp_cmd, XZTL_MEMPOOL_MCMD, par->tid);
 	    }
 	}
     }
@@ -198,9 +198,9 @@ RETRY:
 	usleep (1);
     }
 
-    xapp_media_dma_free (wbuf);
+    xztl_media_dma_free (wbuf);
 CTX:
-    xapp_ctx_media_exit (tctx);
+    xztl_ctx_media_exit (tctx);
 EXIT:
     par->left--;
     return NULL;
@@ -224,12 +224,12 @@ int main (int argc, const char **argv)
     znd_media_register (*devname);
 
     /* Initialize media */
-    ret = xapp_media_init ();
+    ret = xztl_media_init ();
     if (ret)
 	return -1;
 
     /* Initialize mempool module */
-    ret = xapp_mempool_init ();
+    ret = xztl_mempool_init ();
     if (ret)
 	goto MEDIA;
 
@@ -278,8 +278,8 @@ int main (int argc, const char **argv)
     printf ("\n\nDone. Errors: %d", err);
     test_append_print ();
 
-    xapp_mempool_exit ();
+    xztl_mempool_exit ();
 MEDIA:
-    xapp_media_exit ();
+    xztl_media_exit ();
     return 0;
 }

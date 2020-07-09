@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <libzrocks.h>
-#include <xapp.h>
+#include <xztl.h>
 #include "CUnit/Basic.h"
 
 static const char **devname;
@@ -92,8 +92,8 @@ static void test_zrocks_new (void)
     for (id = 0; id < ids; id++) {
 
 	/* Allocate DMA memory */
-	wbuf[id] = xapp_media_dma_alloc (size, &phys[id]);
-	cunit_zrocks_assert_ptr ("xapp_media_dma_alloc", wbuf[id]);
+	wbuf[id] = xztl_media_dma_alloc (size, &phys[id]);
+	cunit_zrocks_assert_ptr ("xztl_media_dma_alloc", wbuf[id]);
 
 	if (!wbuf[id])
 	    continue;
@@ -119,8 +119,8 @@ static void test_zrocks_read (void)
     for (id = 0; id < ids; id++) {
 
 	/* Allocate DMA memory */
-	rbuf[id] = xapp_media_dma_alloc (size, &phys[id]);
-	cunit_zrocks_assert_ptr ("xapp_media_dma_alloc", rbuf[id]);
+	rbuf[id] = xztl_media_dma_alloc (size, &phys[id]);
+	cunit_zrocks_assert_ptr ("xztl_media_dma_alloc", rbuf[id]);
 	if (!rbuf[id])
 	    continue;
 
@@ -141,7 +141,7 @@ static void test_zrocks_read (void)
 	if (ret[id])
 	    printf ("Corruption: ID %lu, corrupted: %d bytes\n", id + 1, ret[id]);
 
-	xapp_media_dma_free (rbuf[id]);
+	xztl_media_dma_free (rbuf[id]);
     }
 }
 
@@ -157,8 +157,8 @@ static void test_zrocks_random_read (void)
 
     id = TEST_RANDOM_ID;
 
-    buf = xapp_media_dma_alloc (1024 * 512, &phys);
-    cunit_zrocks_assert_ptr ("xapp_media_dma_alloc", buf);
+    buf = xztl_media_dma_alloc (1024 * 512, &phys);
+    cunit_zrocks_assert_ptr ("xztl_media_dma_alloc", buf);
     if (!buf)
 	return;
 
@@ -183,10 +183,10 @@ static void test_zrocks_random_read (void)
 				    memcmp (woff, buf, random_sz[readi]));
     }
 
-    xapp_media_dma_free (buf);
+    xztl_media_dma_free (buf);
 
     for (int i = 0; i < TEST_N_BUFFERS; i++)
-	xapp_media_dma_free (wbuf[i]);
+	xztl_media_dma_free (wbuf[i]);
 }
 
 int main (int argc, const char **argv)

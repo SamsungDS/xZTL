@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -19,13 +19,13 @@
 
 #include <sys/queue.h>
 #include <stdlib.h>
-#include <xapp.h>
-#include <xapp-ztl.h>
+#include <xztl.h>
+#include <xztl-ztl.h>
 #include <lztl.h>
 #include <libznd.h>
 #include <libxnvme_spec.h>
 
-extern struct xapp_core core;
+extern struct xztl_core core;
 
 static void ztl_pro_grp_print_status (struct app_group *grp)
 {
@@ -57,7 +57,7 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
 {
     struct ztl_pro_grp   *pro;
     struct ztl_pro_zone  *zone;
-    struct xapp_zn_mcmd   cmd;
+    struct xztl_zn_mcmd   cmd;
     struct app_zmd_entry *zmde;
     int ret;
 
@@ -74,17 +74,17 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     TAILQ_INSERT_TAIL (&pro->used_head, zone, entry);
     pthread_spin_unlock (&pro->spin);
 
-    xapp_atomic_int32_update (&pro->nfree, pro->nfree - 1);
-    xapp_atomic_int32_update (&pro->nused, pro->nused + 1);
+    xztl_atomic_int32_update (&pro->nfree, pro->nfree - 1);
+    xztl_atomic_int32_update (&pro->nused, pro->nused + 1);
 
     zmde = zone->zmd_entry;
-    xapp_atomic_int16_update (&zmde->flags, zmde->flags | XAPP_ZMD_USED);
+    xztl_atomic_int16_update (&zmde->flags, zmde->flags | XZTL_ZMD_USED);
 
     /* Reset the zone if write pointer is at the end */
     if (zmde->wptr > zone->addr.g.sect) {
-	cmd.opcode    = XAPP_ZONE_MGMT_RESET;
+	cmd.opcode    = XZTL_ZONE_MGMT_RESET;
 	cmd.addr.addr = zone->addr.addr;
-	ret = xapp_media_submit_zn (&cmd);
+	ret = xztl_media_submit_zn (&cmd);
     	if (ret || cmd.status) {
 	    log_erra ("ztl-pro: Zone reset failure (%d/%d). status %d",
 			zone->addr.g.grp, zone->addr.g.zone, cmd.status);
@@ -93,15 +93,15 @@ static struct ztl_pro_zone *ztl_pro_grp_zone_open (struct app_group *grp,
     }
 
     /* A single thread is used for each provisioning type, no lock needed */
-    xapp_atomic_int16_update (&zmde->flags, zmde->flags | XAPP_ZMD_OPEN);
+    xztl_atomic_int16_update (&zmde->flags, zmde->flags | XZTL_ZMD_OPEN);
     TAILQ_INSERT_TAIL (&pro->open_head[ptype], zone, open_entry);
-    xapp_atomic_int32_update (&pro->nopen[ptype], pro->nopen[ptype] + 1);
+    xztl_atomic_int32_update (&pro->nopen[ptype], pro->nopen[ptype] + 1);
 
-    xapp_atomic_int64_update (&zmde->wptr, zone->addr.g.sect);
-    xapp_atomic_int64_update (&zmde->wptr_inflight, zone->addr.g.sect);
-    xapp_atomic_int32_update (&zmde->npieces, 0);
-    xapp_atomic_int32_update (&zmde->ndeletes, 0);
-    xapp_atomic_int16_update (&zmde->level, ptype);
+    xztl_atomic_int64_update (&zmde->wptr, zone->addr.g.sect);
+    xztl_atomic_int64_update (&zmde->wptr_inflight, zone->addr.g.sect);
+    xztl_atomic_int32_update (&zmde->npieces, 0);
+    xztl_atomic_int32_update (&zmde->ndeletes, 0);
+    xztl_atomic_int16_update (&zmde->level, ptype);
 
     return zone;
 
@@ -109,13 +109,13 @@ ERR:
     /* Move zone out of provisioning */
     log_infoa ("ztl-pro (open): Zone reset failed. (%d/%d)",
 					    grp->id, zone->addr.g.zone);
-    xapp_atomic_int16_update (&zmde->flags, 0);
+    xztl_atomic_int16_update (&zmde->flags, 0);
 
     pthread_spin_lock (&pro->spin);
     TAILQ_REMOVE (&pro->used_head, zone, entry);
     pthread_spin_unlock (&pro->spin);
 
-    xapp_atomic_int32_update (&pro->nused, pro->nused - 1);
+    xztl_atomic_int32_update (&pro->nused, pro->nused - 1);
 
     return NULL;
 }
@@ -234,7 +234,7 @@ void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
 {
     struct ztl_pro_zone *zone;
     struct ztl_pro_grp  *pro;
-    struct xapp_zn_mcmd  cmd;
+    struct xztl_zn_mcmd  cmd;
     int ret;
 
     pro = (struct ztl_pro_grp *) grp->pro;
@@ -250,14 +250,14 @@ void ztl_pro_grp_free (struct app_group *grp, uint32_t zone_i,
 				 - (ZTL_WCA_SEC_MCMD_MIN - 1)) {
 
 	TAILQ_REMOVE (&pro->open_head[type], zone, open_entry);
-	xapp_atomic_int16_update (&zone->zmd_entry->flags,
-				    zone->zmd_entry->flags ^ XAPP_ZMD_OPEN);
-	xapp_atomic_int32_update (&pro->nopen[type], pro->nopen[type] - 1);
+	xztl_atomic_int16_update (&zone->zmd_entry->flags,
+				    zone->zmd_entry->flags ^ XZTL_ZMD_OPEN);
+	xztl_atomic_int32_update (&pro->nopen[type], pro->nopen[type] - 1);
 
 	/* Explicit closes the zone */
-        cmd.opcode    = XAPP_ZONE_MGMT_FINISH;
+        cmd.opcode    = XZTL_ZONE_MGMT_FINISH;
         cmd.addr.addr = zone->addr.addr;
-        ret = xapp_media_submit_zn (&cmd);
+        ret = xztl_media_submit_zn (&cmd);
 	if (ret || cmd.status) {
 	    log_erra ("ztl-pro: Zone finish failure (%d/%d). status %d",
 			    zone->addr.g.grp, zone->addr.g.zone, cmd.status);
@@ -283,7 +283,7 @@ int ztl_pro_grp_finish_zn (struct app_group *grp, uint32_t zid, uint8_t type)
     struct ztl_pro_zone *zone;
     struct ztl_pro_grp  *pro;
     struct app_zmd_entry *zmde;
-    struct xapp_zn_mcmd cmd;
+    struct xztl_zn_mcmd cmd;
     int ret;
 
     pro = (struct ztl_pro_grp *) grp->pro;
@@ -291,7 +291,7 @@ int ztl_pro_grp_finish_zn (struct app_group *grp, uint32_t zid, uint8_t type)
     zmde = zone->zmd_entry;
 
     /* Zone is already empty */
-    if ( !(zmde->flags & XAPP_ZMD_USED) )
+    if ( !(zmde->flags & XZTL_ZMD_USED) )
 	return 0;
 
     /* TODO: Finish zone has specific constraints, not yet implemented */
@@ -303,20 +303,20 @@ int ztl_pro_grp_finish_zn (struct app_group *grp, uint32_t zid, uint8_t type)
     printf ("ztl-pro-grp (finish): Wasted space: %lu sectors\n",
 			zone->addr.g.sect + zone->capacity - zmde->wptr);
 
-    cmd.opcode = XAPP_ZONE_MGMT_FINISH;
+    cmd.opcode = XZTL_ZONE_MGMT_FINISH;
     cmd.addr.g.zone = zmde->addr.g.zone;
 
-    ret = xapp_media_submit_zn (&cmd);
+    ret = xztl_media_submit_zn (&cmd);
     if (ret)
 	log_erra ("ztl-pro-grp: Zone Finish failed. ID %d", zmde->addr.g.zone);
 
     zmde->wptr = zone->addr.g.sect + zone->capacity;
 
-    if (zmde->flags & XAPP_ZMD_OPEN) {
+    if (zmde->flags & XZTL_ZMD_OPEN) {
 	TAILQ_REMOVE (&pro->open_head[type], zone, open_entry);
-	xapp_atomic_int16_update (&zone->zmd_entry->flags,
-				    zone->zmd_entry->flags ^ XAPP_ZMD_OPEN);
-	xapp_atomic_int32_update (&pro->nopen[type], pro->nopen[type] - 1);
+	xztl_atomic_int16_update (&zone->zmd_entry->flags,
+				    zone->zmd_entry->flags ^ XZTL_ZMD_OPEN);
+	xztl_atomic_int32_update (&pro->nopen[type], pro->nopen[type] - 1);
     }
 
     ZDEBUG (ZDEBUG_PRO, "ztl-pro-grp (finish): (%d/%d/0x%lx/0x%lx) type %d",
@@ -348,42 +348,42 @@ int ztl_pro_grp_put_zone (struct app_group *grp, uint32_t zone_i)
 			zone->zmd_entry->npieces,
 			zone->zmd_entry->ndeletes);
 
-    if ( !(zmde->flags & XAPP_ZMD_AVLB) ) {
+    if ( !(zmde->flags & XZTL_ZMD_AVLB) ) {
 	log_infoa ("ztl-pro (put): Cannot PUT an invalid zone (%d/%d)",
 							grp->id, zone_i);
 	return -1;
     }
 
-    if (zmde->flags & XAPP_ZMD_RSVD) {
+    if (zmde->flags & XZTL_ZMD_RSVD) {
 	log_infoa ("ztl-pro (put): Zone is RESERVED (%d/%d)",
 							grp->id, zone_i);
 	return -2;
     }
 
-    if ( !(zmde->flags & XAPP_ZMD_USED) ) {
+    if ( !(zmde->flags & XZTL_ZMD_USED) ) {
 	log_infoa ("ztl-pro (put): Zone is already EMPTY (%d/%d)",
 							grp->id, zone_i);
 	return -3;
     }
 
-    if (zmde->flags & XAPP_ZMD_OPEN) {
+    if (zmde->flags & XZTL_ZMD_OPEN) {
 	log_infoa ("ztl-pro (put): Zone is still OPEN (%d/%d)",
 							grp->id, zone_i);
 	return -4;
     }
 
-    xapp_atomic_int16_update (&zmde->flags, zmde->flags ^ XAPP_ZMD_USED);
-    xapp_atomic_int32_update (&pro->nused, pro->nused - 1);
+    xztl_atomic_int16_update (&zmde->flags, zmde->flags ^ XZTL_ZMD_USED);
+    xztl_atomic_int32_update (&pro->nused, pro->nused - 1);
 
     pthread_spin_lock (&pro->spin);
     TAILQ_REMOVE (&pro->used_head, zone, entry);
     TAILQ_INSERT_TAIL (&pro->free_head, zone, entry);
     pthread_spin_unlock (&pro->spin);
 
-    xapp_atomic_int32_update (&pro->nfree, pro->nfree + 1);
+    xztl_atomic_int32_update (&pro->nfree, pro->nfree + 1);
 
-    xapp_stats_inc (XAPP_STATS_RECYCLED_ZONES, 1);
-    xapp_stats_inc (XAPP_STATS_RECYCLED_BYTES,
+    xztl_stats_inc (XZTL_STATS_RECYCLED_ZONES, 1);
+    xztl_stats_inc (XZTL_STATS_RECYCLED_BYTES,
 				zone->capacity * core.media->geo.nbytes);
 
     if (ZDEBUG_PRO_GRP)
@@ -433,18 +433,18 @@ int ztl_pro_grp_init (struct app_group *grp)
 
     pro = calloc (sizeof (struct ztl_pro_grp), 1);
     if (!pro)
-	return XAPP_ZTL_PROV_ERR;
+	return XZTL_ZTL_PROV_ERR;
 
     pro->vzones = calloc (sizeof (struct ztl_pro_zone), grp->zmd.entries);
     if (!pro->vzones) {
 	free (pro);
-	return XAPP_ZTL_PROV_ERR;
+	return XZTL_ZTL_PROV_ERR;
     }
 
     if (pthread_spin_init (&pro->spin, 0)) {
 	free (pro->vzones);
 	free (pro);
-	return XAPP_ZTL_PROV_ERR;
+	return XZTL_ZTL_PROV_ERR;
     }
 
     grp->pro = pro;
@@ -471,8 +471,8 @@ int ztl_pro_grp_init (struct app_group *grp)
 	    log_erra("ztl-pro: zmd entry address does not match (%d/%d)(%d/%d)",
 		    zmde->addr.g.grp, zmde->addr.g.zone, grp->id, zone_i);
 
-	if ( (zmde->flags & XAPP_ZMD_RSVD) ||
-	    !(zmde->flags & XAPP_ZMD_AVLB) ) {
+	if ( (zmde->flags & XZTL_ZMD_RSVD) ||
+	    !(zmde->flags & XZTL_ZMD_AVLB) ) {
 	    printf ("flags: %x\n", zmde->flags);
 	    continue;
 	}
@@ -486,8 +486,8 @@ int ztl_pro_grp_init (struct app_group *grp)
 	switch (zinfo->zs) {
 	    case ZND_STATE_EMPTY:
 
-		if ( (zmde->flags & XAPP_ZMD_USED) ||
-		     (zmde->flags & XAPP_ZMD_OPEN) ) {
+		if ( (zmde->flags & XZTL_ZMD_USED) ||
+		     (zmde->flags & XZTL_ZMD_OPEN) ) {
 		    log_erra("ztl-pro: device reported EMPTY zone, but ZMD flag"
 			     " does not match (%d/%d)(%x)",
 			     grp->id, zone_i, zmde->flags);
@@ -507,7 +507,7 @@ int ztl_pro_grp_init (struct app_group *grp)
 	    case ZND_STATE_IOPEN:
 	    case ZND_STATE_CLOSED:
 
-		zmde->flags |= (XAPP_ZMD_OPEN | XAPP_ZMD_USED);
+		zmde->flags |= (XZTL_ZMD_OPEN | XZTL_ZMD_USED);
 
 		TAILQ_INSERT_TAIL (&pro->used_head, zone, entry);
 
@@ -526,14 +526,14 @@ int ztl_pro_grp_init (struct app_group *grp)
 
 	    case ZND_STATE_FULL:
 
-		if (zmde->flags & XAPP_ZMD_OPEN) {
+		if (zmde->flags & XZTL_ZMD_OPEN) {
 		    log_erra("ztl-pro: device reported FULL zone, but ZMD flag"
 			    " does not match (%d/%d)(%x)",
 			    grp->id, zone_i, zmde->flags);
 		    continue;
 		}
 
-		zmde->flags |= XAPP_ZMD_USED;
+		zmde->flags |= XZTL_ZMD_USED;
 		TAILQ_INSERT_TAIL (&pro->used_head, zone, entry);
 
 		pro->nused++;

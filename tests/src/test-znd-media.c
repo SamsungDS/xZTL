@@ -1,14 +1,14 @@
 #include <unistd.h>
 #include <pthread.h>
-#include <xapp.h>
-#include <xapp-media.h>
+#include <xztl.h>
+#include <xztl-media.h>
 #include <ztl-media.h>
 #include <libznd.h>
 #include <libxnvme_spec.h>
-#include <xapp-mempool.h>
+#include <xztl-mempool.h>
 #include "CUnit/Basic.h"
 
-extern struct xapp_core core;
+extern struct xztl_core core;
 static const char **devname;
 
 static void cunit_znd_assert_ptr (char *fn, void *ptr)
@@ -50,35 +50,35 @@ static void test_znd_media_register (void)
 
 static void test_znd_media_init (void)
 {
-    cunit_znd_assert_int ("xapp_media_init", xapp_media_init ());
+    cunit_znd_assert_int ("xztl_media_init", xztl_media_init ());
 }
 
 static void test_znd_media_exit (void)
 {
-    cunit_znd_assert_int ("xapp_media_exit", xapp_media_exit ());
+    cunit_znd_assert_int ("xztl_media_exit", xztl_media_exit ());
 }
 
 static void test_znd_report (void)
 {
-    struct xapp_zn_mcmd cmd;
+    struct xztl_zn_mcmd cmd;
     struct znd_report *report;
     struct znd_descr *zinfo;
     int ret, zi, zone, nzones;
     uint32_t znlbas;
 
-    cmd.opcode = XAPP_ZONE_MGMT_REPORT;
+    cmd.opcode = XZTL_ZONE_MGMT_REPORT;
     cmd.addr.g.zone = zone = 0;
     cmd.nzones = nzones = core.media->geo.zn_dev;
 
-    ret = xapp_media_submit_zn (&cmd);
-    cunit_znd_assert_int ("xapp_media_submit_zn:report", ret);
+    ret = xztl_media_submit_zn (&cmd);
+    cunit_znd_assert_int ("xztl_media_submit_zn:report", ret);
 
     if (!ret) {
 	znlbas = core.media->geo.sec_zn;
 	for (zi = zone; zi < zone + nzones; zi++) {
 	    report = (struct znd_report *) cmd.opaque;
 	    zinfo = ZND_REPORT_DESCR(report, zi);
-	    cunit_znd_assert_int_equal ("xapp_media_submit_zn:report:szlba",
+	    cunit_znd_assert_int_equal ("xztl_media_submit_zn:report:szlba",
 					 zinfo->zslba, zi * znlbas);
 	}
     }
@@ -90,7 +90,7 @@ static void test_znd_report (void)
 static void test_znd_manage_single (uint8_t op, uint8_t devop,
 				    uint32_t zone, char *name)
 {
-    struct xapp_zn_mcmd cmd;
+    struct xztl_zn_mcmd cmd;
     struct znd_report *report;
     struct znd_descr *zinfo;
     int ret;
@@ -99,17 +99,17 @@ static void test_znd_manage_single (uint8_t op, uint8_t devop,
     cmd.addr.addr = 0;
     cmd.addr.g.zone = zone;
 
-    ret = xapp_media_submit_zn (&cmd);
+    ret = xztl_media_submit_zn (&cmd);
     cunit_znd_assert_int (name, ret);
 
 //    if (!ret) {
 
 	/* Verify log page */
-	cmd.opcode = XAPP_ZONE_MGMT_REPORT;
+	cmd.opcode = XZTL_ZONE_MGMT_REPORT;
 	cmd.nzones = 1;
 
-	ret = xapp_media_submit_zn (&cmd);
-	cunit_znd_assert_int ("xapp_media_submit_zn:report", cmd.status);
+	ret = xztl_media_submit_zn (&cmd);
+	cunit_znd_assert_int ("xztl_media_submit_zn:report", cmd.status);
 
 	if (!ret) {
 	    report = (struct znd_report *) cmd.opaque;
@@ -127,80 +127,80 @@ static void test_znd_op_cl_fi_re (void)
 {
     uint32_t zone = 10;
 
-    test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
+    test_znd_manage_single (XZTL_ZONE_MGMT_RESET,
 			    ZND_STATE_EMPTY,
 			    zone,
-			    "xapp_media_submit_znm:reset");
-    test_znd_manage_single (XAPP_ZONE_MGMT_OPEN,
+			    "xztl_media_submit_znm:reset");
+    test_znd_manage_single (XZTL_ZONE_MGMT_OPEN,
 			    ZND_STATE_EOPEN,
 			    zone,
-			    "xapp_media_submit_znm:open");
-    test_znd_manage_single (XAPP_ZONE_MGMT_CLOSE,
+			    "xztl_media_submit_znm:open");
+    test_znd_manage_single (XZTL_ZONE_MGMT_CLOSE,
 			    ZND_STATE_CLOSED,
 			    zone,
-			    "xapp_media_submit_znm:close");
-    test_znd_manage_single (XAPP_ZONE_MGMT_FINISH,
+			    "xztl_media_submit_znm:close");
+    test_znd_manage_single (XZTL_ZONE_MGMT_FINISH,
 			    ZND_STATE_FULL,
 			    zone,
-			    "xapp_media_submit_znm:finish");
-    test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
+			    "xztl_media_submit_znm:finish");
+    test_znd_manage_single (XZTL_ZONE_MGMT_RESET,
 			    ZND_STATE_EMPTY,
 			    zone,
-			    "xapp_media_submit_znm:reset");
+			    "xztl_media_submit_znm:reset");
 }
 
 static void test_znd_asynch_ctx (void)
 {
-    struct xapp_misc_cmd cmd;
-    struct xapp_mthread_ctx tctx;
+    struct xztl_misc_cmd cmd;
+    struct xztl_mthread_ctx tctx;
     int ret;
 
     tctx.comp_active = 1;
-    cmd.opcode = XAPP_MISC_ASYNCH_INIT;
+    cmd.opcode = XZTL_MISC_ASYNCH_INIT;
     cmd.asynch.depth   = 128;
 
     /* This command takes a pointer to a pointer */
     cmd.asynch.ctx_ptr = &tctx;
 
     /* Create the context */
-    ret = xapp_media_submit_misc (&cmd);
-    cunit_znd_assert_int ("xapp_media_submit_misc:asynch-init", ret);
-    cunit_znd_assert_ptr ("xapp_media_submit_misc:asynch-init:check",
+    ret = xztl_media_submit_misc (&cmd);
+    cunit_znd_assert_int ("xztl_media_submit_misc:asynch-init", ret);
+    cunit_znd_assert_ptr ("xztl_media_submit_misc:asynch-init:check",
 			   tctx.asynch);
 
     if (tctx.asynch) {
 	/* Get outstanding commands */
 	/* cmd.asynch.count will contain the number of outstanding commands */
-	cmd.opcode         = XAPP_MISC_ASYNCH_OUTS;
+	cmd.opcode         = XZTL_MISC_ASYNCH_OUTS;
 	/* This command takes a direct pointer */
 	cmd.asynch.ctx_ptr = &tctx;
-	ret = xapp_media_submit_misc (&cmd);
-	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-outs", ret);
+	ret = xztl_media_submit_misc (&cmd);
+	cunit_znd_assert_int ("xztl_media_submit_misc:asynch-outs", ret);
 
 
 	/* Poke the context */
 	/* cmd.asynch.count will contain the number of processed commands */
-	cmd.opcode         = XAPP_MISC_ASYNCH_POKE;
+	cmd.opcode         = XZTL_MISC_ASYNCH_POKE;
 	cmd.asynch.ctx_ptr = &tctx;
 	cmd.asynch.limit   = 0;
-	ret = xapp_media_submit_misc (&cmd);
-	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-poke", ret);
+	ret = xztl_media_submit_misc (&cmd);
+	cunit_znd_assert_int ("xztl_media_submit_misc:asynch-poke", ret);
 
 
 	/* Wait for completions */
 	/* cmd.asynch.count will contain the number of processed commands */
-	cmd.opcode         = XAPP_MISC_ASYNCH_WAIT;
+	cmd.opcode         = XZTL_MISC_ASYNCH_WAIT;
 	cmd.asynch.ctx_ptr = &tctx;
-	ret = xapp_media_submit_misc (&cmd);
-	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-wait", ret);
+	ret = xztl_media_submit_misc (&cmd);
+	cunit_znd_assert_int ("xztl_media_submit_misc:asynch-wait", ret);
 
 
 	/* Destroy the context */
 	/* Stops the completion thread */
 	tctx.comp_active = 0;
-	cmd.opcode       = XAPP_MISC_ASYNCH_TERM;
-	ret = xapp_media_submit_misc (&cmd);
-	cunit_znd_assert_int ("xapp_media_submit_misc:asynch-term", ret);
+	cmd.opcode       = XZTL_MISC_ASYNCH_TERM;
+	ret = xztl_media_submit_misc (&cmd);
+	cunit_znd_assert_int ("xztl_media_submit_misc:asynch-term", ret);
     }
 }
 
@@ -209,31 +209,31 @@ static void test_znd_dma_memory (void)
     void *buf;
     uint64_t phys;
 
-    buf = xapp_media_dma_alloc (1024, &phys);
-    cunit_znd_assert_ptr ("xapp_media_dma_alloc", buf);
-    cunit_znd_assert_ptr ("xapp_media_dma_alloc:check-phys", (void *) phys);
+    buf = xztl_media_dma_alloc (1024, &phys);
+    cunit_znd_assert_ptr ("xztl_media_dma_alloc", buf);
+    cunit_znd_assert_ptr ("xztl_media_dma_alloc:check-phys", (void *) phys);
 
     if (buf) {
-	xapp_media_dma_free (buf);
-	CU_PASS ("xapp_media_dma_free (buf);");
+	xztl_media_dma_free (buf);
+	CU_PASS ("xztl_media_dma_free (buf);");
     }
 }
 
 static int outstanding;
 static void test_znd_callback (void *arg)
 {
-   struct xapp_io_mcmd *cmd;
+   struct xztl_io_mcmd *cmd;
 
-   cmd = (struct xapp_io_mcmd *) arg;
-   cunit_znd_assert_int ("xapp_media_submit_io:cb", cmd->status);
+   cmd = (struct xztl_io_mcmd *) arg;
+   cunit_znd_assert_int ("xztl_media_submit_io:cb", cmd->status);
    outstanding--;
 }
 
 static void test_znd_append_zone (void)
 {
-    struct xapp_mp_entry    *mp_cmd;
-    struct xapp_io_mcmd     *cmd;
-    struct xapp_mthread_ctx *tctx;
+    struct xztl_mp_entry    *mp_cmd;
+    struct xztl_io_mcmd     *cmd;
+    struct xztl_mthread_ctx *tctx;
     uint16_t tid, ents, nlbas, zone;
     uint64_t phys, bsize;
     void *wbuf;
@@ -246,39 +246,39 @@ static void test_znd_append_zone (void)
     bsize = nlbas * core.media->geo.nbytes;
 
     /* Initialize mempool module */
-    ret = xapp_mempool_init ();
-    cunit_znd_assert_int ("xapp_mempool_init", ret);
+    ret = xztl_mempool_init ();
+    cunit_znd_assert_int ("xztl_mempool_init", ret);
     if (ret)
 	return;
 
     /* Initialize thread media context */
-    tctx = xapp_ctx_media_init (tid, ents);
-    cunit_znd_assert_ptr ("xapp_ctx_media_init", tctx);
+    tctx = xztl_ctx_media_init (tid, ents);
+    cunit_znd_assert_ptr ("xztl_ctx_media_init", tctx);
     if (ret)
 	goto MP;
 
     /* Reset the zone before appending */
-    test_znd_manage_single (XAPP_ZONE_MGMT_RESET,
+    test_znd_manage_single (XZTL_ZONE_MGMT_RESET,
 			    ZND_STATE_EMPTY,
 			    zone,
-			    "xapp_media_submit_znm:reset");
+			    "xztl_media_submit_znm:reset");
 
     /* Allocate DMA memory */
-    wbuf = xapp_media_dma_alloc (bsize, &phys);
-    cunit_znd_assert_ptr ("xapp_media_dma_alloc", wbuf);
+    wbuf = xztl_media_dma_alloc (bsize, &phys);
+    cunit_znd_assert_ptr ("xztl_media_dma_alloc", wbuf);
     if (!wbuf)
 	goto CTX;
 
     /* Get media command entry */
-    mp_cmd = xapp_mempool_get (XAPP_MEMPOOL_MCMD, tid);
-    cunit_znd_assert_ptr ("xapp_mempool_get", mp_cmd);
+    mp_cmd = xztl_mempool_get (XZTL_MEMPOOL_MCMD, tid);
+    cunit_znd_assert_ptr ("xztl_mempool_get", mp_cmd);
     if (!mp_cmd)
 	goto DMA;
 
     /* Fill up command structure */
-    cmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
-    cmd->opcode    = (XAPP_WRITE_APPEND) ? XAPP_ZONE_APPEND :
-					   XAPP_CMD_WRITE;
+    cmd = (struct xztl_io_mcmd *) mp_cmd->opaque;
+    cmd->opcode    = (XZTL_WRITE_APPEND) ? XZTL_ZONE_APPEND :
+					   XZTL_CMD_WRITE;
     cmd->synch     = 0;
     cmd->async_ctx = tctx;
     cmd->prp[0]    = (uint64_t) wbuf;
@@ -290,29 +290,29 @@ static void test_znd_append_zone (void)
 
     /* Submit append */
     outstanding = 1;
-    ret = xapp_media_submit_io (cmd);
-    cunit_znd_assert_int ("xapp_media_submit_io", ret);
+    ret = xztl_media_submit_io (cmd);
+    cunit_znd_assert_int ("xztl_media_submit_io", ret);
 
     /* Wait for completions */
     while (outstanding) {};
 
     /* Clear up */
-    xapp_mempool_put (mp_cmd, XAPP_MEMPOOL_MCMD, tid);
+    xztl_mempool_put (mp_cmd, XZTL_MEMPOOL_MCMD, tid);
 DMA:
-    xapp_media_dma_free (wbuf);
+    xztl_media_dma_free (wbuf);
 CTX:
-    ret = xapp_ctx_media_exit (tctx);
-    cunit_znd_assert_int ("xapp_ctx_media_exit", ret);
+    ret = xztl_ctx_media_exit (tctx);
+    cunit_znd_assert_int ("xztl_ctx_media_exit", ret);
 MP:
-    ret = xapp_mempool_exit ();
-    cunit_znd_assert_int ("xapp_mempool_exit", ret);
+    ret = xztl_mempool_exit ();
+    cunit_znd_assert_int ("xztl_mempool_exit", ret);
 }
 
 static void test_znd_read_zone (void)
 {
-    struct xapp_mp_entry    *mp_cmd;
-    struct xapp_io_mcmd     *cmd;
-    struct xapp_mthread_ctx *tctx;
+    struct xztl_mp_entry    *mp_cmd;
+    struct xztl_io_mcmd     *cmd;
+    struct xztl_mthread_ctx *tctx;
     uint16_t tid, ents, nlbas, zone;
     uint64_t phys, bsize;
     void *wbuf;
@@ -325,32 +325,32 @@ static void test_znd_read_zone (void)
     bsize = nlbas * core.media->geo.nbytes;
 
     /* Initialize mempool module */
-    ret = xapp_mempool_init ();
-    cunit_znd_assert_int ("xapp_mempool_init", ret);
+    ret = xztl_mempool_init ();
+    cunit_znd_assert_int ("xztl_mempool_init", ret);
     if (ret)
 	return;
 
     /* Initialize thread media context */
-    tctx = xapp_ctx_media_init (tid, ents);
-    cunit_znd_assert_ptr ("xapp_ctx_media_init", tctx);
+    tctx = xztl_ctx_media_init (tid, ents);
+    cunit_znd_assert_ptr ("xztl_ctx_media_init", tctx);
     if (ret)
 	goto MP;
 
     /* Allocate DMA memory */
-    wbuf = xapp_media_dma_alloc (bsize, &phys);
-    cunit_znd_assert_ptr ("xapp_media_dma_alloc", wbuf);
+    wbuf = xztl_media_dma_alloc (bsize, &phys);
+    cunit_znd_assert_ptr ("xztl_media_dma_alloc", wbuf);
     if (!wbuf)
 	goto CTX;
 
     /* Get media command entry */
-    mp_cmd = xapp_mempool_get (XAPP_MEMPOOL_MCMD, tid);
-    cunit_znd_assert_ptr ("xapp_mempool_get", mp_cmd);
+    mp_cmd = xztl_mempool_get (XZTL_MEMPOOL_MCMD, tid);
+    cunit_znd_assert_ptr ("xztl_mempool_get", mp_cmd);
     if (!mp_cmd)
 	goto DMA;
 
     /* Fill up command structure */
-    cmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
-    cmd->opcode    = XAPP_CMD_READ;
+    cmd = (struct xztl_io_mcmd *) mp_cmd->opaque;
+    cmd->opcode    = XZTL_CMD_READ;
     cmd->synch     = 0;
     cmd->async_ctx = tctx;
     cmd->prp[0]    = (uint64_t) wbuf;
@@ -362,21 +362,21 @@ static void test_znd_read_zone (void)
 
     /* Submit read */
     outstanding = 1;
-    ret = xapp_media_submit_io (cmd);
-    cunit_znd_assert_int ("xapp_media_submit_io", ret);
+    ret = xztl_media_submit_io (cmd);
+    cunit_znd_assert_int ("xztl_media_submit_io", ret);
 
     /* Wait for completions */
     while (outstanding) {};
 
     /* Clear up */
-    xapp_mempool_put (mp_cmd, XAPP_MEMPOOL_MCMD, tid);
+    xztl_mempool_put (mp_cmd, XZTL_MEMPOOL_MCMD, tid);
 DMA:
-    xapp_media_dma_free (wbuf);
+    xztl_media_dma_free (wbuf);
 CTX:
-    ret = xapp_ctx_media_exit (tctx);
-    cunit_znd_assert_int ("xapp_ctx_media_exit", ret);
+    ret = xztl_ctx_media_exit (tctx);
+    cunit_znd_assert_int ("xztl_ctx_media_exit", ret);
 MP:
-    ret = xapp_mempool_exit ();
+    ret = xztl_mempool_exit ();
     cunit_znd_assert_int ("", ret);
 }
 

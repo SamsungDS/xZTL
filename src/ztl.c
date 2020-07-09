@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -23,11 +23,11 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <sys/queue.h>
-#include <xapp.h>
-#include <xapp-media.h>
-#include <xapp-ztl.h>
+#include <xztl.h>
+#include <xztl-media.h>
+#include <xztl-ztl.h>
 
-extern struct xapp_core core;
+extern struct xztl_core core;
 
 struct app_global __ztl;
 static uint8_t gl_fn; /* Positive if function has been called */
@@ -79,7 +79,7 @@ static void app_exit_map_lock (struct app_mpe *mpe)
 static int app_mpe_init (void)
 {
     struct app_mpe *mpe;
-    struct xapp_mgeo *g;
+    struct xztl_mgeo *g;
     int ret;
 
     mpe = &ztl()->smap;
@@ -113,7 +113,7 @@ static int app_mpe_init (void)
 
     log_info ("ztl-mpe: Persistent Mapping started.");
 
-    return XAPP_OK;
+    return XZTL_OK;
 
 LOCK:
     app_exit_map_lock (mpe);
@@ -140,31 +140,31 @@ static int app_global_init (void)
     ret = ztl()->pro->init_fn ();
     if (ret) {
         log_erra ("[ztl: Provisioning NOT started. ret: 0x%x\n", ret);
-	return XAPP_ZTL_PROV_ERR;
+	return XZTL_ZTL_PROV_ERR;
     }
 
     ret = app_mpe_init();
     if (ret) {
         log_err ("[ztl: Persistent mapping NOT started.\n");
-        ret = XAPP_ZTL_MPE_ERR;
+        ret = XZTL_ZTL_MPE_ERR;
 	goto PRO;
     }
 
     ret = ztl()->map->init_fn ();
     if (ret) {
 	log_err ("[ztl: Mapping NOT started.\n");
-        ret = XAPP_ZTL_MAP_ERR;
+        ret = XZTL_ZTL_MAP_ERR;
 	goto MPE;
     }
 
     ret = ztl()->wca->init_fn ();
     if (ret) {
 	log_err ("[ztl: Write-cache NOT started.\n");
-	ret = XAPP_ZTL_WCA_ERR;
+	ret = XZTL_ZTL_WCA_ERR;
 	goto MAP;
     }
 
-    return XAPP_OK;
+    return XZTL_OK;
 
 MAP:
     ztl()->map->exit_fn ();
@@ -278,7 +278,7 @@ int ztl_init (void)
 
     ngrps = ztl()->groups.init_fn ();
     if (ngrps <= 0)
-	return XAPP_ZTL_GROUP_ERR;
+	return XZTL_ZTL_GROUP_ERR;
 
     app_ngrps = ngrps;
 
@@ -290,5 +290,5 @@ int ztl_init (void)
 
     log_info ("ztl: Started successfully.");
 
-    return XAPP_OK;
+    return XZTL_OK;
 }

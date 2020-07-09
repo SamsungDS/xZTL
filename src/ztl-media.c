@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -17,8 +17,8 @@
  * limitations under the License.
 */
 
-#include <xapp.h>
-#include <xapp-media.h>
+#include <xztl.h>
+#include <xztl-media.h>
 #include <ztl-media.h>
 #include <libxnvme.h>
 #include <time.h>
@@ -32,24 +32,24 @@ static struct znd_media zndmedia;
 extern char *dev_name;
 
 static pthread_spinlock_t cb_spin;
-STAILQ_HEAD (callback_head, xapp_io_mcmd) cb_head;
+STAILQ_HEAD (callback_head, xztl_io_mcmd) cb_head;
 
 static void znd_media_async_cb (struct xnvme_req *xreq, void *cb_arg)
 {
-    struct xapp_io_mcmd *cmd;
+    struct xztl_io_mcmd *cmd;
     uint16_t sec_i = 0;
 
-    cmd = (struct xapp_io_mcmd *) cb_arg;
+    cmd = (struct xztl_io_mcmd *) cb_arg;
     cmd->status = xnvme_req_cpl_status (xreq);
 
-    if (!cmd->status && cmd->opcode == XAPP_ZONE_APPEND)
+    if (!cmd->status && cmd->opcode == XZTL_ZONE_APPEND)
 	cmd->paddr[sec_i] = *(uint64_t *) &xreq->cpl.cdw0;
 
-    if (cmd->opcode == XAPP_CMD_WRITE)
+    if (cmd->opcode == XZTL_CMD_WRITE)
 	cmd->paddr[sec_i] = cmd->addr[sec_i].g.sect;
 
     if (cmd->status) {
-	xapp_print_mcmd (cmd);
+	xztl_print_mcmd (cmd);
 	xnvme_req_pr (xreq, 0);
     }
 
@@ -58,7 +58,7 @@ static void znd_media_async_cb (struct xnvme_req *xreq, void *cb_arg)
     pthread_spin_unlock (&cb_spin);
 }
 
-static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
+static int znd_media_submit_read_synch (struct xztl_io_mcmd *cmd)
 {
     struct xnvme_req *xreq;
     uint64_t slba;
@@ -84,20 +84,20 @@ static int znd_media_submit_read_synch (struct xapp_io_mcmd *cmd)
 			    0,
 			    xreq);
     GET_MICROSECONDS(cmd->us_end, ts_e);
-//    xapp_prometheus_add_read_latency (cmd->us_end - cmd->us_start);
+//    xztl_prometheus_add_read_latency (cmd->us_end - cmd->us_start);
 
     if (ret)
-	xapp_print_mcmd (cmd);
+	xztl_print_mcmd (cmd);
 
     return ret;
 }
 
-static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
+static int znd_media_submit_read_asynch (struct xztl_io_mcmd *cmd)
 {
     uint16_t sec_i = 0;
     uint64_t slba;
     void *dbuf;
-    struct xapp_mthread_ctx *tctx;
+    struct xztl_mthread_ctx *tctx;
     struct xnvme_req *xreq;
 
     tctx = cmd->async_ctx;
@@ -122,17 +122,17 @@ static int znd_media_submit_read_asynch (struct xapp_io_mcmd *cmd)
 			    xreq);
 }
 
-static int znd_media_submit_write_synch (struct xapp_io_mcmd *cmd)
+static int znd_media_submit_write_synch (struct xztl_io_mcmd *cmd)
 {
     return ZND_INVALID_OPCODE;
 }
 
-static int znd_media_submit_write_asynch (struct xapp_io_mcmd *cmd)
+static int znd_media_submit_write_asynch (struct xztl_io_mcmd *cmd)
 {
     uint16_t sec_i = 0;
     uint64_t slba;
     void *dbuf;
-    struct xapp_mthread_ctx *tctx;
+    struct xztl_mthread_ctx *tctx;
     struct xnvme_req *xreq;
     int ret;
 
@@ -162,22 +162,22 @@ static int znd_media_submit_write_asynch (struct xapp_io_mcmd *cmd)
     pthread_spin_unlock (&tctx->qpair_spin);
 
     if (ret)
-	xapp_print_mcmd (cmd);
+	xztl_print_mcmd (cmd);
 
     return ret;
 }
 
-static int znd_media_submit_append_synch (struct xapp_io_mcmd *cmd)
+static int znd_media_submit_append_synch (struct xztl_io_mcmd *cmd)
 {
     return ZND_INVALID_OPCODE;
 }
 
-static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
+static int znd_media_submit_append_asynch (struct xztl_io_mcmd *cmd)
 {
     uint16_t zone_i = 0;
     uint64_t zlba;
     const void *dbuf;
-    struct xapp_mthread_ctx *tctx;
+    struct xztl_mthread_ctx *tctx;
     struct xnvme_req *xreq;
     int ret;
 
@@ -194,7 +194,7 @@ static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
     xreq->async.cb     = znd_media_async_cb;
     xreq->async.cb_arg = (void *) cmd;
 
-    ret = (!XAPP_WRITE_APPEND) ? znd_cmd_append (zndmedia.dev,
+    ret = (!XZTL_WRITE_APPEND) ? znd_cmd_append (zndmedia.dev,
 				    xnvme_dev_get_nsid (zndmedia.dev),
 				    zlba,
 				    (uint16_t) cmd->nsec[zone_i] - 1,
@@ -204,21 +204,21 @@ static int znd_media_submit_append_asynch (struct xapp_io_mcmd *cmd)
 				    xreq) :
 				-1;
     if (ret)
-	xapp_print_mcmd (cmd);
+	xztl_print_mcmd (cmd);
 
     return ret;
 }
 
-static int znd_media_submit_io (struct xapp_io_mcmd *cmd)
+static int znd_media_submit_io (struct xztl_io_mcmd *cmd)
 {
     switch (cmd->opcode) {
-	case XAPP_ZONE_APPEND:
+	case XZTL_ZONE_APPEND:
 	    return (cmd->synch) ? znd_media_submit_append_synch (cmd) :
 				  znd_media_submit_append_asynch (cmd);
-	case XAPP_CMD_READ:
+	case XZTL_CMD_READ:
 	    return (cmd->synch) ? znd_media_submit_read_synch (cmd) :
 				  znd_media_submit_read_asynch (cmd);
-	case XAPP_CMD_WRITE:
+	case XZTL_CMD_WRITE:
 	    return (cmd->synch) ? znd_media_submit_write_synch (cmd) :
 				  znd_media_submit_write_asynch (cmd);
 	default:
@@ -227,7 +227,7 @@ static int znd_media_submit_io (struct xapp_io_mcmd *cmd)
     return 0;
 }
 
-static inline int znd_media_zone_manage (struct xapp_zn_mcmd *cmd, uint8_t op)
+static inline int znd_media_zone_manage (struct xztl_zn_mcmd *cmd, uint8_t op)
 {
     uint32_t lba;
     struct xnvme_req devreq;
@@ -248,13 +248,13 @@ static inline int znd_media_zone_manage (struct xapp_zn_mcmd *cmd, uint8_t op)
 			     0,
 			     &devreq);
 
-    cmd->status = (ret) ? xnvme_req_cpl_status (&devreq) : XAPP_OK;
+    cmd->status = (ret) ? xnvme_req_cpl_status (&devreq) : XZTL_OK;
 
-    //return (ret) ? op : XAPP_OK;
+    //return (ret) ? op : XZTL_OK;
     return ret;
 }
 
-static int znd_media_zone_report (struct xapp_zn_mcmd *cmd)
+static int znd_media_zone_report (struct xztl_zn_mcmd *cmd)
 {
     struct znd_report *rep;
     size_t limit;
@@ -270,28 +270,28 @@ static int znd_media_zone_report (struct xapp_zn_mcmd *cmd)
 
     cmd->opaque = (void *) rep;
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
-static int znd_media_zone_mgmt (struct xapp_zn_mcmd *cmd)
+static int znd_media_zone_mgmt (struct xztl_zn_mcmd *cmd)
 {
     switch (cmd->opcode) {
-	case XAPP_ZONE_MGMT_CLOSE:
+	case XZTL_ZONE_MGMT_CLOSE:
 	    return znd_media_zone_manage (cmd, ZND_SEND_CLOSE);
-	case XAPP_ZONE_MGMT_FINISH:
+	case XZTL_ZONE_MGMT_FINISH:
 	    return znd_media_zone_manage (cmd, ZND_SEND_FINISH);
-	case XAPP_ZONE_MGMT_OPEN:
+	case XZTL_ZONE_MGMT_OPEN:
 	    return znd_media_zone_manage (cmd, ZND_SEND_OPEN);
-	case XAPP_ZONE_MGMT_RESET:
-	    xapp_stats_inc (XAPP_STATS_RESET_MCMD, 1);
+	case XZTL_ZONE_MGMT_RESET:
+	    xztl_stats_inc (XZTL_STATS_RESET_MCMD, 1);
 	    return znd_media_zone_manage (cmd, ZND_SEND_RESET);
-	case XAPP_ZONE_MGMT_REPORT:
+	case XZTL_ZONE_MGMT_REPORT:
 	    return znd_media_zone_report (cmd);
 	default:
 	    return ZND_INVALID_OPCODE;
     }
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
 static void *znd_media_dma_alloc (size_t size, uint64_t *phys)
@@ -315,7 +315,7 @@ static int znd_media_async_poke (struct xnvme_async_ctx *ctx,
 
     *c = ret;
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
 static int znd_media_async_outs (struct xnvme_async_ctx *ctx, uint32_t *c)
@@ -328,7 +328,7 @@ static int znd_media_async_outs (struct xnvme_async_ctx *ctx, uint32_t *c)
 
     *c = ret;
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
 static int znd_media_async_wait (struct xnvme_async_ctx *ctx, uint32_t *c)
@@ -341,14 +341,14 @@ static int znd_media_async_wait (struct xnvme_async_ctx *ctx, uint32_t *c)
 
     *c = ret;
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
 static void *znd_media_asynch_comp_th (void *args)
 {
-    struct xapp_misc_cmd    *cmd_misc;
-    struct xapp_io_mcmd	    *cmd;
-    struct xapp_mthread_ctx *tctx;
+    struct xztl_misc_cmd    *cmd_misc;
+    struct xztl_io_mcmd	    *cmd;
+    struct xztl_mthread_ctx *tctx;
 
 #if ZTL_WRITE_AFFINITY
     cpu_set_t cpuset;
@@ -359,7 +359,7 @@ static void *znd_media_asynch_comp_th (void *args)
     pthread_setaffinity_np (pthread_self(), sizeof(cpu_set_t), &cpuset);
 #endif
 
-    cmd_misc   = (struct xapp_misc_cmd *) args;
+    cmd_misc   = (struct xztl_misc_cmd *) args;
     tctx       = cmd_misc->asynch.ctx_ptr;
 
     tctx->comp_active = 1;
@@ -386,12 +386,12 @@ NEXT:
 	}
     }
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
-static int znd_media_asynch_init (struct xapp_misc_cmd *cmd)
+static int znd_media_asynch_init (struct xztl_misc_cmd *cmd)
 {
-    struct xapp_mthread_ctx *tctx;
+    struct xztl_mthread_ctx *tctx;
     int ret;
 
     tctx = cmd->asynch.ctx_ptr;
@@ -426,10 +426,10 @@ static int znd_media_asynch_init (struct xapp_misc_cmd *cmd)
 	usleep (1);
     }
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
-static int znd_media_asynch_term (struct xapp_misc_cmd *cmd)
+static int znd_media_asynch_term (struct xztl_misc_cmd *cmd)
 {
     int ret;
 
@@ -442,31 +442,31 @@ static int znd_media_asynch_term (struct xapp_misc_cmd *cmd)
 
     pthread_spin_destroy (&cb_spin);
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
-static int znd_media_cmd_exec (struct xapp_misc_cmd *cmd)
+static int znd_media_cmd_exec (struct xztl_misc_cmd *cmd)
 {
     switch (cmd->opcode) {
 
-	case XAPP_MISC_ASYNCH_INIT:
+	case XZTL_MISC_ASYNCH_INIT:
 	    return znd_media_asynch_init (cmd);
 
-	case XAPP_MISC_ASYNCH_TERM:
+	case XZTL_MISC_ASYNCH_TERM:
 	    return znd_media_asynch_term (cmd);
 
-	case XAPP_MISC_ASYNCH_POKE:
+	case XZTL_MISC_ASYNCH_POKE:
 	    return znd_media_async_poke (
 			    cmd->asynch.ctx_ptr->asynch,
 			    &cmd->asynch.count,
 			    cmd->asynch.limit);
 
-        case XAPP_MISC_ASYNCH_OUTS:
+        case XZTL_MISC_ASYNCH_OUTS:
 	    return znd_media_async_outs (
 			    cmd->asynch.ctx_ptr->asynch,
 			    &cmd->asynch.count);
 
-	case XAPP_MISC_ASYNCH_WAIT:
+	case XZTL_MISC_ASYNCH_WAIT:
 	    return znd_media_async_wait (
 			    cmd->asynch.ctx_ptr->asynch,
 			    &cmd->asynch.count);
@@ -478,7 +478,7 @@ static int znd_media_cmd_exec (struct xapp_misc_cmd *cmd)
 
 static int znd_media_init (void)
 {
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
 static int znd_media_exit (void)
@@ -486,14 +486,14 @@ static int znd_media_exit (void)
     if (zndmedia.dev)
 	xnvme_dev_close (zndmedia.dev);
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
 int znd_media_register (const char *dev_name)
 {
     const struct xnvme_geo *devgeo;
     struct xnvme_dev *dev;
-    struct xapp_media *m;
+    struct xztl_media *m;
 
     dev = xnvme_dev_open (dev_name);
     if (!dev)
@@ -524,5 +524,5 @@ int znd_media_register (const char *dev_name)
     m->dma_free  = znd_media_dma_free;
     m->cmd_exec  = znd_media_cmd_exec;
 
-    return xapp_media_set (m);
+    return xztl_media_set (m);
 }

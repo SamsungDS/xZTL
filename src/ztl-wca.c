@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -17,27 +17,27 @@
  * limitations under the License.
 */
 
-#include <xapp.h>
-#include <xapp-media.h>
-#include <xapp-ztl.h>
+#include <xztl.h>
+#include <xztl-media.h>
+#include <xztl-ztl.h>
 #include <lztl.h>
 #include <unistd.h>
 #include <sched.h>
 
-#define ZTL_MCMD_ENTS	 XAPP_IO_MAX_MCMD
+#define ZTL_MCMD_ENTS	 XZTL_IO_MAX_MCMD
 
-extern struct xapp_core core;
+extern struct xztl_core core;
 
-STAILQ_HEAD (uc_head, xapp_io_ucmd)  ucmd_head;
+STAILQ_HEAD (uc_head, xztl_io_ucmd)  ucmd_head;
 static pthread_spinlock_t     	     ucmd_spin;
-static struct xapp_mthread_ctx      *tctx;
+static struct xztl_mthread_ctx      *tctx;
 static pthread_t		     wca_thread;
 static uint8_t 			     wca_running;
 
 /* This function checks if the media offsets are sequential.
  * If not, we return a negative value. For now we do not support
  * multi-piece mapping in ZTL-managed mapping */
-static int ztl_wca_check_offset_seq (struct xapp_io_ucmd *ucmd)
+static int ztl_wca_check_offset_seq (struct xztl_io_ucmd *ucmd)
 {
     uint32_t off_i;
 
@@ -56,7 +56,7 @@ static int ztl_wca_check_offset_seq (struct xapp_io_ucmd *ucmd)
 /* This function prepares a multi-piece mapping to return to the user.
  * Each entry contains the offset and size, and the full list represents
  * the entire buffer. */
-static void ztl_wca_reorg_ucmd_off (struct xapp_io_ucmd *ucmd)
+static void ztl_wca_reorg_ucmd_off (struct xztl_io_ucmd *ucmd)
 {
     uint32_t off_i, curr, first_off, size;
 
@@ -109,15 +109,15 @@ static void ztl_wca_reorg_ucmd_off (struct xapp_io_ucmd *ucmd)
 
 static void ztl_wca_callback_mcmd (void *arg)
 {
-    struct xapp_io_ucmd  *ucmd;
-    struct xapp_io_mcmd  *mcmd;
+    struct xztl_io_ucmd  *ucmd;
+    struct xztl_io_mcmd  *mcmd;
     struct app_map_entry map;
     struct app_zmd_entry *zmd;
     uint64_t old;
     int ret, off_i;
 
-    mcmd = (struct xapp_io_mcmd *) arg;
-    ucmd = (struct xapp_io_ucmd *) mcmd->opaque;
+    mcmd = (struct xztl_io_mcmd *) arg;
+    ucmd = (struct xztl_io_ucmd *) mcmd->opaque;
 
     pthread_spin_lock (&ucmd->inflight_spin);
     ucmd->minflight[mcmd->sequence_zn] = 0;
@@ -130,7 +130,7 @@ static void ztl_wca_callback_mcmd (void *arg)
     }
 
     pthread_spin_lock (&ucmd->inflight_spin);
-    xapp_atomic_int16_update (&ucmd->ncb, ucmd->ncb + 1);
+    xztl_atomic_int16_update (&ucmd->ncb, ucmd->ncb + 1);
     pthread_spin_unlock (&ucmd->inflight_spin);
 
     if (mcmd->status)
@@ -142,7 +142,7 @@ static void ztl_wca_callback_mcmd (void *arg)
 						    ucmd->moffset[mcmd->sequence],
 						    mcmd->status);
 
-    xapp_mempool_put (mcmd->mp_cmd, XAPP_MEMPOOL_MCMD, ZTL_PRO_TUSER);
+    xztl_mempool_put (mcmd->mp_cmd, XZTL_MEMPOOL_MCMD, ZTL_PRO_TUSER);
 
     if (ucmd->ncb == ucmd->nmcmd) {
 
@@ -160,9 +160,9 @@ static void ztl_wca_callback_mcmd (void *arg)
 		map.g.multi  = 0;
 		ret = ztl()->map->upsert_fn (ucmd->id, map.addr, &old, 0);
 		if (ret)
-		    ucmd->status = XAPP_ZTL_MAP_ERR;
+		    ucmd->status = XZTL_ZTL_MAP_ERR;
 	    } else {
-		ucmd->status = XAPP_ZTL_APPEND_ERR;
+		ucmd->status = XZTL_ZTL_APPEND_ERR;
 	    }
 	}
 
@@ -174,7 +174,7 @@ static void ztl_wca_callback_mcmd (void *arg)
 
 	for (off_i = 0; off_i < ucmd->noffs; off_i++) {
 	    zmd = ztl()->zmd->get_fn (ucmd->prov->grp, ucmd->moffset[off_i], 1);
-	    xapp_atomic_int32_update (&zmd->npieces, zmd->npieces + 1);
+	    xztl_atomic_int32_update (&zmd->npieces, zmd->npieces + 1);
 
 	    if (ZDEBUG_WCA) {
 		log_infoa ("ztl-wca: off_id %d, moff 0x%lx, nsec %d. "
@@ -195,12 +195,12 @@ static void ztl_wca_callback_mcmd (void *arg)
     }
 }
 
-static void ztl_wca_callback (struct xapp_io_mcmd *mcmd)
+static void ztl_wca_callback (struct xztl_io_mcmd *mcmd)
 {
     ztl_wca_callback_mcmd (mcmd);
 }
 
-static int ztl_wca_submit (struct xapp_io_ucmd *ucmd)
+static int ztl_wca_submit (struct xztl_io_ucmd *ucmd)
 {
     pthread_spin_lock (&ucmd_spin);
     STAILQ_INSERT_TAIL (&ucmd_head, ucmd, entry);
@@ -224,24 +224,24 @@ static uint32_t ztl_wca_ncmd_prov_based (struct app_pro_addr *prov)
 }
 
 static void ztl_wca_poke_ctx (void) {
-    struct xapp_misc_cmd misc;
-    misc.opcode		  = XAPP_MISC_ASYNCH_POKE;
+    struct xztl_misc_cmd misc;
+    misc.opcode		  = XZTL_MISC_ASYNCH_POKE;
     misc.asynch.ctx_ptr   = tctx;
     misc.asynch.limit     = 0;
     misc.asynch.count     = 0;
 
-    if (!xapp_media_submit_misc (&misc)) {
+    if (!xztl_media_submit_misc (&misc)) {
 	if (!misc.asynch.count) {
 	    // Check Outstanding
 	}
     }
 }
 
-static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
+static void ztl_wca_process_ucmd (struct xztl_io_ucmd *ucmd)
 {
     struct app_pro_addr *prov;
-    struct xapp_mp_entry *mp_cmd;
-    struct xapp_io_mcmd *mcmd;
+    struct xztl_mp_entry *mp_cmd;
+    struct xztl_io_mcmd *mcmd;
     uint32_t nsec, nsec_zn, ncmd, cmd_i, zn_i, submitted;
     int zn_cmd_id[ZTL_PRO_STRIPE * 2];
     uint64_t boff;
@@ -263,9 +263,9 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
     if (nsec % ZTL_WCA_SEC_MCMD != 0)
 	ncmd++;
 
-    if (ncmd > XAPP_IO_MAX_MCMD) {
-	log_erra ("ztl-wca: User command exceed XAPP_IO_MAX_MCMD. "
-		"%d of %d", ncmd, XAPP_IO_MAX_MCMD);
+    if (ncmd > XZTL_IO_MAX_MCMD) {
+	log_erra ("ztl-wca: User command exceed XZTL_IO_MAX_MCMD. "
+		"%d of %d", ncmd, XZTL_IO_MAX_MCMD);
 	goto FAILURE;
     }
 
@@ -280,9 +280,9 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 
     /* We check the number of commands again based on the provisioning */
     ncmd = ztl_wca_ncmd_prov_based (prov);
-    if (ncmd > XAPP_IO_MAX_MCMD) {
-	log_erra ("ztl-wca: User command exceed XAPP_IO_MAX_MCMD. "
-		"%d of %d", ncmd, XAPP_IO_MAX_MCMD);
+    if (ncmd > XZTL_IO_MAX_MCMD) {
+	log_erra ("ztl-wca: User command exceed XZTL_IO_MAX_MCMD. "
+		"%d of %d", ncmd, XZTL_IO_MAX_MCMD);
 	goto FAIL_NCMD;
     }
 
@@ -312,18 +312,18 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	    /* We are using a memory pool for user commands, if other types
 	     * such as GC in introduced, we need to choose the provisioning
 	     * type here */
-	    mp_cmd = xapp_mempool_get (XAPP_MEMPOOL_MCMD, ZTL_PRO_TUSER);
+	    mp_cmd = xztl_mempool_get (XZTL_MEMPOOL_MCMD, ZTL_PRO_TUSER);
 	    if (!mp_cmd) {
 		log_err ("ztl-wca: Mempool failed.");
 		goto FAIL_MP;
 	    }
 
-	    mcmd = (struct xapp_io_mcmd *) mp_cmd->opaque;
+	    mcmd = (struct xztl_io_mcmd *) mp_cmd->opaque;
 
-	    memset (mcmd, 0x0, sizeof (struct xapp_io_mcmd));
+	    memset (mcmd, 0x0, sizeof (struct xztl_io_mcmd));
 	    mcmd->mp_cmd    = mp_cmd;
-	    mcmd->opcode    = (XAPP_WRITE_APPEND) ? XAPP_ZONE_APPEND :
-						    XAPP_CMD_WRITE;
+	    mcmd->opcode    = (XZTL_WRITE_APPEND) ? XZTL_ZONE_APPEND :
+						    XZTL_CMD_WRITE;
 	    mcmd->synch     = 0;
 	    mcmd->submitted = 0;
 	    mcmd->sequence  = cmd_i;
@@ -336,7 +336,7 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	    mcmd->addr[0].g.grp  = prov->addr[zn_i].g.grp;
 	    mcmd->addr[0].g.zone = prov->addr[zn_i].g.zone;
 
-	    if (!XAPP_WRITE_APPEND)
+	    if (!XZTL_WRITE_APPEND)
 		mcmd->addr[0].g.sect = (uint64_t) prov->addr[zn_i].g.sect +
 				       (uint64_t) (prov->nsec[zn_i] - nsec_zn);
 
@@ -381,7 +381,7 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 	    }
 
 	    /* Limit to 1 write per zone if append is not supported */
-	    if (!XAPP_WRITE_APPEND) {
+	    if (!XZTL_WRITE_APPEND) {
 		if (ucmd->minflight[zn_i]) {
 		    ztl_wca_poke_ctx ();
 		    continue;
@@ -392,7 +392,7 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
 		pthread_spin_unlock (&ucmd->inflight_spin);
 	    }
 
-	    ret = xapp_media_submit_io (ucmd->mcmd[zn_cmd_id[zn_i]]);
+	    ret = xztl_media_submit_io (ucmd->mcmd[zn_cmd_id[zn_i]]);
 	    if (ret)
 		goto FAIL_SUBMIT;
 
@@ -422,10 +422,10 @@ static void ztl_wca_process_ucmd (struct xapp_io_ucmd *ucmd)
  * performed by the callback function */
 FAIL_SUBMIT:
     if (submitted) {
-	ucmd->status = XAPP_ZTL_WCA_S2_ERR;
+	ucmd->status = XZTL_ZTL_WCA_S2_ERR;
 	for (cmd_i = 0; cmd_i < ncmd; cmd_i++) {
 	    if (!ucmd->mcmd[cmd_i]->submitted)
-		xapp_atomic_int16_update (&ucmd->ncb, ucmd->ncb + 1);
+		xztl_atomic_int16_update (&ucmd->ncb, ucmd->ncb + 1);
 	}
 
 	/* Check for completion in case of completion concurrence */
@@ -451,8 +451,8 @@ FAIL_SUBMIT:
 FAIL_MP:
     while (cmd_i) {
 	cmd_i--;
-	xapp_mempool_put (ucmd->mcmd[cmd_i]->mp_cmd,
-			  XAPP_MEMPOOL_MCMD,
+	xztl_mempool_put (ucmd->mcmd[cmd_i]->mp_cmd,
+			  XZTL_MEMPOOL_MCMD,
 			  ZTL_PRO_TUSER);
 	ucmd->mcmd[cmd_i]->mp_cmd = NULL;
 	ucmd->mcmd[cmd_i] = NULL;
@@ -464,7 +464,7 @@ FAIL_NCMD:
     ztl()->pro->free_fn (prov);
 
 FAILURE:
-    ucmd->status = XAPP_ZTL_WCA_S_ERR;
+    ucmd->status = XZTL_ZTL_WCA_S_ERR;
 
     if (ucmd->callback) {
 	ucmd->completed = 1;
@@ -477,7 +477,7 @@ FAILURE:
 
 static void *ztl_wca_write_th (void *arg)
 {
-    struct xapp_io_ucmd *ucmd;
+    struct xztl_io_ucmd *ucmd;
 
 #if ZTL_WRITE_AFFINITY
     cpu_set_t cpuset;
@@ -517,9 +517,9 @@ static int ztl_wca_init (void)
 
     /* Initialize thread media context
      * If more write threads are to be used, we need more contexts */
-    tctx = xapp_ctx_media_init (0, ZTL_MCMD_ENTS);
+    tctx = xztl_ctx_media_init (0, ZTL_MCMD_ENTS);
     if (!tctx)
-	return XAPP_ZTL_WCA_ERR;
+	return XZTL_ZTL_WCA_ERR;
 
     if (pthread_spin_init (&ucmd_spin, 0))
 	goto TCTX;
@@ -534,8 +534,8 @@ static int ztl_wca_init (void)
 SPIN:
     pthread_spin_destroy (&ucmd_spin);
 TCTX:
-    xapp_ctx_media_exit (tctx);
-    return XAPP_ZTL_WCA_ERR;
+    xztl_ctx_media_exit (tctx);
+    return XZTL_ZTL_WCA_ERR;
 }
 
 static void ztl_wca_exit (void)
@@ -543,7 +543,7 @@ static void ztl_wca_exit (void)
     wca_running = 0;
     pthread_join (wca_thread, NULL);
     pthread_spin_destroy (&ucmd_spin);
-    xapp_ctx_media_exit (tctx);
+    xztl_ctx_media_exit (tctx);
 
     log_info ("ztl-wca: Write-caching stopped.");
 }

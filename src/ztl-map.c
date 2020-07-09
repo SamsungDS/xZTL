@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -23,8 +23,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <sys/queue.h>
-#include <xapp.h>
-#include <xapp-ztl.h>
+#include <xztl.h>
+#include <xztl-ztl.h>
 #include <lztl.h>
 
 #define MAP_BUF_PGS     8192      /* 256 MB per cache with 32KB page */
@@ -32,7 +32,7 @@
 
 #define MAP_ADDR_FLAG   ((1 & AND64) << 63)
 
-extern struct xapp_core    core;
+extern struct xztl_core    core;
 
 struct map_cache_entry {
     uint8_t                     dirty;
@@ -406,7 +406,7 @@ static int map_upsert (uint64_t id, uint64_t val, uint64_t *old,
         return 1;
     }
 
-    xapp_atomic_int64_update (&map_ent->addr, val);
+    xztl_atomic_int64_update (&map_ent->addr, val);
 //    cache_ent->dirty = 1;
 
     ZDEBUG (ZDRBUG_MAP, "  upsert succeed: ID: %lu, val: (0x%lx/%d/%d)",

@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -21,8 +21,8 @@
 #define ZNMEDIA
 
 #include <libxnvme.h>
-#include <xapp.h>
-#include <xapp-media.h>
+#include <xztl.h>
+#include <xztl-media.h>
 
 enum znd_media_error {
     ZND_MEDIA_NODEVICE 	 = 0x1,
@@ -41,7 +41,7 @@ enum znd_media_error {
 struct znd_media {
     struct xnvme_dev 	   *dev;
     const struct xnvme_geo *devgeo;
-    struct xapp_media 	    media;
+    struct xztl_media 	    media;
 };
 
 struct znd_log_cmd {

@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -19,9 +19,9 @@
 
 #include <sys/queue.h>
 #include <stdlib.h>
-#include <xapp.h>
-#include <xapp-mempool.h>
-#include <xapp-ztl.h>
+#include <xztl.h>
+#include <xztl-mempool.h>
+#include <xztl-ztl.h>
 #include <lztl.h>
 
 extern uint32_t app_ngrps;
@@ -39,12 +39,12 @@ void ztl_pro_free (struct app_pro_addr *ctx)
     /* We assume a single group for now */
     app_grp_ctx_sub (ctx->grp);
 
-    xapp_mempool_put (ctx->mp_entry, XAPP_ZTL_PRO_CTX, ctx->thread_id);
+    xztl_mempool_put (ctx->mp_entry, XZTL_ZTL_PRO_CTX, ctx->thread_id);
 }
 
 struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint16_t type, uint8_t multi)
 {
-    struct xapp_mp_entry *mpe;
+    struct xztl_mp_entry *mpe;
     struct app_pro_addr *ctx;
     struct app_group *grp;
     int ret;
@@ -56,7 +56,7 @@ struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint16_t type, uint8_t multi)
 	return NULL;
     }
 
-    mpe = xapp_mempool_get (XAPP_ZTL_PRO_CTX, type);
+    mpe = xztl_mempool_get (XZTL_ZTL_PRO_CTX, type);
     if (!mpe) {
 	log_erra ("ztl-pro: mempool is empty. Type %x", type);
 	return NULL;
@@ -69,7 +69,7 @@ struct app_pro_addr *ztl_pro_new (uint32_t nsec, uint16_t type, uint8_t multi)
 
     ret = ztl_pro_grp_get (grp, ctx, nsec, type, multi);
     if (ret) {
-	xapp_mempool_put (mpe, XAPP_ZTL_PRO_CTX, type);
+	xztl_mempool_put (mpe, XZTL_ZTL_PRO_CTX, type);
 	log_erra ("ztl-pro: Get group zone failed. Type %x", type);
 	return NULL;
     }
@@ -127,7 +127,7 @@ static int ztl_mempool_init (void)
     int ret;
 
     for (th_i = 0; th_i < ZTL_PRO_TYPES; th_i++) {
-	ret = xapp_mempool_create (XAPP_ZTL_PRO_CTX,
+	ret = xztl_mempool_create (XZTL_ZTL_PRO_CTX,
 				  th_i,
 				  ZTL_PRO_MP_SZ,
 				  sizeof (struct app_pro_addr),
@@ -138,7 +138,7 @@ static int ztl_mempool_init (void)
 	    return ret;
     }
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
 static void ztl_mempool_exit (void)
@@ -146,7 +146,7 @@ static void ztl_mempool_exit (void)
     int th_i;
 
     for (th_i = 0; th_i < ZTL_PRO_TYPES; th_i++) {
-	xapp_mempool_destroy (XAPP_ZTL_PRO_CTX, th_i);
+	xztl_mempool_destroy (XZTL_ZTL_PRO_CTX, th_i);
     }
 }
 
@@ -156,7 +156,7 @@ int ztl_pro_init (void)
 
     glist = calloc (sizeof (struct app_group *), app_ngrps);
     if (!glist)
-	return XAPP_ZTL_GROUP_ERR;
+	return XZTL_ZTL_GROUP_ERR;
 
     if (ztl_mempool_init ())
 	goto FREE;
@@ -174,7 +174,7 @@ int ztl_pro_init (void)
 
     log_info ("ztl-pro: Global provisioning started.");
 
-    return XAPP_OK;
+    return XZTL_OK;
 
 EXIT:
     while (grp_i) {
@@ -186,7 +186,7 @@ MP:
     ztl_mempool_exit ();
 FREE:
     free (glist);
-    return XAPP_ZTL_GROUP_ERR;
+    return XZTL_ZTL_GROUP_ERR;
 }
 
 static struct app_pro_mod ztl_pro = {

@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -20,18 +20,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <xapp.h>
-#include <xapp-ztl.h>
+#include <xztl.h>
+#include <xztl-ztl.h>
 
 extern uint16_t app_ngrps;
-extern struct xapp_core core;
+extern struct xztl_core core;
 
 static int ztl_zmd_create (struct app_group *grp)
 {
     uint64_t zn_i;
     struct app_zmd_entry *zn;
     struct app_zmd *zmd = &grp->zmd;
-    struct xapp_mgeo *g;
+    struct xztl_mgeo *g;
 
     g = &core.media->geo;
 
@@ -43,7 +43,7 @@ static int ztl_zmd_create (struct app_group *grp)
         zn->addr.g.zone = zn_i;
 	zn->addr.g.sect = (g->sec_grp * grp->id) + (g->sec_zn * zn_i);
 
-	zn->flags |= XAPP_ZMD_AVLB;
+	zn->flags |= XZTL_ZMD_AVLB;
 	zn->level = 0;
 	zn->npieces = 0;
 	zn->ndeletes = 0;
@@ -55,15 +55,15 @@ static int ztl_zmd_create (struct app_group *grp)
 
 static int ztl_zmd_load_report (struct app_group *grp)
 {
-    struct xapp_zn_mcmd cmd;
+    struct xztl_zn_mcmd cmd;
     int ret;
 
-    cmd.opcode = XAPP_ZONE_MGMT_REPORT;
+    cmd.opcode = XZTL_ZONE_MGMT_REPORT;
     cmd.addr.g.grp  = grp->id;
     cmd.addr.g.zone = core.media->geo.zn_grp * grp->id;
     cmd.nzones = core.media->geo.zn_grp;
 
-    ret = xapp_media_submit_zn (&cmd);
+    ret = xztl_media_submit_zn (&cmd);
     if (!ret) {
 	grp->zmd.report = (struct znd_report *) cmd.opaque;
     }
@@ -78,7 +78,7 @@ static int ztl_zmd_load_report (struct app_group *grp)
 static int ztl_zmd_load (struct app_group *grp)
 {
     if (ztl_zmd_load_report (grp))
-	return XAPP_ZTL_ZMD_REP;
+	return XZTL_ZTL_ZMD_REP;
 
     /* Set byte for table creation */
     grp->zmd.byte.magic = APP_MAGIC;
@@ -111,7 +111,7 @@ static void ztl_zmd_mark (struct app_group *grp, uint64_t index)
 }
 
 static void ztl_zmd_invalidate (struct app_group *grp,
-                                        struct xapp_maddr *addr, uint8_t full)
+                                        struct xztl_maddr *addr, uint8_t full)
 {
 
 }

@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -22,19 +22,19 @@
 #include <stdlib.h>
 #include <sys/queue.h>
 #include <string.h>
-#include <xapp.h>
-#include <xapp-mempool.h>
+#include <xztl.h>
+#include <xztl-mempool.h>
 #include <pthread.h>
 #include <stdbool.h>
 
 /* Comment this macro for standard spinlock implementation */
 #define MP_LOCKFREE
 
-static struct xapp_mempool xappmp;
+static struct xztl_mempool xztlmp;
 
-static void xapp_mempool_free (struct xapp_mp_pool_i *pool)
+static void xztl_mempool_free (struct xztl_mp_pool_i *pool)
 {
-    struct xapp_mp_entry *ent;
+    struct xztl_mp_entry *ent;
 
     while (!STAILQ_EMPTY (&pool->head)) {
 	ent = STAILQ_FIRST (&pool->head);
@@ -52,55 +52,55 @@ static void xapp_mempool_free (struct xapp_mp_pool_i *pool)
 }
 
 /* This function does not free entries that are out of the pool */
-int xapp_mempool_destroy (uint32_t type, uint16_t tid)
+int xztl_mempool_destroy (uint32_t type, uint16_t tid)
 {
-    struct xapp_mp_pool_i *pool;
+    struct xztl_mp_pool_i *pool;
 
-    if (type > XAPPMP_TYPES || tid > XAPPMP_THREADS)
-	 return XAPP_MP_OUTBOUNDS;
+    if (type > XZTLMP_TYPES || tid > XZTLMP_THREADS)
+	 return XZTL_MP_OUTBOUNDS;
 
-    pool = &xappmp.mp[type].pool[tid];
+    pool = &xztlmp.mp[type].pool[tid];
 
     if (!pool->active)
-	return XAPP_OK;
+	return XZTL_OK;
 
     pool->active = 0;
-    xapp_mempool_free (pool);
+    xztl_mempool_free (pool);
     pthread_spin_destroy (&pool->spin);
     pool->alloc_fn = NULL;
     pool->free_fn  = NULL;
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
-int xapp_mempool_create (uint32_t type, uint16_t tid, uint32_t entries,
-		uint32_t ent_sz, xapp_mp_alloc *alloc, xapp_mp_free *free)
+int xztl_mempool_create (uint32_t type, uint16_t tid, uint32_t entries,
+		uint32_t ent_sz, xztl_mp_alloc *alloc, xztl_mp_free *free)
 {
-    struct xapp_mp_pool_i *pool;
-    struct xapp_mp_entry *ent;
+    struct xztl_mp_pool_i *pool;
+    struct xztl_mp_entry *ent;
     void *opaque;
     uint32_t ent_i;
 
-    if (type > XAPPMP_TYPES || tid > XAPPMP_THREADS)
-	return XAPP_MP_OUTBOUNDS;
+    if (type > XZTLMP_TYPES || tid > XZTLMP_THREADS)
+	return XZTL_MP_OUTBOUNDS;
 
-    if (!entries || entries > XAPPMP_MAX_ENT ||
-	!ent_sz || ent_sz > XAPPMP_MAX_ENT_SZ)
-	return XAPP_MP_INVALID;
+    if (!entries || entries > XZTLMP_MAX_ENT ||
+	!ent_sz || ent_sz > XZTLMP_MAX_ENT_SZ)
+	return XZTL_MP_INVALID;
 
-    pool = &xappmp.mp[type].pool[tid];
+    pool = &xztlmp.mp[type].pool[tid];
 
     if (pool->active)
-	return XAPP_MP_ACTIVE;
+	return XZTL_MP_ACTIVE;
 
     if (pthread_spin_init (&pool->spin, 0))
-	return XAPP_MP_MEMERROR;
+	return XZTL_MP_MEMERROR;
 
     STAILQ_INIT (&pool->head);
 
     /* Allocate entries */
     for (ent_i = 0; ent_i < entries; ent_i++) {
-	ent = aligned_alloc (64, sizeof (struct xapp_mp_entry));
+	ent = aligned_alloc (64, sizeof (struct xztl_mp_entry));
 	if (!ent)
 	    goto MEMERR;
 
@@ -127,39 +127,39 @@ int xapp_mempool_create (uint32_t type, uint16_t tid, uint32_t entries,
     pool->free_fn  = free;
     pool->active = 1;
 
-    if (XAPP_MP_DEBUG)
+    if (XZTL_MP_DEBUG)
 	log_infoa ("mempool (create): type %d, tid %d, ents %d, "
 	    "ent_sz %d\n", type, tid, entries, ent_sz);
 
-    return XAPP_OK;
+    return XZTL_OK;
 
 MEMERR:
-    xapp_mempool_free (pool);
+    xztl_mempool_free (pool);
     pthread_spin_destroy (&pool->spin);
 
-    return XAPP_MP_MEMERROR;
+    return XZTL_MP_MEMERROR;
 }
 
-int xapp_mempool_left (uint32_t type, uint16_t tid)
+int xztl_mempool_left (uint32_t type, uint16_t tid)
 {
-    struct xapp_mp_pool_i *pool;
+    struct xztl_mp_pool_i *pool;
 
-    pool = &xappmp.mp[type].pool[tid];
+    pool = &xztlmp.mp[type].pool[tid];
 
     return pool->entries - pool->out_count + pool->in_count;
 }
 
 /* Only 1 thread is allowed to remove but a concurrent thread may insert */
-struct xapp_mp_entry *xapp_mempool_get (uint32_t type, uint16_t tid)
+struct xztl_mp_entry *xztl_mempool_get (uint32_t type, uint16_t tid)
 {
-    struct xapp_mp_pool_i *pool;
-    struct xapp_mp_entry *ent;
+    struct xztl_mp_pool_i *pool;
+    struct xztl_mp_entry *ent;
     uint16_t tmp, old;
 
-    if (XAPP_MP_DEBUG)
+    if (XZTL_MP_DEBUG)
 	log_infoa ("mempool (get): type %d, tid %d", type, tid);
 
-    pool = &xappmp.mp[type].pool[tid];
+    pool = &xztlmp.mp[type].pool[tid];
 #ifdef MP_LOCKFREE
     /* This guarantees that INSERT and REMOVE are not concurrent */
     /* TODO: Make a timeout */
@@ -198,15 +198,15 @@ RETRY:
 }
 
 /* Only 1 thread is allowed to insert but a concurrent thread may remove */
-void xapp_mempool_put (struct xapp_mp_entry *ent, uint32_t type, uint16_t tid)
+void xztl_mempool_put (struct xztl_mp_entry *ent, uint32_t type, uint16_t tid)
 {
-    struct xapp_mp_pool_i *pool;
+    struct xztl_mp_pool_i *pool;
     uint16_t old;
 
-    if (XAPP_MP_DEBUG)
+    if (XZTL_MP_DEBUG)
 	log_infoa ("mempool (put): type %d, tid %d", type, tid);
 
-    pool = &xappmp.mp[type].pool[tid];
+    pool = &xztlmp.mp[type].pool[tid];
 
 #ifndef MP_LOCKFREE
     pthread_spin_lock (&pool->spin);
@@ -225,21 +225,21 @@ void xapp_mempool_put (struct xapp_mp_entry *ent, uint32_t type, uint16_t tid)
 #endif /* MP_LOCKFREE */
 }
 
-int xapp_mempool_exit (void)
+int xztl_mempool_exit (void)
 {
     uint16_t type_i, tid;
 
-    for (type_i = 0; type_i < XAPPMP_TYPES; type_i++) {
-	for (tid = 0; tid < XAPPMP_THREADS; tid++) {
-	    xapp_mempool_destroy (type_i, tid);
+    for (type_i = 0; type_i < XZTLMP_TYPES; type_i++) {
+	for (tid = 0; tid < XZTLMP_THREADS; tid++) {
+	    xztl_mempool_destroy (type_i, tid);
 	}
     }
 
-    return XAPP_OK;
+    return XZTL_OK;
 }
 
-int xapp_mempool_init (void)
+int xztl_mempool_init (void)
 {
-    memset (&xappmp, 0x0, sizeof (struct xapp_mempool));
-    return XAPP_OK;
+    memset (&xztlmp, 0x0, sizeof (struct xztl_mempool));
+    return XZTL_OK;
 }

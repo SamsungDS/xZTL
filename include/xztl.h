@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -17,8 +17,8 @@
  * limitations under the License.
 */
 
-#ifndef XAPP_H
-#define XAPP_H
+#ifndef XZTL_H
+#define XZTL_H
 
 #define _GNU_SOURCE
 
@@ -28,10 +28,10 @@
 #include <syslog.h>
 #include <pthread.h>
 
-#define XAPP_DEV_NAME "q"
+#define XZTL_DEV_NAME "q"
 
-#define XAPP_MP_DEBUG 	0
-#define XAPP_PROMETHEUS 1
+#define XZTL_MP_DEBUG 	0
+#define XZTL_PROMETHEUS 1
 
 #define log_erra(format, ...)         syslog(LOG_ERR, format, ## __VA_ARGS__)
 #define log_infoa(format, ...)        syslog(LOG_INFO, format, ## __VA_ARGS__)
@@ -72,14 +72,14 @@
 
 #define AND64 	  0xffffffffffffffff
 
-typedef int   (xapp_init_fn)     (void);
-typedef int   (xapp_exit_fn)     (void);
-typedef int   (xapp_register_fn) (void);
-typedef int   (xapp_register_media_fn) (const char *dev_name);
-typedef void *(xapp_thread)      (void *arg);
-typedef void  (xapp_callback)    (void *arg);
+typedef int   (xztl_init_fn)     (void);
+typedef int   (xztl_exit_fn)     (void);
+typedef int   (xztl_register_fn) (void);
+typedef int   (xztl_register_media_fn) (const char *dev_name);
+typedef void *(xztl_thread)      (void *arg);
+typedef void  (xztl_callback)    (void *arg);
 
-struct xapp_maddr {
+struct xztl_maddr {
     union {
 	struct {
 	    uint64_t grp   : 5;
@@ -91,12 +91,12 @@ struct xapp_maddr {
     };
 };
 
-#include <xapp-media.h>
+#include <xztl-media.h>
 
-#define XAPP_IO_MAX_MCMD     65536 /* 4KB sectors : 16 GB user buffers */
+#define XZTL_IO_MAX_MCMD     65536 /* 4KB sectors : 16 GB user buffers */
 				   /* 512b sectors: 2 GB user buffers */
 
-struct xapp_io_ucmd {
+struct xztl_io_ucmd {
     uint64_t 	   id;
     void	  *buf;
     size_t 	   size;
@@ -104,122 +104,122 @@ struct xapp_io_ucmd {
     uint8_t 	   app_md;  /* Application is responsible for mapping/recovery */
     uint8_t 	   status;
 
-    xapp_callback *callback;
+    xztl_callback *callback;
 
     struct app_pro_addr *prov;
-    struct xapp_io_mcmd *mcmd[XAPP_IO_MAX_MCMD];
+    struct xztl_io_mcmd *mcmd[XZTL_IO_MAX_MCMD];
 
     uint16_t 	   nmcmd;
     uint16_t       noffs;
-    uint64_t 	   moffset[XAPP_IO_MAX_MCMD];
-    uint32_t 	   msec[XAPP_IO_MAX_MCMD];
+    uint64_t 	   moffset[XZTL_IO_MAX_MCMD];
+    uint32_t 	   msec[XZTL_IO_MAX_MCMD];
     uint16_t 	   ncb;
     uint16_t 	   completed;
 
     pthread_spinlock_t inflight_spin;
     volatile uint8_t minflight[256];
 
-    STAILQ_ENTRY (xapp_io_ucmd)	entry;
+    STAILQ_ENTRY (xztl_io_ucmd)	entry;
 };
 
-struct xapp_core {
-    struct xapp_media *media;
+struct xztl_core {
+    struct xztl_media *media;
 };
 
-enum xapp_status {
-    XAPP_OK		= 0x00,
-    XAPP_MEM		= 0x01,
-    XAPP_NOMEDIA	= 0x02,
-    XAPP_NOINIT		= 0x03,
-    XAPP_NOEXIT 	= 0x04,
-    XAPP_MEDIA_NOGEO	= 0x05,
-    XAPP_MEDIA_GEO	= 0x06,
-    XAPP_MEDIA_NOIO	= 0x07,
-    XAPP_MEDIA_NOZONE	= 0x08,
-    XAPP_MEDIA_NOALLOC	= 0x09,
-    XAPP_MEDIA_NOFREE	= 0x0a,
-    XAPP_MCTX_MEM_ERR   = 0x0b,
-    XAPP_MCTX_ASYNC_ERR = 0x0c,
-    XAPP_MCTX_MP_ERR    = 0x0d,
-    XAPP_ZTL_PROV_ERR   = 0x0e,
-    XAPP_ZTL_GROUP_ERR  = 0x0f,
-    XAPP_ZTL_ZMD_REP	= 0x10,
-    XAPP_ZTL_PROV_FULL  = 0x11,
-    XAPP_ZTL_MPE_ERR	= 0x12,
-    XAPP_ZTL_MAP_ERR	= 0x13,
-    XAPP_ZTL_WCA_ERR    = 0x14,
-    XAPP_ZTL_APPEND_ERR = 0x15,
-    XAPP_ZTL_WCA_S_ERR  = 0x16,
-    XAPP_ZTL_WCA_S2_ERR = 0x17,
+enum xztl_status {
+    XZTL_OK		= 0x00,
+    XZTL_MEM		= 0x01,
+    XZTL_NOMEDIA	= 0x02,
+    XZTL_NOINIT		= 0x03,
+    XZTL_NOEXIT 	= 0x04,
+    XZTL_MEDIA_NOGEO	= 0x05,
+    XZTL_MEDIA_GEO	= 0x06,
+    XZTL_MEDIA_NOIO	= 0x07,
+    XZTL_MEDIA_NOZONE	= 0x08,
+    XZTL_MEDIA_NOALLOC	= 0x09,
+    XZTL_MEDIA_NOFREE	= 0x0a,
+    XZTL_MCTX_MEM_ERR   = 0x0b,
+    XZTL_MCTX_ASYNC_ERR = 0x0c,
+    XZTL_MCTX_MP_ERR    = 0x0d,
+    XZTL_ZTL_PROV_ERR   = 0x0e,
+    XZTL_ZTL_GROUP_ERR  = 0x0f,
+    XZTL_ZTL_ZMD_REP	= 0x10,
+    XZTL_ZTL_PROV_FULL  = 0x11,
+    XZTL_ZTL_MPE_ERR	= 0x12,
+    XZTL_ZTL_MAP_ERR	= 0x13,
+    XZTL_ZTL_WCA_ERR    = 0x14,
+    XZTL_ZTL_APPEND_ERR = 0x15,
+    XZTL_ZTL_WCA_S_ERR  = 0x16,
+    XZTL_ZTL_WCA_S2_ERR = 0x17,
 
-    XAPP_MEDIA_ERROR	= 0x100,
+    XZTL_MEDIA_ERROR	= 0x100,
 };
 
-enum xapp_stats_io_types {
-    XAPP_STATS_READ_BYTES = 0,
-    XAPP_STATS_APPEND_BYTES,
-    XAPP_STATS_READ_MCMD,
-    XAPP_STATS_APPEND_MCMD,
-    XAPP_STATS_RESET_MCMD,
+enum xztl_stats_io_types {
+    XZTL_STATS_READ_BYTES = 0,
+    XZTL_STATS_APPEND_BYTES,
+    XZTL_STATS_READ_MCMD,
+    XZTL_STATS_APPEND_MCMD,
+    XZTL_STATS_RESET_MCMD,
 
-    XAPP_STATS_READ_BYTES_U,
-    XAPP_STATS_APPEND_BYTES_U,
-    XAPP_STATS_READ_UCMD,
-    XAPP_STATS_APPEND_UCMD,
+    XZTL_STATS_READ_BYTES_U,
+    XZTL_STATS_APPEND_BYTES_U,
+    XZTL_STATS_READ_UCMD,
+    XZTL_STATS_APPEND_UCMD,
 
-    XAPP_STATS_RECYCLED_BYTES,
-    XAPP_STATS_RECYCLED_ZONES
+    XZTL_STATS_RECYCLED_BYTES,
+    XZTL_STATS_RECYCLED_ZONES
 };
 
 /* Compare and swap atomic operations */
 
-void xapp_atomic_int8_update (uint8_t *ptr, uint8_t value);
-void xapp_atomic_int16_update (uint16_t *ptr, uint16_t value);
-void xapp_atomic_int32_update (uint32_t *ptr, uint32_t value);
-void xapp_atomic_int64_update (uint64_t *ptr, uint64_t value);
+void xztl_atomic_int8_update (uint8_t *ptr, uint8_t value);
+void xztl_atomic_int16_update (uint16_t *ptr, uint16_t value);
+void xztl_atomic_int32_update (uint32_t *ptr, uint32_t value);
+void xztl_atomic_int64_update (uint64_t *ptr, uint64_t value);
 
 /* Add media layer */
-void xapp_add_media (xapp_register_media_fn *fn);
+void xztl_add_media (xztl_register_media_fn *fn);
 
 /* Set the media abstraction */
-int xapp_media_set (struct xapp_media *media);
+int xztl_media_set (struct xztl_media *media);
 
 /* Initialize XApp instance */
-int xapp_init (const char *device_name);
+int xztl_init (const char *device_name);
 
 /* Safe shut down */
-int xapp_exit (void);
+int xztl_exit (void);
 
 /* Media functions */
-void *xapp_media_dma_alloc   (size_t bytes, uint64_t *phys);
-void  xapp_media_dma_free    (void *ptr);
-int   xapp_media_submit_zn   (struct xapp_zn_mcmd *cmd);
-int   xapp_media_submit_misc (struct xapp_misc_cmd *cmd);
-int   xapp_media_submit_io   (struct xapp_io_mcmd *cmd);
+void *xztl_media_dma_alloc   (size_t bytes, uint64_t *phys);
+void  xztl_media_dma_free    (void *ptr);
+int   xztl_media_submit_zn   (struct xztl_zn_mcmd *cmd);
+int   xztl_media_submit_misc (struct xztl_misc_cmd *cmd);
+int   xztl_media_submit_io   (struct xztl_io_mcmd *cmd);
 
 /* Thread context functions */
-struct xapp_mthread_ctx *xapp_ctx_media_init (uint16_t tid, uint32_t depth);
-int                      xapp_ctx_media_exit (struct xapp_mthread_ctx *tctx);
+struct xztl_mthread_ctx *xztl_ctx_media_init (uint16_t tid, uint32_t depth);
+int                      xztl_ctx_media_exit (struct xztl_mthread_ctx *tctx);
 
 /* Layer specific functions (for testing) */
-int xapp_media_init (void);
-int xapp_media_exit (void);
+int xztl_media_init (void);
+int xztl_media_exit (void);
 
-void xapp_print_mcmd (struct xapp_io_mcmd *cmd);
+void xztl_print_mcmd (struct xztl_io_mcmd *cmd);
 
 /* Statistics */
-int  xapp_stats_init (void);
-void xapp_stats_exit (void);
-void xapp_stats_add_io (struct xapp_io_mcmd *cmd);
-void xapp_stats_inc (uint32_t type, uint64_t val);
-void xapp_stats_print_io (void);
-void xapp_stats_print_io_simple (void);
+int  xztl_stats_init (void);
+void xztl_stats_exit (void);
+void xztl_stats_add_io (struct xztl_io_mcmd *cmd);
+void xztl_stats_inc (uint32_t type, uint64_t val);
+void xztl_stats_print_io (void);
+void xztl_stats_print_io_simple (void);
 
 /* Prometheus */
-int  xapp_prometheus_init (void);
-void xapp_prometheus_exit (void);
-void xapp_prometheus_add_io (struct xapp_io_mcmd *cmd);
-void xapp_prometheus_add_wa (uint64_t user_writes, uint64_t zns_writes);
-void xapp_prometheus_add_read_latency (uint64_t usec);
+int  xztl_prometheus_init (void);
+void xztl_prometheus_exit (void);
+void xztl_prometheus_add_io (struct xztl_io_mcmd *cmd);
+void xztl_prometheus_add_wa (uint64_t user_writes, uint64_t zns_writes);
+void xztl_prometheus_add_read_latency (uint64_t usec);
 
-#endif /* XAPP_H */
+#endif /* XZTL_H */

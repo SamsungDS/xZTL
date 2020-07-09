@@ -1,7 +1,7 @@
 #include <pthread.h>
 #include <omp.h>
-#include <xapp.h>
-#include <xapp-mempool.h>
+#include <xztl.h>
+#include <xztl-mempool.h>
 #include <ztl-media.h>
 #include "CUnit/Basic.h"
 
@@ -40,12 +40,12 @@ static void test_mempool_init (void)
     if (ret)
 	return;
 
-    ret = xapp_media_init ();
-    cunit_mempool_assert_int ("xapp_media_init", ret);
+    ret = xztl_media_init ();
+    cunit_mempool_assert_int ("xztl_media_init", ret);
     if (ret)
 	return;
 
-    cunit_mempool_assert_int ("xapp_mempool_init", xapp_mempool_init ());
+    cunit_mempool_assert_int ("xztl_mempool_init", xztl_mempool_init ());
 }
 
 static void test_mempool_create (void)
@@ -53,24 +53,24 @@ static void test_mempool_create (void)
     uint16_t type, tid, ents;
     uint32_t ent_sz;
 
-    type = XAPP_MEMPOOL_MCMD;
+    type = XZTL_MEMPOOL_MCMD;
     tid = 0;
     ents = 32;
     ent_sz = 1024;
 
-    cunit_mempool_assert_int ("xapp_mempool_create",
-		xapp_mempool_create (type, tid, ents, ent_sz, NULL, NULL));
+    cunit_mempool_assert_int ("xztl_mempool_create",
+		xztl_mempool_create (type, tid, ents, ent_sz, NULL, NULL));
 }
 
 static void test_mempool_destroy (void)
 {
     uint16_t type, tid;
 
-    type = XAPP_MEMPOOL_MCMD;
+    type = XZTL_MEMPOOL_MCMD;
     tid = 0;
 
-    cunit_mempool_assert_int ("xapp_mempool_destroy",
-			       xapp_mempool_destroy (type, tid));
+    cunit_mempool_assert_int ("xztl_mempool_destroy",
+			       xztl_mempool_destroy (type, tid));
 }
 
 static void test_mempool_create_mult (void)
@@ -78,14 +78,14 @@ static void test_mempool_create_mult (void)
     uint16_t type, tid, ents;
     uint32_t ent_sz;
 
-    type = XAPP_MEMPOOL_MCMD;
+    type = XZTL_MEMPOOL_MCMD;
     ents = 32;
     ent_sz = 128;
 
     #pragma omp parallel for
     for (tid = 0; tid < 8; tid++) {
-	cunit_mempool_assert_int ("xapp_mempool_create",
-		xapp_mempool_create (type, tid, ents, ent_sz, NULL, NULL));
+	cunit_mempool_assert_int ("xztl_mempool_create",
+		xztl_mempool_create (type, tid, ents, ent_sz, NULL, NULL));
     }
 }
 
@@ -93,12 +93,12 @@ static void test_mempool_get_put (void)
 {
     uint16_t ent_i, ents = 30;
     uint32_t ent_sz = 128;
-    struct xapp_mp_entry *ent[ents];
+    struct xztl_mp_entry *ent[ents];
 
     /* Get entries */
     for (ent_i = 0; ent_i < ents; ent_i++) {
-	ent[ent_i] = xapp_mempool_get (XAPP_MEMPOOL_MCMD, 0);
-	cunit_mempool_assert_ptr ("xapp_mempool_get", ent[ent_i]);
+	ent[ent_i] = xztl_mempool_get (XZTL_MEMPOOL_MCMD, 0);
+	cunit_mempool_assert_ptr ("xztl_mempool_get", ent[ent_i]);
     }
 
     /* Modify entry bytes */
@@ -107,27 +107,27 @@ static void test_mempool_get_put (void)
 
     /* Put entries */
     for (ent_i = 0; ent_i < ents; ent_i++) {
-	xapp_mempool_put (ent[ent_i], XAPP_MEMPOOL_MCMD, 0);
-	CU_PASS ("xapp_mempool_put");
+	xztl_mempool_put (ent[ent_i], XZTL_MEMPOOL_MCMD, 0);
+	CU_PASS ("xztl_mempool_put");
     }
 
     /* Repeat the process */
     for (ent_i = 0; ent_i < ents; ent_i++) {
-	ent[ent_i] = xapp_mempool_get (XAPP_MEMPOOL_MCMD, 0);
-	cunit_mempool_assert_ptr ("xapp_mempool_get", ent[ent_i]);
+	ent[ent_i] = xztl_mempool_get (XZTL_MEMPOOL_MCMD, 0);
+	cunit_mempool_assert_ptr ("xztl_mempool_get", ent[ent_i]);
     }
     for (ent_i = 0; ent_i < ents; ent_i++)
 	memset (ent[ent_i]->opaque, 0x0, ent_sz);
     for (ent_i = 0; ent_i < ents; ent_i++) {
-	xapp_mempool_put (ent[ent_i], XAPP_MEMPOOL_MCMD, 0);
-	CU_PASS ("xapp_mempool_put");
+	xztl_mempool_put (ent[ent_i], XZTL_MEMPOOL_MCMD, 0);
+	CU_PASS ("xztl_mempool_put");
     }
 }
 
 static void test_mempool_exit (void)
 {
-    cunit_mempool_assert_int ("xapp_mempool_exit", xapp_mempool_exit ());
-    cunit_mempool_assert_int ("xapp_media_exit", xapp_media_exit ());
+    cunit_mempool_assert_int ("xztl_mempool_exit", xztl_mempool_exit ());
+    cunit_mempool_assert_int ("xztl_media_exit", xztl_media_exit ());
 }
 
 int main (int argc, const char **argv)

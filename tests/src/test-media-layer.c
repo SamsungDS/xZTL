@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include <xapp.h>
-#include <xapp-media.h>
+#include <xztl.h>
+#include <xztl-media.h>
 #include <stdlib.h>
 #include "CUnit/Basic.h"
 
@@ -24,12 +24,12 @@ static int test_media_exit_fn (void)
     return 0;
 }
 
-static int test_media_io_fn (struct xapp_io_mcmd *cmd)
+static int test_media_io_fn (struct xztl_io_mcmd *cmd)
 {
     return 0;
 }
 
-static int test_media_zn_fn (struct xapp_zn_mcmd *cmd)
+static int test_media_zn_fn (struct xztl_zn_mcmd *cmd)
 {
     return 0;
 }
@@ -46,7 +46,7 @@ static void test_media_dma_free (void *ptr)
 
 static void test_media_set (void)
 {
-    struct xapp_media media;
+    struct xztl_media media;
 
     media.init_fn   = test_media_init_fn;
     media.exit_fn   = test_media_exit_fn;
@@ -62,17 +62,17 @@ static void test_media_set (void)
     media.geo.nbytes 	 = 512;
     media.geo.nbytes_oob = 0;
 
-    CU_ASSERT (xapp_media_set (&media) == 0);
+    CU_ASSERT (xztl_media_set (&media) == 0);
 }
 
 static void test_media_init (void)
 {
-    CU_ASSERT (xapp_media_init () == 0);
+    CU_ASSERT (xztl_media_init () == 0);
 }
 
 static void test_media_exit (void)
 {
-    CU_ASSERT (xapp_media_exit () == 0);
+    CU_ASSERT (xztl_media_exit () == 0);
 }
 
 int main (void)

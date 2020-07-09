@@ -1,4 +1,4 @@
-/* libztl: User-space Zone Translation Layer Library
+/* xZTL: Zone Translation Layer User-space Library
  *
  * Copyright 2019 Samsung Electronics
  *
@@ -20,12 +20,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <xapp.h>
-#include <xapp-ztl.h>
+#include <xztl.h>
+#include <xztl-ztl.h>
 #include <lztl.h>
 
 extern uint16_t app_ngrps;
-extern struct xapp_core core;
+extern struct xztl_core core;
 
 uint8_t app_map_new;
 static struct app_mpe *smap;
