@@ -25,6 +25,9 @@
 #include <stdlib.h>
 #include <xztl.h>
 
+#define ZND_MEDIA_DEBUG_W 0
+#define ZND_MEDIA_DEBUG_R 0
+
 /* Append Command support */
 #define XZTL_WRITE_APPEND 0
 

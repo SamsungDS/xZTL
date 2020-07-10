@@ -109,7 +109,7 @@ static int app_mpe_init (void)
 	    goto LOCK;
     }
 
-    /* TODO: Setup tiny table */
+    /* TODO: Setup tiny table if we implement recovery at the ZTL */
 
     log_info ("ztl-mpe: Persistent Mapping started.");
 
@@ -177,8 +177,10 @@ PRO:
 
 static void app_global_exit (void)
 {
-    /* Create a clean shutdown checkpoint */
-    /*if (ztl()->recovery->running) {
+    /* Uncomment if we implement recovery at the ZTL.
+     * Create a clean shutdown checkpoint in case of ZTL recovery
+
+    if (ztl()->recovery->running) {
         if (ztl()->recovery->checkpoint_fn ())
             log_err ("[ox-app: Checkpoint has failed]");
 

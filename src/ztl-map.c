@@ -25,7 +25,7 @@
 #include <sys/queue.h>
 #include <xztl.h>
 #include <xztl-ztl.h>
-#include <lztl.h>
+#include <ztl.h>
 
 #define MAP_BUF_PGS     8192      /* 256 MB per cache with 32KB page */
 #define MAP_N_CACHES	1
@@ -83,7 +83,7 @@ static int map_evict_pg_cache (struct map_cache *cache, uint8_t is_checkpoint)
     cache->nused--;
     pthread_spin_unlock (&cache->mb_spin);
 
-    // TODO: EVICT THE PAGE
+    /* TODO: Evict the page if recovery is done at the ZTL */
 
     cache_ent->md_entry->addr = cache_ent->addr.addr;
     cache_ent->addr.addr = 0;
@@ -407,7 +407,9 @@ static int map_upsert (uint64_t id, uint64_t val, uint64_t *old,
     }
 
     xztl_atomic_int64_update (&map_ent->addr, val);
-//    cache_ent->dirty = 1;
+
+    /* Uncomment this line if we implement recovery at the ZTL */
+    //cache_ent->dirty = 1;
 
     ZDEBUG (ZDRBUG_MAP, "  upsert succeed: ID: %lu, val: (0x%lx/%d/%d)",
 	    id, (uint64_t) map_ent->g.offset, map_ent->g.nsec, map_ent->g.multi);

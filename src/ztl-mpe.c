@@ -22,7 +22,7 @@
 #include <string.h>
 #include <xztl.h>
 #include <xztl-ztl.h>
-#include <lztl.h>
+#include <ztl.h>
 
 extern uint16_t app_ngrps;
 extern struct xztl_core core;
@@ -62,7 +62,8 @@ static int ztl_mpe_flush (void)
 
 static struct map_md_addr *ztl_mpe_get (uint32_t index)
 {
-    /* TODO: If index > n_entries, increase size of table */
+    /* TODO: In case we implement recovery at the ZTL:
+     *       If index > n_entries, increase size of table */
 
     return ((struct map_md_addr *) smap->tbl) + index;
 }

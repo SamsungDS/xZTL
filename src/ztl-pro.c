@@ -22,7 +22,7 @@
 #include <xztl.h>
 #include <xztl-mempool.h>
 #include <xztl-ztl.h>
-#include <lztl.h>
+#include <ztl.h>
 
 extern uint32_t app_ngrps;
 struct app_group **glist;

@@ -20,7 +20,7 @@
 #include <xztl.h>
 #include <xztl-media.h>
 #include <xztl-ztl.h>
-#include <lztl.h>
+#include <ztl.h>
 #include <unistd.h>
 #include <sched.h>
 
@@ -232,7 +232,7 @@ static void ztl_wca_poke_ctx (void) {
 
     if (!xztl_media_submit_misc (&misc)) {
 	if (!misc.asynch.count) {
-	    // Check Outstanding
+	    // We may check outstanding commands here
 	}
     }
 }
@@ -431,8 +431,6 @@ FAIL_SUBMIT:
 	/* Check for completion in case of completion concurrence */
 	if (ucmd->ncb == ucmd->nmcmd) {
 	    ucmd->completed = 1;
-	    /* TODO: We do not perform cleanup here yet. We need to lock
-	    * the callback thread to avoid double cleanup */
 	}
     } else {
 	cmd_i = ncmd;

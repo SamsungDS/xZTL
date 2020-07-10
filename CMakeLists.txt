@@ -32,7 +32,7 @@ set(HEADER_FILES
     ${PROJECT_SOURCE_DIR}/include/xztl-media.h
     ${PROJECT_SOURCE_DIR}/include/xztl-mempool.h
     ${PROJECT_SOURCE_DIR}/include/xztl-ztl.h
-    ${PROJECT_SOURCE_DIR}/include/lztl.h
+    ${PROJECT_SOURCE_DIR}/include/ztl.h
     ${PROJECT_SOURCE_DIR}/include/ztl-media.h
 )
 

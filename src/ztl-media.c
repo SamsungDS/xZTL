@@ -84,7 +84,9 @@ static int znd_media_submit_read_synch (struct xztl_io_mcmd *cmd)
 			    0,
 			    xreq);
     GET_MICROSECONDS(cmd->us_end, ts_e);
-//    xztl_prometheus_add_read_latency (cmd->us_end - cmd->us_start);
+
+    /* WARNING: Uncommenting this line causes performance drop */
+    //xztl_prometheus_add_read_latency (cmd->us_end - cmd->us_start);
 
     if (ret)
 	xztl_print_mcmd (cmd);
@@ -260,10 +262,10 @@ static int znd_media_zone_report (struct xztl_zn_mcmd *cmd)
     size_t limit;
     uint32_t lba;
 
-    /* TODO: Reading everything until libxnvme gets fixed */
-    lba = 0;/* ( (zndmedia.devgeo->nzone * cmd->addr.g.grp) +
-	       cmd->addr.g.zone) * zndmedia.devgeo->nsect; */
-    limit = /*cmd->nzones;*/ 0;
+    /* Reading everything until not necessary anymore */
+    lba   = 0;/* ( (zndmedia.devgeo->nzone * cmd->addr.g.grp) +
+	            cmd->addr.g.zone) * zndmedia.devgeo->nsect; */
+    limit = 0; /*cmd->nzones;*/
     rep = znd_report_from_dev (zndmedia.dev, lba, limit, 0);
     if (!rep)
 	return ZND_MEDIA_REPORT_ERR;

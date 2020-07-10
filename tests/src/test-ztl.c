@@ -1,7 +1,7 @@
 #include <ztl-media.h>
 #include <xztl.h>
 #include <xztl-ztl.h>
-#include <lztl.h>
+#include <ztl.h>
 #include "CUnit/Basic.h"
 
 static const char **devname;

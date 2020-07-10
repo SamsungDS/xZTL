@@ -72,10 +72,10 @@ int xztl_ctx_media_exit (struct xztl_mthread_ctx *tctx)
     struct xztl_misc_cmd cmd;
     int ret;
 
-    /* TODO: Should we check oustanding commands and wait? YES */
+    /* TODO: Check for oustanding commands and wait completion */
 
-    /* Destroy asynchronous context via xnvme */
-    /* Stop the completion thread */
+    /* Destroy asynchronous context via xnvme and
+       stop the completion thread */
     tctx->comp_active  = 0;
     cmd.opcode         = XZTL_MISC_ASYNCH_TERM;
     cmd.asynch.ctx_ptr = tctx;

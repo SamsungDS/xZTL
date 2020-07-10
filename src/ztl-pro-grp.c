@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <xztl.h>
 #include <xztl-ztl.h>
-#include <lztl.h>
+#include <ztl.h>
 #include <libznd.h>
 #include <libxnvme_spec.h>
 
@@ -137,7 +137,8 @@ struct ztl_pro_zone *ztl_pro_grp_get_best_zone (struct app_group *grp,
 	if ( (zone->zmd_entry->wptr_inflight <= off) && !zone->lock)
 	    return zone;
 
-	/* TODO: Finish zone if space left is less than APP_PRO_MIN_PIECE_SZ */
+	/* We may need to finish the zone if the space left is less
+	 * than APP_PRO_MIN_PIECE_SZ */
     }
 
     return NULL;
@@ -294,12 +295,10 @@ int ztl_pro_grp_finish_zn (struct app_group *grp, uint32_t zid, uint8_t type)
     if ( !(zmde->flags & XZTL_ZMD_USED) )
 	return 0;
 
-    /* TODO: Finish zone has specific constraints, not yet implemented */
-
     /* Zone is already finished */
     return (zmde->wptr == zone->addr.g.sect + zone->capacity) ? 0 : 1;
 
-    /* TODO: Collect here the wasted space for write-amplification */
+    /* We may collect here the wasted space for write-amplification */
     printf ("ztl-pro-grp (finish): Wasted space: %lu sectors\n",
 			zone->addr.g.sect + zone->capacity - zmde->wptr);
 
