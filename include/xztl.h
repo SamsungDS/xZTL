@@ -30,7 +30,22 @@
 
 #define XZTL_DEV_NAME "q"
 
-#define XZTL_MP_DEBUG 	0
+/* Debugging options */
+#define ZDEBUG_PRO_GRP 0
+#define ZDEBUG_PRO     0
+#define ZDEBUG_MPE     0
+#define ZDEBUG_MAP     0
+#define ZDEBUG_WCA     0
+#define ZDEBUG_MEDIA_W 0
+#define ZDEBUG_MEDIA_R 0
+#define ZDEBUG_MP      0
+
+#define ZDEBUG(type, format, ...) do {		\
+    if ((type)) {				\
+	log_infoa (format, ## __VA_ARGS__);	\
+    }						\
+} while ( 0 )
+
 #define XZTL_PROMETHEUS 1
 
 #define log_erra(format, ...)         syslog(LOG_ERR, format, ## __VA_ARGS__)

@@ -163,7 +163,7 @@ WAIT:
     cache->nused++;
     pthread_spin_unlock (&cache->mb_spin);
 
-    ZDEBUG (ZDRBUG_MAP, "ztl-map: Page cache loaded. Offset 0x%lu",
+    ZDEBUG (ZDEBUG_MAP, "ztl-map: Page cache loaded. Offset 0x%lu",
 				(uint64_t) cache_ent->addr.g.offset);
 
     return 0;
@@ -321,7 +321,7 @@ static struct map_cache_entry *map_get_cache_entry (uint64_t id)
     cache_id = id % MAP_N_CACHES;
     pg_off   = id / map_ent_per_pg;
 
-    ZDEBUG (ZDRBUG_MAP, "ztl-map: get cache. ID: %lu, off %d.", id, pg_off);
+    ZDEBUG (ZDEBUG_MAP, "ztl-map: get cache. ID: %lu, off %d.", id, pg_off);
 
     md_ent = ztl()->mpe->get_fn (pg_off);
     if (!md_ent) {
@@ -388,7 +388,7 @@ static int map_upsert (uint64_t id, uint64_t val, uint64_t *old,
         return -1;
     }
 
-    ZDEBUG (ZDRBUG_MAP, "ztl-map: upsert. ID: %lu, off %d.", id, ent_off);
+    ZDEBUG (ZDEBUG_MAP, "ztl-map: upsert. ID: %lu, off %d.", id, ent_off);
 
     cache_ent = map_get_cache_entry (id);
     if (!cache_ent)
@@ -411,7 +411,7 @@ static int map_upsert (uint64_t id, uint64_t val, uint64_t *old,
     /* Uncomment this line if we implement recovery at the ZTL */
     //cache_ent->dirty = 1;
 
-    ZDEBUG (ZDRBUG_MAP, "  upsert succeed: ID: %lu, val: (0x%lx/%d/%d)",
+    ZDEBUG (ZDEBUG_MAP, "  upsert succeed: ID: %lu, val: (0x%lx/%d/%d)",
 	    id, (uint64_t) map_ent->g.offset, map_ent->g.nsec, map_ent->g.multi);
 
     return 0;
@@ -430,7 +430,7 @@ static uint64_t map_read (uint64_t id)
         return AND64;
     }
 
-    ZDEBUG (ZDRBUG_MAP, "ztl-map: read. ID: %lu, off %d.", id, ent_off);
+    ZDEBUG (ZDEBUG_MAP, "ztl-map: read. ID: %lu, off %d.", id, ent_off);
 
     cache_ent = map_get_cache_entry (id);
     if (!cache_ent)
@@ -440,7 +440,7 @@ static uint64_t map_read (uint64_t id)
 
     ret = map_ent->g.offset;
 
-    ZDEBUG (ZDRBUG_MAP, "  read succeed: ID: %lu, val (0x%lx/%d/%d)",
+    ZDEBUG (ZDEBUG_MAP, "  read succeed: ID: %lu, val (0x%lx/%d/%d)",
 	    id, (uint64_t) map_ent->g.offset, map_ent->g.nsec, map_ent->g.multi);
 
     return ret;

@@ -74,13 +74,73 @@ struct xztl_mempool {
 };
 
 /* Mempool related functions */
+
+/**
+ * Initializes the mempool module
+ */
 int xztl_mempool_init (void);
+
+/**
+ * Shuts down the mempool module
+ */
 int xztl_mempool_exit (void);
+
+/**
+ * Creates a mempool
+w *
+ * @param type Mempool type. Check enum xztl_mp_types
+ * @param tid Thread ID. A single thread per mempool is used for lock-free
+ * @param entries Number of entries in the memory pool
+ * @param ent_sz Size of each entry
+ * @param alloc User-defined memory allocation function
+ * 		Use NULL for standard malloc
+ * @param free User-defined memory deallocation function
+ * 		Use NULL for standard free
+ *
+ * @return Returns zero if the call succeeds, or a negative value if it fails
+ */
 int xztl_mempool_create (uint32_t type, uint16_t tid, uint32_t entries,
 		    uint32_t ent_sz, xztl_mp_alloc *alloc, xztl_mp_free *free);
+
+/**
+ * Destroys a mempool previosly created with xztl_mempool_create
+ *
+ * @param type Mempool type. Check enum xztl_mp_types
+ * @param tid Thread ID. A single thread per mempool is used for lock-free
+ *
+ * @return Returns zero if the call succeeds, or a negative value if it fails
+ */
 int xztl_mempool_destroy (uint32_t type, uint16_t tid);
+
+/**
+ * Get an entry from a mempool
+ *
+ * @param type Mempool type. Check enum xztl_mp_types
+ * @param tid Thread ID. A single thread per mempool is used for lock-free
+ *
+ * @return Returns a pointer to the entry if the call succeeds, or NULL if
+ * 	   the call fails. In case of failure, the mempool might be full or
+ * 	   has not been created.
+ */
 struct xztl_mp_entry *xztl_mempool_get (uint32_t type, uint16_t tid);
+
+/**
+ * Put an entry back into a mempool
+ *
+ * @param ent Pointer to an entry obtained with xztl_mempool_get
+ * @param type Mempool type. Check enum xztl_mp_types
+ * @param tid Thread ID. A single thread per mempool is used for lock-free
+ */
 void xztl_mempool_put (struct xztl_mp_entry *ent, uint32_t type, uint16_t tid);
-int  xztl_mempool_left (uint32_t type, uint16_t tid);
+
+/**
+ * Check the number of remaining free entries in a memory pool
+ *
+ * @param type type Mempool type. Check enum xztl_mp_types
+ * @param tid Thread ID. A single thread per mempool is used for lock-free
+ *
+ * @return Returns the number of remaining free entries in the memory pool
+ */
+int xztl_mempool_left (uint32_t type, uint16_t tid);
 
 #endif /* XZTLMEMPOOL */

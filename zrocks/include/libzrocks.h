@@ -55,39 +55,70 @@ struct zrocks_map {
 
 /**
  * Initialize zrocks library
+ *
+ * @param dev_name URI provided by the user
+ * 	 	   e.g. PCIe:    pci:0000:03:00.0?nsid=2
+ * 	 	   	Fabrics: fab:172.20.0.100:4420?nsid=2
+ *
+ * @return Returns zero if the calls succeed, or a negative value
+ * 	   if the call fails
  */
 int zrocks_init (const char *dev_name);
 
 /**
  * Close zrocks library
+ *
+ * @return Returns zero if the calls succeed, or a negative value
+ * 	   if the call fails
  */
 int zrocks_exit (void);
 
 /**
- * Allocate an aligned buffer for DMA
+ * Allocate an aligned buffer for I/O
+ *
+ * @param size Memory size
+ *
+ * @return Return a pointer to the allocated memory if the call succeeds,
+ * 	   or returns NULL if the call fails
  */
 void *zrocks_alloc (size_t size);
 
 /**
  * Free a buffer allocated by zrocks_alloc
+ *
+ * @param ptr Pointer to memory allocated by zrocks_alloc
  */
 void zrocks_free (void *ptr);
 
+
+/* >>> OBJECT INTERFACE FUNCTIONS
+ * >>> WARNING: Recovery of objects after shutdown is still under development
+ * 	    Use the BLOCK INTERFACE functions if your application provides
+ * 	    recovery.
+ */
+
 /**
- * Create a new variable-sized object belonging to a certain level
+ * Creates a new variable-sized object belonging to a certain LSM-Tree level
+ *
+ * @param id Object ID
+ * @param buf Pointer to a buffer containing data to be written
+ * @param size Data size
+ * @param level LSM-Tree level
+ *
+ * @return Returns zero if the calls succeed, or a negative value
+ * 	   if the call fails
  */
 int zrocks_new (uint64_t id, void *buf, size_t size, uint16_t level);
 
 /**
  * Delete an object
+ *
+ * @param id Object ID to be deleted
+ *
+ * @return Returns zero if the calls succeed, or a negative value
+ * 	   if the call fails
  */
 int zrocks_delete (uint64_t id);
-
-/**
- * Invalidate a piece of data represented by a mapping entry provided
- * by the 'zrocks_write' function.
- */
-int zrocks_trim (struct zrocks_map *map, uint16_t level);
 
 /**
  * Read an offset within an object
@@ -95,27 +126,58 @@ int zrocks_trim (struct zrocks_map *map, uint16_t level);
  * @id - Unique integer identifier of the object
  * @offset - Offset in bytes within the object
  * @buf - Pointer to a buffer where data must be copied into
- * @size - Size in bytes starting from offset */
+ * @size - Size in bytes starting from offset
+ *
+ * @return Returns zero if the calls succeed, or a negative value
+ * 	   if the call fails
+ **/
 int zrocks_read_obj (uint64_t id, uint64_t offset, void *buf, size_t size);
 
+
+/* >>> BLOCK INTERFACE FUNCTIONS
+ * >>> Use these functions if your application provides recovery
+ */
+
+/**
+ * Invalidate a piece of data represented by a mapping entry provided
+ * by the 'zrocks_write' function.
+ *
+ * @param map Pointer to the piece of data to be invalidated
+ *
+ * @return Returns zero if the calls succeed, or a negative value
+ * 	   if the call fails
+ */
+int zrocks_trim (struct zrocks_map *map, uint16_t level);
 /**
  * Write to ZNS device and return the mapping multi-piece list
- * This function is used if the application is responsible for recovery.
  *
- * NOTE: If the return value is zero, the user is responsible for
- * calling 'zrocks_free' and free 'map' by passing its value as
- * parameter.
+ * @param buf Pointer to the data
+ * @param size Data size
+ * @param level LSM-Tree level
+ * @param map Pointer to an array of zrocks_map entries. This list is
+ * 	      filled by the ZTL and contains the physical addresses
+ * 	      of the locations where data was written. Depending on the
+ * 	      zone size and how the data striping is performed, we write
+ * 	      to multiple zones. We call each location as a mapping piece.
+ * @param pieces Pointer to an integer. This value is filled by the ZTL and
+ * 		 contains the number of mapping pieces created by the write
+ *
+ * @return If the return value is zero, the user is responsible for
+ * 	   calling 'zrocks_free' and free 'map' by passing its value as
+ * 	   parameter. A negative value is return in case of failure.
  */
 int zrocks_write (void *buf, size_t size, uint16_t level,
 				struct zrocks_map **map, uint16_t *pieces);
 
 /**
- * Read from ZNS device from a physical offset
- * This function is used if the application is responsible for recovery
+ * Read from the ZNS drive using physical offsets
  *
  * @offset - Offset in bytes within the ZNS device
  * @buf - Pointer to a buffer where data must be copied into
  * @size - Size in bytes starting from offset
+ *
+ * @return Returns zero if the calls succeed, or a negative value
+ * 	   if the call fails
  */
 int zrocks_read (uint64_t offset, void *buf, size_t size);
 

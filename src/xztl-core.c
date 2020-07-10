@@ -95,9 +95,9 @@ void xztl_media_dma_free (void *ptr)
 
 int xztl_media_submit_io (struct xztl_io_mcmd *cmd)
 {
-    if (ZND_MEDIA_DEBUG_W && (cmd->opcode == XZTL_CMD_WRITE))
+    if (ZDEBUG_MEDIA_W && (cmd->opcode == XZTL_CMD_WRITE))
 	xztl_print_mcmd (cmd);
-    if (ZND_MEDIA_DEBUG_R && (cmd->opcode == XZTL_CMD_READ))
+    if (ZDEBUG_MEDIA_R && (cmd->opcode == XZTL_CMD_READ))
 	xztl_print_mcmd (cmd);
 
     xztl_stats_add_io (cmd);

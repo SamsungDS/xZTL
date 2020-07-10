@@ -27,11 +27,18 @@
 #define APP_FN_SLOTS      32
 
 #define APP_MAX_GRPS	  	32
-#define APP_PRO_MAX_OFFS  	128  /* Maximum of offsets returned by new/get */
-#define APP_PRO_MIN_PIECE_SZ	1  /* Minimum number of bytes provisioned in a single piece in a zone */
 
-#define ZTL_MPE_PG_SEC	 8   /* 32K/4K page for 4K/512b sec sz */
-#define ZTL_MPE_CPGS	 256 /* Small mapping always follows this granularity */
+/* Maximum of offsets returned by new/get */
+#define APP_PRO_MAX_OFFS  	128
+
+/* Minimum number of bytes provisioned in a single piece in a zone */
+#define APP_PRO_MIN_PIECE_SZ	1
+
+/* 32K/4K page for 4K/512b sec sz */
+#define ZTL_MPE_PG_SEC	 8
+
+/* Small mapping always follows this granularity */
+#define ZTL_MPE_CPGS	 256
 
 /* Media minimum/maximum write size in sectors */
 #define ZTL_WCA_SEC_MCMD 	16
@@ -56,31 +63,30 @@ enum xztl_mod_types {
     ZTLMOD_WCA = 0x8,
 };
 
-/* BAD modules */
-/* NOT USED */
+/* BAD (Bad Block Info) modules - NOT USED */
 
-/* ZMD modules */
+/* ZMD (Zone Metadata) modules */
 #define LIBZTL_ZMD     0x4
 
-/* PRO modules */
+/* PRO (Provisioning) modules */
 #define LIBZTL_PRO     0x2
 
-/* MPE modules */
+/* MPE (Persistent Mapping) modules */
 #define LIBZTL_MPE     0x4
 
-/* MAP modules */
+/* MAP (Mapping) modules */
 #define LIBZTL_MAP     0x2
 
-/* WCA modules */
+/* WCA (Write-cache) modules */
 #define LIBZTL_WCA     0x3
 
-/* GC modules */
+/* GC (Garbage collection) modules */
 #define LIBZTL_GC      0x2
 
-/* LOG modules */
+/* LOG (Write-ahead logging) modules */
 #define LIBZTL_LOG     0x2
 
-/* REC modules */
+/* REC (Recovery) modules */
 #define LIBZTL_REC     0x2
 
 enum xztl_gl_functions {
@@ -110,8 +116,10 @@ struct app_zmd_entry {
     uint64_t		 wptr_inflight; /* In-flight writing LBAs (not completed yet) */
     uint32_t             ndeletes;
     uint32_t		 npieces;
-    /* TODO: Decide how to store LPID list here */
-    /* Make this struct packed if we flush to flash */
+
+    /* If we implement recovery at the ZTL, we need to decide how to store
+     * mapping pieces information here as a list */
+    /* INFO: Make this struct packed if we flush to flash */
 };
 
 struct app_tiny_entry {
@@ -197,7 +205,7 @@ struct app_pro_addr {
     struct xztl_mp_entry *mp_entry;
 };
 
-/* ------- XApp: MODULE FUNCTIONS DEFINITION ------- */
+/* ------- xZTL: MODULE FUNCTIONS DEFINITION ------- */
 
 typedef int     (app_grp_init)(void);
 typedef void    (app_grp_exit)(void);

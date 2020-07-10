@@ -127,8 +127,7 @@ int xztl_mempool_create (uint32_t type, uint16_t tid, uint32_t entries,
     pool->free_fn  = free;
     pool->active = 1;
 
-    if (XZTL_MP_DEBUG)
-	log_infoa ("mempool (create): type %d, tid %d, ents %d, "
+    ZDEBUG (ZDEBUG_MP, "mempool (create): type %d, tid %d, ents %d, "
 	    "ent_sz %d\n", type, tid, entries, ent_sz);
 
     return XZTL_OK;
@@ -156,8 +155,7 @@ struct xztl_mp_entry *xztl_mempool_get (uint32_t type, uint16_t tid)
     struct xztl_mp_entry *ent;
     uint16_t tmp, old;
 
-    if (XZTL_MP_DEBUG)
-	log_infoa ("mempool (get): type %d, tid %d", type, tid);
+    ZDEBUG (ZDEBUG_MP, "mempool (get): type %d, tid %d", type, tid);
 
     pool = &xztlmp.mp[type].pool[tid];
 #ifdef MP_LOCKFREE
@@ -203,8 +201,7 @@ void xztl_mempool_put (struct xztl_mp_entry *ent, uint32_t type, uint16_t tid)
     struct xztl_mp_pool_i *pool;
     uint16_t old;
 
-    if (XZTL_MP_DEBUG)
-	log_infoa ("mempool (put): type %d, tid %d", type, tid);
+    ZDEBUG (ZDEBUG_MP, "mempool (put): type %d, tid %d", type, tid);
 
     pool = &xztlmp.mp[type].pool[tid];
 

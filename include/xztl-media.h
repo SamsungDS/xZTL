@@ -25,14 +25,12 @@
 #include <stdlib.h>
 #include <xztl.h>
 
-#define ZND_MEDIA_DEBUG_W 0
-#define ZND_MEDIA_DEBUG_R 0
-
 /* Append Command support */
 #define XZTL_WRITE_APPEND 0
 
-/* A single address is needed for zone append. We should increase
- * this number in case of possible vectored I/Os */
+/* Number of maximum addresses in a single command vector.
+ * 	A single address is needed for zone append. We should
+ * 	increase this number in case of possible vectored I/Os. */
 #define XZTL_MAX_MADDR  1
 
 #define XZTL_MCTX_SZ	640
@@ -89,7 +87,6 @@ struct xztl_mthread_ctx {
     struct xnvme_async_ctx *asynch;
 };
 
-/* Structure aligned to 8 bytes */
 struct xztl_io_mcmd {
      uint8_t		opcode;
      uint8_t		submitted;
