@@ -196,6 +196,8 @@ static void test_zrocks_random_read (void)
 
 int main (int argc, const char **argv)
 {
+    int failed;
+
     if (argc < 2) {
 	printf ("Please provide the device path. e.g. liou:/dev/nvme0n2\n");
 	return -1;
@@ -231,7 +233,9 @@ int main (int argc, const char **argv)
 
     CU_basic_set_mode(CU_BRM_VERBOSE);
     CU_basic_run_tests();
+
+    failed = CU_get_number_of_tests_failed();
     CU_cleanup_registry();
 
-    return CU_get_error();
+    return failed;
 }

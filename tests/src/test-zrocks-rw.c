@@ -5,15 +5,23 @@
 #include <xztl.h>
 #include "CUnit/Basic.h"
 
+/* Write Buffer Size */
+#define WRITE_TBUFFER_SZ (1024 * 1024 * 2) // 2 MB
 
-#define WRITE_TBUFFER_SZ (1024 * 1024 * 32) // 2 MB
-#define WRITE_COUNT      (1024 * 4) // 8GB
-//#define WRITE_COUNT    (128097 * 16) // full device
+/* Number of buffers to write */
+#define WRITE_COUNT      (1024 * 2) // 4GB
 
-#define READ_NTHREADS    48
-#define READ_ZONE_SEC    24768
-#define READ_SZ    	(16 * ZNS_ALIGMENT)
-#define READ_ITERATIONS  32
+/* Parallel reads */
+#define READ_NTHREADS    16
+
+/* Sector to read per zone */
+#define READ_ZONE_SEC    (1024 * 16)
+
+/* Size of each read command */
+#define READ_SZ        (16 * ZNS_ALIGMENT)
+
+/* Read Iterations */
+#define READ_ITERATIONS  16
 
 static const char **devname;
 
@@ -72,8 +80,6 @@ static void test_zrockswr_fill_buffer (void *buf)
     }
 }
 
-
-
 static void test_zrocksrw_write (void)
 {
     void *buf[nthreads];
@@ -96,10 +102,13 @@ static void test_zrocksrw_write (void)
 
     GET_NANOSECONDS(start_ns, ts_s);
 
+    printf ("\n");
     for (th_i = 0; th_i < nwrites; th_i++) {
 	int ret;
 
 	ret = zrocks_write (buf[th_i % nthreads], buffer_sz, 0, &map[th_i], &pieces[th_i]);
+
+	printf ("\rWriting... %d/%lu", th_i, nwrites);
 	cunit_zrocksrw_assert_int ("zrocksrw_write:write", ret);
     }
 
@@ -140,6 +149,8 @@ static void test_zrocksrw_read (void)
 
     memset (read_gl, 0x0, sizeof(uint64_t) * nthreads);
     GET_NANOSECONDS(start_ns, ts_s);
+
+    printf ("\n");
 
     #pragma omp parallel for num_threads(nthreads)
     for (th_i = 0; th_i < nthreads; th_i++) {
@@ -187,6 +198,8 @@ FREE:
 
 int main (int argc, const char **argv)
 {
+    int failed;
+
     if (argc < 2 || !memcmp(argv[1], "--help\0", strlen(argv[1]))) {
 	printf (" Usage: zrocks-test-rw <DEV_PATH> <NUM_THREADS> "
 					    "<BUFFER_SIZE_IN_MB> <NUM_OF_BUFFERS>\n");
@@ -235,16 +248,19 @@ int main (int argc, const char **argv)
 		      test_zrocksrw_read) == NULL) ||
         (CU_add_test (pSuite, "Close ZRocks",
 		      test_zrocksrw_exit) == NULL)) {
+	failed = 1;
 	CU_cleanup_registry();
 	goto FREE;
     }
 
     CU_basic_set_mode(CU_BRM_VERBOSE);
     CU_basic_run_tests();
+
+    failed = CU_get_number_of_tests_failed();
     CU_cleanup_registry();
 
 FREE:
     if (map) free(map);
     if (pieces) free(pieces);
-    return CU_get_error();
+    return failed;
 }

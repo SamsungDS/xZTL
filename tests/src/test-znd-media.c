@@ -229,6 +229,20 @@ static void test_znd_callback (void *arg)
    outstanding--;
 }
 
+static void test_znd_poke_ctx (struct xztl_mthread_ctx *tctx) {
+    struct xztl_misc_cmd misc;
+    misc.opcode           = XZTL_MISC_ASYNCH_POKE;
+    misc.asynch.ctx_ptr   = tctx;
+    misc.asynch.limit     = 0;
+    misc.asynch.count     = 0;
+
+    if (!xztl_media_submit_misc (&misc)) {
+	if (!misc.asynch.count) {
+
+	}
+    }
+}
+
 static void test_znd_append_zone (void)
 {
     struct xztl_mp_entry    *mp_cmd;
@@ -242,7 +256,7 @@ static void test_znd_append_zone (void)
     tid     = 0;
     ents    = 128;
     nlbas   = 16;
-    zone    = 10;
+    zone    = 0;
     bsize = nlbas * core.media->geo.nbytes;
 
     /* Initialize mempool module */
@@ -277,6 +291,8 @@ static void test_znd_append_zone (void)
 
     /* Fill up command structure */
     cmd = (struct xztl_io_mcmd *) mp_cmd->opaque;
+    memset (cmd, 0x0, sizeof (struct xztl_io_mcmd));
+
     cmd->opcode    = (XZTL_WRITE_APPEND) ? XZTL_ZONE_APPEND :
 					   XZTL_CMD_WRITE;
     cmd->synch     = 0;
@@ -294,7 +310,9 @@ static void test_znd_append_zone (void)
     cunit_znd_assert_int ("xztl_media_submit_io", ret);
 
     /* Wait for completions */
-    while (outstanding) {};
+    while (outstanding) {
+	test_znd_poke_ctx (tctx);
+    };
 
     /* Clear up */
     xztl_mempool_put (mp_cmd, XZTL_MEMPOOL_MCMD, tid);
@@ -321,7 +339,7 @@ static void test_znd_read_zone (void)
     tid     = 0;
     ents    = 128;
     nlbas   = 16;
-    zone    = 10;
+    zone    = 0;
     bsize = nlbas * core.media->geo.nbytes;
 
     /* Initialize mempool module */
@@ -350,6 +368,8 @@ static void test_znd_read_zone (void)
 
     /* Fill up command structure */
     cmd = (struct xztl_io_mcmd *) mp_cmd->opaque;
+    memset (cmd, 0x0, sizeof (struct xztl_io_mcmd));
+
     cmd->opcode    = XZTL_CMD_READ;
     cmd->synch     = 0;
     cmd->async_ctx = tctx;
@@ -366,7 +386,9 @@ static void test_znd_read_zone (void)
     cunit_znd_assert_int ("xztl_media_submit_io", ret);
 
     /* Wait for completions */
-    while (outstanding) {};
+    while (outstanding) {
+	test_znd_poke_ctx (tctx);
+    };
 
     /* Clear up */
     xztl_mempool_put (mp_cmd, XZTL_MEMPOOL_MCMD, tid);
@@ -382,6 +404,8 @@ MP:
 
 int main (int argc, const char **argv)
 {
+    int failed;
+
     if (argc < 2) {
 	printf ("Please provide the device path. e.g. liou:/dev/nvme0n2\n");
 	return -1;
@@ -425,7 +449,9 @@ int main (int argc, const char **argv)
 
     CU_basic_set_mode(CU_BRM_VERBOSE);
     CU_basic_run_tests();
+
+    failed = CU_get_number_of_tests_failed();
     CU_cleanup_registry();
 
-    return CU_get_error();
+    return failed;
 }
