@@ -5,6 +5,18 @@
 #include <xztl.h>
 #include "CUnit/Basic.h"
 
+/* Number of Objects */
+#define TEST_N_BUFFERS 2
+
+/* Number of random objects to read */
+#define TEST_RANDOM_ID 2
+
+/* Object Size */
+#define TEST_BUFFER_SZ (1024 * 1024 * 16) /* 16 MB */
+
+static uint8_t *wbuf[TEST_N_BUFFERS];
+static uint8_t *rbuf[TEST_N_BUFFERS];
+
 static const char **devname;
 
 static void cunit_zrocks_assert_ptr (char *fn, void *ptr)
@@ -43,14 +55,6 @@ static void test_zrocks_exit (void)
 {
     zrocks_exit ();
 }
-
-#define TEST_N_BUFFERS 4
-#define TEST_BUFFER_SZ (1024 * 1024 * 16) /* 1 MB */
-#define TEST_RANDOM_ID 2
-
-
-static uint8_t *wbuf[TEST_N_BUFFERS];
-static uint8_t *rbuf[TEST_N_BUFFERS];
 
 static void test_zrocks_fill_buffer (uint32_t id)
 {
@@ -169,7 +173,8 @@ static void test_zrocks_random_read (void)
 
 	woff = &wbuf[id - 1][random_off[readi]];
 
-/*	printf (" \nMem check:\n");
+/* Uncomment for a detailed read check (per-byte print)
+	printf (" \nMem check:\n");
 	for (int i = 0; i < random_sz[readi] + 4096; i++) {
 	    if (i % 16 == 0)
 		printf("\n %lu-%lu ",

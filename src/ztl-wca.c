@@ -270,7 +270,10 @@ static void ztl_wca_process_ucmd (struct xztl_io_ucmd *ucmd)
     }
 
     /* Note: Provisioning types are user level metadata, if other
-     * types of provisioning are added we need to support it here */
+     * types of provisioning are added we need to support it here.
+     *
+     * Note: We currently not support multi-piece mapping for application-
+     * managed metadata/recovery (indicated by ucmd->app_md == 0 */
     prov = ztl()->pro->new_fn (nsec, ucmd->prov_type, ucmd->app_md);
     if (!prov) {
 	log_erra ("ztl-wca: Provisioning failed. nsec %d, prov_type %d",

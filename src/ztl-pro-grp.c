@@ -154,7 +154,7 @@ int ztl_pro_grp_get (struct app_group *grp, struct app_pro_addr *ctx,
     zn_i = 0;
     ctx->naddr = 0;
 
-    sec_zn = nsec / ZTL_PRO_STRIPE;
+    sec_zn = (multi) ? nsec / ZTL_PRO_STRIPE : nsec;
     if (!sec_zn)
 	sec_zn = ZTL_WCA_SEC_MCMD_MIN;
     else if (sec_zn % ZTL_WCA_SEC_MCMD_MIN != 0)
