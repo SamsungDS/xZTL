@@ -1,4 +1,4 @@
-# libztl third-party directory
+# xZTL third-party directory
 
 projects:
 
