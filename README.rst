@@ -1,11 +1,34 @@
 xZTL: Zone Translation Layer User-space Library
-======
+===============================================
 
-Library for fast intergration Application ⬌ ZNS devices
+xZTL is a user-space library that provides support for zoned namespaces. The library implements a mapping between user address spaces into zones of ZNS drives. For this reason, the library was name as zone translation layer. The logic implemented at xZTL may be modified according to specific cases, for instance, to be used as a RocksDB backend.
 
-Implemented targets:
+xZTL provides a main methods of access (block-based), and a secondary method that is stil under development (object-based).
 
-  ZRocks: Zoned RocksDB (libzrocks.h)
+## Block-Based Access:
+  ### Write:
+    Applications provide a buffer and a buffer size. xZTL decides where to write in the ZNS drive and returns
+    a list of physical addresses as a list (mapping pieces).
+  ### Read:
+    Application read by providing the physical block address as standard block devices.
+  ### Info:
+    This design requires recovery of mapping by the application side.
+
+## Object-Based Access (under development):
+  ### Write:
+    Applications provide a unique object ID, a buffer, and a buffer size. xZTL decides where to write in the
+    ZNS drive and maintains the mapping, returning only a ACK to the application.
+  ### Read:
+    Applications provide a unique object ID and the offset within the object.
+  ### Info:
+    This design does not require recovery of mapping by the application because xZTL maintains the mapping and
+    recovery of metadata.
+
+We strongly believe that by centralizing the zone management into a single library, multiple applications will benefit from this design due to a simpler and thinner application backend design.
+
+### Implemented application backend(s):
+
+  **ZRocks: Zoned RocksDB (libzrocks.h)**
 
 
 Content
