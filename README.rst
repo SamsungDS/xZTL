@@ -1,9 +1,7 @@
 xZTL: Zone Translation Layer User-space Library
 ===============================================
 
-xZTL is a user-space library that provides support for zoned namespaces. The library implements a mapping between user address spaces into zones of ZNS drives. For this reason, the library was name as zone translation layer. The logic implemented at xZTL may be modified according to specific cases, for instance, to be used as a RocksDB backend.
-
-xZTL provides a main methods of access (block-based), and a secondary method that is stil under development (object-based).
+This library provides an easier access to zoned namespace drives via xNVMe.
 
 ## Block-Based Access:
   ### Write:
