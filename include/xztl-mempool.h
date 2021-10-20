@@ -24,10 +24,10 @@
 #include <sys/queue.h>
 #include <libxnvme.h>
 
-#define XZTLMP_THREADS 		64
-#define XZTLMP_TYPES   		4
-#define XZTLMP_MAX_ENT 		(65536 + 2)
-#define XZTLMP_MAX_ENT_SZ	(1024 * 1024)  /* 1 MB */
+#define XZTLMP_THREADS          64
+#define XZTLMP_TYPES            4
+#define XZTLMP_MAX_ENT          (65536 + 2)
+#define XZTLMP_MAX_ENT_SZ       (1024 * 1024)  /* 1 MB */
 
 typedef void *(xztl_mp_alloc)(size_t size);
 typedef void  (xztl_mp_free)(void *ptr);
@@ -48,21 +48,21 @@ enum xztl_mp_status {
 };
 
 struct xztl_mp_entry {
-    void 	*opaque;
-    uint16_t 	 tid;
-    uint32_t 	 entry_id;
+    void        *opaque;
+    uint16_t    tid;
+    uint32_t    entry_id;
     STAILQ_ENTRY(xztl_mp_entry) entry;
 };
 
 struct xztl_mp_pool_i {
-    uint8_t 		active;
-    volatile uint16_t 	in_count;
-    uint16_t 		out_count;
-    uint32_t 		entries;
-    pthread_spinlock_t	spin;
+    uint8_t             active;
+    volatile uint16_t   in_count;
+    uint16_t            out_count;
+    uint32_t            entries;
+    pthread_spinlock_t  spin;
     xztl_mp_alloc      *alloc_fn;
     xztl_mp_free       *free_fn;
-    STAILQ_HEAD (mp_head, xztl_mp_entry) head;
+    STAILQ_HEAD(mp_head, xztl_mp_entry) head;
 };
 
 struct xztl_mp_pool {
@@ -78,12 +78,12 @@ struct xztl_mempool {
 /**
  * Initializes the mempool module
  */
-int xztl_mempool_init (void);
+int xztl_mempool_init(void);
 
 /**
  * Shuts down the mempool module
  */
-int xztl_mempool_exit (void);
+int xztl_mempool_exit(void);
 
 /**
  * Creates a mempool
@@ -99,8 +99,8 @@ w *
  *
  * @return Returns zero if the call succeeds, or a negative value if it fails
  */
-int xztl_mempool_create (uint32_t type, uint16_t tid, uint32_t entries,
-		    uint32_t ent_sz, xztl_mp_alloc *alloc, xztl_mp_free *free);
+int xztl_mempool_create(uint32_t type, uint16_t tid, uint32_t entries,
+    uint32_t ent_sz, xztl_mp_alloc *alloc, xztl_mp_free *free);
 
 /**
  * Destroys a mempool previosly created with xztl_mempool_create
@@ -110,7 +110,7 @@ int xztl_mempool_create (uint32_t type, uint16_t tid, uint32_t entries,
  *
  * @return Returns zero if the call succeeds, or a negative value if it fails
  */
-int xztl_mempool_destroy (uint32_t type, uint16_t tid);
+int xztl_mempool_destroy(uint32_t type, uint16_t tid);
 
 /**
  * Get an entry from a mempool
@@ -122,7 +122,7 @@ int xztl_mempool_destroy (uint32_t type, uint16_t tid);
  * 	   the call fails. In case of failure, the mempool might be full or
  * 	   has not been created.
  */
-struct xztl_mp_entry *xztl_mempool_get (uint32_t type, uint16_t tid);
+struct xztl_mp_entry *xztl_mempool_get(uint32_t type, uint16_t tid);
 
 /**
  * Put an entry back into a mempool
@@ -131,7 +131,7 @@ struct xztl_mp_entry *xztl_mempool_get (uint32_t type, uint16_t tid);
  * @param type Mempool type. Check enum xztl_mp_types
  * @param tid Thread ID. A single thread per mempool is used for lock-free
  */
-void xztl_mempool_put (struct xztl_mp_entry *ent, uint32_t type, uint16_t tid);
+void xztl_mempool_put(struct xztl_mp_entry *ent, uint32_t type, uint16_t tid);
 
 /**
  * Check the number of remaining free entries in a memory pool
@@ -141,6 +141,6 @@ void xztl_mempool_put (struct xztl_mp_entry *ent, uint32_t type, uint16_t tid);
  *
  * @return Returns the number of remaining free entries in the memory pool
  */
-int xztl_mempool_left (uint32_t type, uint16_t tid);
+int xztl_mempool_left(uint32_t type, uint16_t tid);
 
 #endif /* XZTLMEMPOOL */

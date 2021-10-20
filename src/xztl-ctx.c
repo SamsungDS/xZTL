@@ -24,51 +24,48 @@
 
 #define XZTL_CTX_NVME_DEPTH  64
 
-struct xztl_mthread_ctx *xztl_ctx_media_init (uint16_t tid,
-						     uint32_t depth)
-{
+struct xztl_mthread_ctx *xztl_ctx_media_init(uint16_t tid, uint32_t depth) {
     struct xztl_misc_cmd cmd;
     struct xztl_mthread_ctx *tctx;
     int ret;
 
-    ret = xztl_mempool_create (XZTL_MEMPOOL_MCMD, tid, depth + 2,
-				sizeof (struct xztl_io_mcmd), NULL, NULL);
+    ret = xztl_mempool_create(XZTL_MEMPOOL_MCMD, tid, depth + 2,
+                             sizeof (struct xztl_io_mcmd), NULL, NULL);
     if (ret)
-	return NULL;
+        return NULL;
 
-    tctx = malloc (sizeof (struct xztl_mthread_ctx));
+    tctx = malloc(sizeof (struct xztl_mthread_ctx));
     if (!tctx) {
-	xztl_mempool_destroy (XZTL_MEMPOOL_MCMD, tid);
-	return NULL;
+        xztl_mempool_destroy(XZTL_MEMPOOL_MCMD, tid);
+        return NULL;
     }
 
-    if (pthread_spin_init (&tctx->qpair_spin, 0)) {
-	free (tctx);
-	xztl_mempool_destroy (XZTL_MEMPOOL_MCMD, tid);
-	return NULL;
+    if (pthread_spin_init(&tctx->qpair_spin, 0)) {
+        free(tctx);
+        xztl_mempool_destroy(XZTL_MEMPOOL_MCMD, tid);
+        return NULL;
     }
 
     tctx->tid         = tid;
     tctx->comp_active = 1;
 
     /* Create asynchronous context via xnvme */
-    cmd.opcode = XZTL_MISC_ASYNCH_INIT;
-    cmd.asynch.depth   	    = XZTL_CTX_NVME_DEPTH;
+    cmd.opcode              = XZTL_MISC_ASYNCH_INIT;
+    cmd.asynch.depth        = XZTL_CTX_NVME_DEPTH;
     cmd.asynch.ctx_ptr      = tctx;
 
-    ret = xztl_media_submit_misc (&cmd);
+    ret = xztl_media_submit_misc(&cmd);
     if (ret || !tctx->asynch) {
-	pthread_spin_destroy (&tctx->qpair_spin);
-	free (tctx);
-	xztl_mempool_destroy (XZTL_MEMPOOL_MCMD, tid);
-	return NULL;
+        pthread_spin_destroy(&tctx->qpair_spin);
+        free(tctx);
+        xztl_mempool_destroy(XZTL_MEMPOOL_MCMD, tid);
+        return NULL;
     }
 
     return tctx;
 }
 
-int xztl_ctx_media_exit (struct xztl_mthread_ctx *tctx)
-{
+int xztl_ctx_media_exit(struct xztl_mthread_ctx *tctx) {
     struct xztl_misc_cmd cmd;
     int ret;
 
@@ -77,16 +74,17 @@ int xztl_ctx_media_exit (struct xztl_mthread_ctx *tctx)
     /* Destroy asynchronous context via xnvme and
        stop the completion thread */
     tctx->comp_active  = 0;
+
     cmd.opcode         = XZTL_MISC_ASYNCH_TERM;
     cmd.asynch.ctx_ptr = tctx;
 
-    ret = xztl_media_submit_misc (&cmd);
+    ret = xztl_media_submit_misc(&cmd);
     if (ret)
-	return XZTL_MP_ASYNCH_ERR;
+        return XZTL_MP_ASYNCH_ERR;
 
-    pthread_spin_destroy (&tctx->qpair_spin);
-    xztl_mempool_destroy (XZTL_MEMPOOL_MCMD, tctx->tid);
-    free (tctx);
+    pthread_spin_destroy(&tctx->qpair_spin);
+    xztl_mempool_destroy(XZTL_MEMPOOL_MCMD, tctx->tid);
+    free(tctx);
 
     return XZTL_OK;
 }

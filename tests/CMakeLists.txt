@@ -12,7 +12,7 @@ enable_c_flag("-std=c11")
 enable_c_flag("-Wall")
 enable_c_flag("-pedantic")
 enable_c_flag("-fopenmp")
-#enable_c_flag("-g")
+enable_c_flag("-g")
 
 include_directories("${PROJECT_SOURCE_DIR}/../include")
 include_directories("${PROJECT_SOURCE_DIR}/../zrocks/include")
@@ -53,6 +53,7 @@ endforeach()
 set(ZROCKS_TESTS
     ${PROJECT_SOURCE_DIR}/src/test-zrocks.c
     ${PROJECT_SOURCE_DIR}/src/test-zrocks-rw.c
+    ${PROJECT_SOURCE_DIR}/src/test-zrocks-metadata.c
 )
 foreach(SRC_FN ${ZROCKS_TESTS})
     get_filename_component(SRC_FN_WE ${SRC_FN} NAME_WE)
