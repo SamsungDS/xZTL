@@ -164,7 +164,7 @@ static void *test_append_th(void *args) {
     struct xztl_core *core;
     get_xztl_core(&core);
     par     = (struct test_params *) args;
-    cmd_sz  = TEST_SEC_CMD * core->media->geo.nbytes;
+    cmd_sz  = TEST_SEC_CMD * core->media->geo.nbytes * 1UL;
     ncmd    = TEST_NSECT / TEST_SEC_CMD;
     sec_cmd = TEST_SEC_CMD;
 

@@ -72,7 +72,8 @@ static void test_znd_report(void) {
     struct xztl_zn_mcmd cmd;
     struct znd_report *report;
     struct znd_descr *zinfo;
-    int ret, zi, zone, nzones;
+    uint64_t  zi, zone, nzones;
+    int ret = 0;
     uint32_t znlbas;
     struct xztl_core *core;
     get_xztl_core(&core);
@@ -261,7 +262,7 @@ static void test_znd_append_zone(void) {
     ents    = 128;
     nlbas   = 16;
     zone    = 0;
-    bsize = nlbas * core->media->geo.nbytes;
+    bsize = nlbas * core->media->geo.nbytes * 1UL;
 
     /* Initialize mempool module */
     ret = xztl_mempool_init();
@@ -272,7 +273,7 @@ static void test_znd_append_zone(void) {
     /* Initialize thread media context */
     tctx = xztl_ctx_media_init(tid, ents);
     cunit_znd_assert_ptr("xztl_ctx_media_init", tctx);
-    if (ret)
+    if (!tctx)
         goto MP;
 
     /* Reset the zone before appending */
@@ -306,7 +307,7 @@ static void test_znd_append_zone(void) {
     cmd->callback  = test_znd_callback;
 
     cmd->addr[0].g.zone = zone;
-    cmd->addr[0].g.sect = zone * core->media->geo.sec_zn;
+    cmd->addr[0].g.sect = zone * core->media->geo.sec_zn * 1UL;
 
     /* Submit append */
     outstanding = 1;
@@ -345,7 +346,7 @@ static void test_znd_read_zone(void) {
     ents    = 128;
     nlbas   = 16;
     zone    = 0;
-    bsize = nlbas * core->media->geo.nbytes;
+    bsize = nlbas * core->media->geo.nbytes * 1UL;
 
     /* Initialize mempool module */
     ret = xztl_mempool_init();
@@ -356,7 +357,7 @@ static void test_znd_read_zone(void) {
     /* Initialize thread media context */
     tctx = xztl_ctx_media_init(tid, ents);
     cunit_znd_assert_ptr("xztl_ctx_media_init", tctx);
-    if (ret)
+    if (!tctx)
         goto MP;
 
     /* Allocate DMA memory */
@@ -383,7 +384,7 @@ static void test_znd_read_zone(void) {
     cmd->callback  = test_znd_callback;
 
     /* We currently use sector only read addresses */
-    cmd->addr[0].g.sect = zone * core->media->geo.sec_zn;
+    cmd->addr[0].g.sect = zone * core->media->geo.sec_zn * 1UL;
 
     /* Submit read */
     outstanding = 1;

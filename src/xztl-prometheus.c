@@ -226,10 +226,15 @@ void xztl_prometheus_add_read_latency(uint64_t usec) {
     pthread_spin_lock(&lat_spin);
 
     /* Discard latency if queue is full */
-    if (xztl_mempool_left (XZTL_PROMETHEUS_LAT, 0) == 0)
+    if (xztl_mempool_left(XZTL_PROMETHEUS_LAT, 0) == 0) {
+        pthread_spin_unlock(&lat_spin);
         return;
-
+    }
     mp_ent = xztl_mempool_get(XZTL_PROMETHEUS_LAT, 0);
+    if (!mp_ent) {
+        pthread_spin_unlock(&lat_spin);
+        return;
+    }
     ent = (struct latency_entry *) mp_ent->opaque;
     ent->mp_entry = mp_ent;
     ent->usec = usec;

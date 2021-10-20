@@ -52,7 +52,7 @@ struct obj_meta_data_head {
 };
 
 struct ztl_metadata *get_ztl_metadata();
-int zrocks_get_metadata_slba();
+uint64_t zrocks_get_metadata_slba();
 int ztl_metadata_init(struct app_group *grp);
 int get_metadata_zone_num();
 

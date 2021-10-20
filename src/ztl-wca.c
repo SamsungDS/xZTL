@@ -240,7 +240,7 @@ static void ztl_wca_process_ucmd(struct xztl_io_ucmd *ucmd) {
     nsec = ucmd->size / core->media->geo.nbytes;
 
     /* We do not support non-aligned buffers */
-    if (ucmd->size % (core->media->geo.nbytes * ZTL_WCA_SEC_MCMD_MIN != 0)) {
+    if (ucmd->size % (core->media->geo.nbytes * ZTL_WCA_SEC_MCMD_MIN) != 0) {
         log_erra("ztl-wca: Buffer is not aligned to %d bytes: %lu bytes.",
                 core->media->geo.nbytes * ZTL_WCA_SEC_MCMD_MIN, ucmd->size);
         goto FAILURE;

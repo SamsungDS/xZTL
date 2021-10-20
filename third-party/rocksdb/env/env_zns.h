@@ -89,6 +89,7 @@ class ZNSFile {
 
     ZNSFile(const std::string& fname, int lvl) :
     name(fname),
+    uuididx(0),
     level(lvl)  {
         misalignsize = 0;
         memset(misalign, 0, sizeof(misalign));
@@ -118,6 +119,7 @@ class ZNSEnv : public Env {
     isFlushRuning = false;
     isEnvStart = false;
     uuididx = 0;
+	flushThread = 0;
     std::cout << "Initializing ZNS Environment" << std::endl;
 
     if (zrocks_init(dev_name.data())) {
@@ -358,7 +360,7 @@ class ZNSSequentialFile : public SequentialFile {
       use_direct_io_(options.use_direct_reads),
       logical_sector_size_(ZNS_ALIGMENT) {
       env_zns = zns;
-      ztl_id = stoi(fname.substr(fname.length() - 10, 6));
+      ztl_id = 1UL * stoi(fname.substr(fname.length() - 10, 6));
       read_off = 0;
   }
 
@@ -416,9 +418,13 @@ class ZNSRandomAccessFile : public RandomAccessFile {
     : filename_(fname),
       use_direct_io_(options.use_direct_reads),
       logical_sector_size_(ZNS_ALIGMENT),
+      uuididx(0),
       env_zns(zns) {
 
-    ztl_id = stoi(fname.substr(fname.length() - 10, 6));
+    ztl_id = 1UL * stoi(fname.substr(fname.length() - 10, 6));
+    #if ZNS_PREFETCH
+    prefetch_off = 0;
+#endif
     env_zns->filesMutex.Lock();
     // uuididx = env_zns->uuididx++;
     // uuididx = env_zns->files[filename_]->uuididx;
@@ -495,6 +501,8 @@ class ZNSWritableFile : public WritableFile {
     : WritableFile(options),
       filename_(fname),
       use_direct_io_(options.use_direct_writes),
+      fd_(0),
+      filesize_(0),
       logical_sector_size_(ZNS_ALIGMENT),
       level(lvl),
       env_zns(zns) {
@@ -504,7 +512,7 @@ class ZNSWritableFile : public WritableFile {
     fallocate_with_keep_size_ = options.fallocate_with_keep_size;
 #endif
 
-    ztl_id = stoi(fname.substr(fname.length() - 10, 6));
+    ztl_id = 1UL * stoi(fname.substr(fname.length() - 10, 6));
 
     wcache = reinterpret_cast<char*> (zrocks_alloc(ZNS_MAX_BUF));
     if (!wcache) {

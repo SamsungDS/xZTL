@@ -55,7 +55,7 @@ static void xztl_mempool_free(struct xztl_mp_pool_i *pool) {
 int xztl_mempool_destroy(uint32_t type, uint16_t tid) {
     struct xztl_mp_pool_i *pool;
 
-    if (type > XZTLMP_TYPES || tid > XZTLMP_THREADS)
+    if (type > XZTLMP_TYPES || tid >= XZTLMP_THREADS)
         return XZTL_MP_OUTBOUNDS;
 
     pool = &xztlmp.mp[type].pool[tid];
@@ -79,7 +79,7 @@ int xztl_mempool_create(uint32_t type, uint16_t tid, uint32_t entries,
     void *opaque;
     uint32_t ent_i;
 
-    if (type > XZTLMP_TYPES || tid > XZTLMP_THREADS)
+    if (type > XZTLMP_TYPES || tid >= XZTLMP_THREADS)
         return XZTL_MP_OUTBOUNDS;
 
     if (!entries || entries > XZTLMP_MAX_ENT ||
@@ -108,6 +108,7 @@ int xztl_mempool_create(uint32_t type, uint16_t tid, uint32_t entries,
             opaque = alloc(ent_sz);
 
         if (!opaque) {
+            if (free)
             free(ent);
             goto MEMERR;
         }

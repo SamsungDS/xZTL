@@ -135,8 +135,8 @@ static int xztl_media_check(struct xztl_media *media) {
     if (!media->init_fn)
         return XZTL_NOINIT;
 
-    if (!media->init_fn)
-        return XZTL_NOEXIT;
+    /* if (!media->init_fn)
+        return XZTL_NOEXIT; */
 
     if (!media->submit_io)
         return XZTL_MEDIA_NOIO;
@@ -166,7 +166,7 @@ static int xztl_media_check(struct xztl_media *media) {
     g->sec_grp    = g->zn_grp    * g->sec_zn;
     g->sec_pu     = g->zn_pu     * g->sec_zn;
     g->sec_dev    = g->sec_grp   * g->ngrps;
-    g->nbytes_zn  = g->nbytes    * g->sec_zn;
+    g->nbytes_zn  = g->nbytes    * g->sec_zn * 1UL;
     g->nbytes_grp = g->nbytes_zn * g->zn_grp;
     g->oob_grp    = g->sec_grp   * g->nbytes_oob;
     g->oob_pu     = g->sec_pu    * g->nbytes_oob;

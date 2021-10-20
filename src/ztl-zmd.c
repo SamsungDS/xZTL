@@ -59,7 +59,7 @@ static int ztl_zmd_load_report(struct app_group *grp) {
 
     cmd.opcode = XZTL_ZONE_MGMT_REPORT;
     cmd.addr.g.grp  = grp->id;
-    cmd.addr.g.zone = core->media->geo.zn_grp * grp->id;
+    cmd.addr.g.zone = core->media->geo.zn_grp * grp->id * 1UL;
     cmd.nzones = core->media->geo.zn_grp;
 
     ret = xztl_media_submit_zn(&cmd);

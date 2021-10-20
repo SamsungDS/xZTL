@@ -154,8 +154,8 @@ int ztl_pro_grp_get(struct app_group *grp, struct app_pro_addr *ctx,
     sec_zn = (multi) ? nsec / ZTL_PRO_STRIPE : nsec;
     if (!sec_zn)
         sec_zn = ZTL_WCA_SEC_MCMD_MIN;
-    else if (sec_zn % ZTL_WCA_SEC_MCMD_MIN != 0)
-        sec_zn += (ZTL_WCA_SEC_MCMD_MIN - (sec_zn % ZTL_WCA_SEC_MCMD_MIN));
+   /* else if (sec_zn % ZTL_WCA_SEC_MCMD_MIN != 0)
+        sec_zn += (ZTL_WCA_SEC_MCMD_MIN - (sec_zn % ZTL_WCA_SEC_MCMD_MIN)); */
 
     while (sec_left) {
         zone = ztl_pro_grp_get_best_zone(grp, sec_zn, ptype, multi);
@@ -295,7 +295,7 @@ int ztl_pro_grp_finish_zn(struct app_group *grp, uint32_t zid, uint8_t type) {
     return (zmde->wptr == zone->addr.g.sect + zone->capacity) ? 0 : 1;
 
     /* We may collect here the wasted space for write-amplification */
-    printf("ztl-pro-grp (finish): Wasted space: %lu sectors\n",
+   /* printf("ztl-pro-grp (finish): Wasted space: %lu sectors\n",
                         zone->addr.g.sect + zone->capacity - zmde->wptr);
 
     cmd.opcode = XZTL_ZONE_MGMT_FINISH;
@@ -322,7 +322,7 @@ int ztl_pro_grp_finish_zn(struct app_group *grp, uint32_t zid, uint8_t type) {
                                         zone->zmd_entry->wptr,
                                         type);
 
-    return 0;
+    return 0; */
 }
 
 int ztl_pro_grp_put_zone(struct app_group *grp, uint32_t zone_i) {

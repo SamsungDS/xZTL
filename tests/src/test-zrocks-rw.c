@@ -93,6 +93,9 @@ static void test_zrockswr_fill_buffer(void *buf) {
 }
 
 static void test_zrocksrw_write(void) {
+    if (nthreads == 0) {
+        return;
+    }
     void *buf[nthreads];
     int bufi, th_i;
 
@@ -206,8 +209,15 @@ FREE:
     }
 }
 
+uint64_t atoull(const char *args) {
+    uint64_t ret = 0;
+    while (*args) {
+        ret = ret * 10 + (*args++ - '0');
+    }
+    return ret;
+}
 int main(int argc, const char **argv) {
-    int failed;
+    int failed = 1;
 
     if (argc < 2 || !memcmp(argv[1], "--help\0", strlen(argv[1]))) {
         printf(" Usage: zrocks-test-rw <DEV_PATH> <NUM_THREADS> "
@@ -219,16 +229,19 @@ int main(int argc, const char **argv) {
     }
 
     if (argc >= 3) {
-        nthreads = atoi(argv[2]);
+        nthreads = 1UL * atoi(argv[2]);
     }
 
     if (argc >= 5) {
-        buffer_sz = (1024 * 1024) * atoi(argv[3]);
-        nwrites = atoi(argv[4]);
+        buffer_sz = (1024 * 1024) * atoull(argv[3]);
+        nwrites = 1UL * atoi(argv[4]);
     }
 
     map = NULL;
     pieces = NULL;
+    if (nwrites <= 0) {
+        return failed;
+    }
     map = malloc(sizeof(struct zrocks_map *) * nwrites);
     pieces = malloc(sizeof(uint16_t) * nwrites);
 

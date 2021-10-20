@@ -28,7 +28,7 @@
 static struct znd_media *_zndmedia;
 static struct ztl_metadata metadata;
 
-int zrocks_get_metadata_slba() {
+uint64_t zrocks_get_metadata_slba() {
     return 0;
 }
 
@@ -66,7 +66,7 @@ int ztl_metadata_init(struct app_group *grp) {
 #if !ZNS_OBJ_STORE
     uint64_t page_sz;
     dev_cap = core->media->geo.nbytes_zn * core->media->geo.zn_dev; /*   128G   */
-    page_sz = ZNS_PAGE_SIZE_8K / ZNS_PPA_SIZE * core->media->geo.nbytes; /*   0.5M    */
+    page_sz = ZNS_PAGE_SIZE_8K / ZNS_PPA_SIZE * core->media->geo.nbytes * 1UL; /*   0.5M    */
     metadata.file_zone_num = (ZNS_FILE_METADATA_LEN * dev_cap / page_sz)
             / core->media->geo.nbytes_zn + 1; /*256B * (128G / 0.5M) / 128M +1 = 1 */
     metadata.zone_num = metadata.file_zone_num;

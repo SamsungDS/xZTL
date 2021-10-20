@@ -30,8 +30,9 @@ Status ZNSSequentialFile::ReadOffset(uint64_t offset, size_t n, Slice* result,
     }
 
     int ret;
-    size_t piece_off = 0, off, left, size, piecesize;
+    size_t piece_off = 0, off, left, piecesize;
     unsigned i;
+	uint64_t size;
     struct zrocks_map *map;
 
     if (ZNS_DEBUG_R)
@@ -70,7 +71,7 @@ Status ZNSSequentialFile::ReadOffset(uint64_t offset, size_t n, Slice* result,
     for (i = 0; i < env_zns->files[filename_]->map.size(); i++) {
         map = &env_zns->files[filename_]->map.at(i);
 
-        size = map->g.nsec * ZNS_ALIGMENT;
+        size = map->g.nsec * ZNS_ALIGMENT * 1UL;
         if (off + size > offset) {
         piece_off = size - ( off + size - offset);
         break;
@@ -92,7 +93,7 @@ Status ZNSSequentialFile::ReadOffset(uint64_t offset, size_t n, Slice* result,
 
     map = &env_zns->files[filename_]->map.at(i);
 
-    size = map->g.nsec * ZNS_ALIGMENT;
+    size = (size_t)map->g.nsec * ZNS_ALIGMENT;
     size = (size - piece_off > left) ? left : size - piece_off;
     off  = map->g.offset * ZNS_ALIGMENT;
 
@@ -203,7 +204,8 @@ Status ZNSRandomAccessFile::ReadOffset(uint64_t offset, size_t n, Slice* result,
     }
 
     int ret;
-    size_t piece_off = 0, off, left, size, piecesize;
+	uint64_t size;
+    size_t piece_off = 0, off, left, piecesize;
     unsigned i;
     struct zrocks_map *map;
 
@@ -240,7 +242,7 @@ Status ZNSRandomAccessFile::ReadOffset(uint64_t offset, size_t n, Slice* result,
     for (i = 0; i < env_zns->files[filename_]->map.size(); i++) {
         map = &env_zns->files[filename_]->map.at(i);
 
-        size = map->g.nsec * ZNS_ALIGMENT;
+        size = map->g.nsec * ZNS_ALIGMENT * 1UL;
         if (off + size > offset) {
         piece_off = size - ( off + size - offset);
         break;
@@ -261,7 +263,7 @@ Status ZNSRandomAccessFile::ReadOffset(uint64_t offset, size_t n, Slice* result,
 
     map = &env_zns->files[filename_]->map.at(i);
 
-    size = map->g.nsec * ZNS_ALIGMENT;
+    size = map->g.nsec * ZNS_ALIGMENT * 1UL;
     size = (size - piece_off > left) ? left : size - piece_off;
     off  = map->g.offset * ZNS_ALIGMENT;
 

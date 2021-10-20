@@ -141,7 +141,7 @@ static void ztl_mempool_exit(void) {
 }
 
 int ztl_pro_init(void) {
-    int ret, grp_i;
+    int ret, grp_i = 0;
 
     glist = calloc(sizeof (struct app_group *), app_ngrps);
     if (!glist)

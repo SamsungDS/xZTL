@@ -192,7 +192,7 @@ int zrocks_read(uint64_t offset, void *buf, size_t size);
  *
  * @return Returns the metadata zone's start lba
  */
-int zrocks_get_metadata_slba();
+uint64_t zrocks_get_metadata_slba();
 
 /**
  * Read metadata from the ZNS device

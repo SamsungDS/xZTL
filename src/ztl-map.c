@@ -282,10 +282,10 @@ static int map_init(void) {
     return 0;
 
 EXIT_CACHES:
-    while (cache_i) {
+   /* while (cache_i) {
         cache_i--;
         map_exit_cache(&map_caches[cache_i]);
-    }
+    } */
     free(map_caches);
 
     return -1;
