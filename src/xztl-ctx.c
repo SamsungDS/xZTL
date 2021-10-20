@@ -22,7 +22,7 @@
 #include <xztl-media.h>
 #include <xztl-mempool.h>
 
-#define XZTL_CTX_NVME_DEPTH  64
+#define XZTL_CTX_NVME_DEPTH 256
 
 struct xztl_mthread_ctx *xztl_ctx_media_init(uint16_t tid, uint32_t depth) {
     struct xztl_misc_cmd cmd;

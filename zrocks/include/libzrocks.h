@@ -35,7 +35,8 @@ extern "C" {
 
 /* 4KB aligment : 16 GB user buffers
  * 512b aligment: 2 GB user buffers */
-#define ZNS_MAX_BUF  (ZNS_ALIGMENT * 65536)
+// #define ZNS_MAX_BUF  (ZNS_ALIGMENT * 65536)
+#define ZNS_MAX_BUF  (ZNS_ALIGMENT * 16384)
 
 struct zrocks_map {
     union {
@@ -205,20 +206,6 @@ uint64_t zrocks_get_metadata_slba();
  *      if the call fails
  */
 int zrocks_read_metadata(uint64_t slba, unsigned char* buf, uint32_t length);
-
-/**
- * Write metadata to ZNS device and return slba value
- *
- * @buf    - Pointer to a buffer where data must be copied into
- * @length - Length of buf
- * @slba   - start lba within the ZNS device, this parameter need be filled
- *           filled by the ZTL and contains the physical addresses
- *
- * @return Returns zero if the calls succeed, or a negative value
- *      if the call fails
- */
-int zrocks_write_page_metadata(const unsigned char* buf, uint32_t length,
-    uint64_t* slba_page);
 
 /**
  * Write metadata to ZNS device

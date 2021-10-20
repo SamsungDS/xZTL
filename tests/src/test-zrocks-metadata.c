@@ -19,7 +19,6 @@ extern struct ztl_metadata metadata;
 #define SECTOR_SIZE     512
 
 static const char **devname;
-static uint64_t buffer_sz_page_metadata = WRITE_TBUFFER_SZ;               // 32K
 static uint64_t buffer_sz_file_metadata = WRITE_TBUFFER_SZ * 1000;        // 32M
 
 static void cunit_zrocks_metadata_assert_ptr(char *fn, void *ptr) {
@@ -118,36 +117,6 @@ static void test_zrocks_file_metadata(void) {
     zrocks_free(buf_read);
 }
 
-static void test_zrocks_page_metadata(void) {
-    printf("\n");
-    struct ztl_metadata *metadata;
-    void *buf_write, *buf_read;
-    uint64_t size, slba;
-    metadata = get_ztl_metadata();
-    slba = metadata->page_slba;
-    size = buffer_sz_page_metadata;
-
-    buf_write = zrocks_alloc(size);
-    buf_read = zrocks_alloc(size);
-    cunit_zrocks_metadata_assert_ptr("buf:alloc", buf_write);
-    cunit_zrocks_metadata_assert_ptr("buf:alloc", buf_read);
-
-    if (!buf_write || !buf_read)
-        goto FREE;
-
-    test_zrocks_metadata_fill_buffer(buf_write, size);
-    int ret;
-    uint64_t slba_page;
-    ret = zrocks_write_page_metadata(buf_write, size, &slba_page);
-    cunit_zrocks_metadata_assert_int("zrocks_page_metadata:", ret);
-
-    test_zrocks_buffer_read(slba, buf_read, size);
-    cunit_zrocks_metadata_assert_equal(buf_write, buf_read);
-
-    FREE: zrocks_free(buf_write);
-    zrocks_free(buf_read);
-}
-
 static void test_zrocks_reset_file_metadata_zone(void) {
     printf("\n");
     struct ztl_metadata *metadata;
@@ -187,37 +156,14 @@ static void test_zrocks_reset_file_metadata_zone(void) {
     zrocks_free(buf_read);
 }
 
-static void test_zrocks_page_metadata_write_failed(void) {
-    printf("\n");
-    void *buf_write;
-    uint64_t size;
-    struct xztl_core *core;
-    get_xztl_core(&core);
-    size = buffer_sz_page_metadata * 1024;   // over max write data to failed
-    printf("core->media->geo.nbytes_zn:%ld,size:%ld\n",
-            core->media->geo.nbytes_zn, size);
-    buf_write = zrocks_alloc(size);
-    cunit_zrocks_metadata_assert_ptr("zrocks_write:alloc", buf_write);
-
-    if (!buf_write)
-        goto FREE;
-    test_zrocks_metadata_fill_buffer(buf_write, size);
-    int ret;
-    uint64_t slba_page;
-    ret = zrocks_write_page_metadata(buf_write, size, &slba_page);
-    CU_ASSERT(ret != 0);
-
-    FREE: zrocks_free(buf_write);
-}
-
 static void test_zrocks_metadata_read_failed(void) {
     printf("\n");
     struct ztl_metadata *metadata;
     void *buf_read;
     uint64_t size, slba;
     metadata = get_ztl_metadata();
-    slba = metadata->page_slba;
-    size = buffer_sz_page_metadata;
+    slba = metadata->file_slba;
+    size = buffer_sz_file_metadata;
     buf_read = zrocks_alloc(size);
     cunit_zrocks_metadata_assert_ptr("zrocks_write:alloc", buf_read);
 
@@ -257,41 +203,20 @@ int main(int argc, const char **argv) {
         return failed;
     }
 
-#if !ZNS_OBJ_STORE
     if ((CU_add_test(pSuite, "Initialize ZNS ZRocks", test_zrocks_metadata_init)
             == NULL)
             || (CU_add_test(pSuite, "Write and read file metadata",
                     test_zrocks_file_metadata) == NULL)
-            || (CU_add_test(pSuite, "Write and read page metadata",
-                    test_zrocks_page_metadata) == NULL)
             || (CU_add_test(pSuite, "reset file metadata zone",
                     test_zrocks_reset_file_metadata_zone) == NULL)
-            || (CU_add_test(pSuite, "Write page metadata failed",
-                    test_zrocks_page_metadata_write_failed) == NULL)
-            || (CU_add_test(pSuite, "Read  metadata failed",
-                    test_zrocks_metadata_read_failed) == NULL)
+            //|| (CU_add_test(pSuite, "Read  metadata failed",
+                  //  test_zrocks_metadata_read_failed) == NULL)
             || (CU_add_test(pSuite, "Close ZRocks", test_zrocks_metadata_exit)
                     == NULL)) {
         failed = 1;
         CU_cleanup_registry();
         return failed;
     }
-#else
-    if ((CU_add_test(pSuite, "Initialize ZNS ZRocks Object", test_zrocks_metadata_init)
-            == NULL)
-            || (CU_add_test(pSuite, "Write and read file metadata",
-                    test_zrocks_file_metadata) == NULL)
-            || (CU_add_test(pSuite, "reset file metadata zone",
-                    test_zrocks_reset_file_metadata_zone) == NULL)
-            || (CU_add_test(pSuite, "Read  metadata failed",
-                    test_zrocks_metadata_read_failed) == NULL)
-            || (CU_add_test(pSuite, "Close ZRocks", test_zrocks_metadata_exit)
-                    == NULL)) {
-        failed = 1;
-        CU_cleanup_registry();
-        return failed;
-    }
-#endif
 
     CU_basic_set_mode(CU_BRM_VERBOSE);
     CU_basic_run_tests();

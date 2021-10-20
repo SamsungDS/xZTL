@@ -566,8 +566,11 @@ Status ZNSWritableFile::Sync() {
 #if ZNS_OBJ_STORE
     ret = zrocks_new(ztl_id, wcache, size, level);
 #else
+    env_zns->filesMutex.Lock();
     ret = zrocks_write(wcache, size, level, &map, &pieces);
-    map_off = map[pieces - 1].g.offset;
+    env_zns->filesMutex.Unlock();
+    if (!ret)
+    	map_off = map[pieces - 1].g.offset;
     // memcpy (cache_off, map, sizeof (struct zrocks_map) * pieces);
     // Make sure the mapping piece is accessible via MANIFEST
 #endif

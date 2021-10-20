@@ -30,7 +30,7 @@
 
 #define ZROCKS_DEBUG        0
 #define ZROCKS_BUF_ENTS     128
-#define ZROCKS_MAX_READ_SZ (128 * ZNS_ALIGMENT) /* 512 KB */
+#define ZROCKS_MAX_READ_SZ (256 * ZNS_ALIGMENT) /* 512 KB */
 
 /* Remove this lock if we find a way to get a thread ID starting from 0 */
 static pthread_spinlock_t zrocks_mp_spin;
@@ -312,7 +312,7 @@ int zrocks_init(const char *dev_name) {
         if (xztl_mempool_create(ZROCKS_MEMORY,
                                  0,
                                  ZROCKS_BUF_ENTS,
-                                 ZROCKS_MAX_READ_SZ + ZNS_ALIGMENT,
+                                 ZROCKS_MAX_READ_SZ,
                                  zrocks_alloc,
                                  zrocks_free)) {
             xztl_exit();

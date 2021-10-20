@@ -30,13 +30,13 @@ extern "C" {
 #define ZNS_OBJ_STORE 0
 #define OBJ_SEC_NUM    8
 #define OBJ_TABLE_SIZE 256
+#define MAX_READ_NLB_NUM 128
+#define MAX_WRITE_NLB_NUM 128
 
 struct ztl_metadata {
     struct ztl_pro_zone *metadata_zone;
-    int file_zone_num;
     int zone_num;
     uint64_t file_slba;
-    uint64_t page_slba;
     int nlb_max;
     pthread_mutex_t  page_spin;
 };

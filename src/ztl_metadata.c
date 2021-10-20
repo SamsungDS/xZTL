@@ -60,22 +60,9 @@ int ztl_metadata_init(struct app_group *grp) {
     struct app_zmd_entry *zmde;
     struct xztl_core *core;
     int zone_i;
-    uint64_t dev_cap;
     get_xztl_core(&core);
     _zndmedia = get_znd_media();
-#if !ZNS_OBJ_STORE
-    uint64_t page_sz;
-    dev_cap = core->media->geo.nbytes_zn * core->media->geo.zn_dev; /*   128G   */
-    page_sz = ZNS_PAGE_SIZE_8K / ZNS_PPA_SIZE * core->media->geo.nbytes * 1UL; /*   0.5M    */
-    metadata.file_zone_num = (ZNS_FILE_METADATA_LEN * dev_cap / page_sz)
-            / core->media->geo.nbytes_zn + 1; /*256B * (128G / 0.5M) / 128M +1 = 1 */
-    metadata.zone_num = metadata.file_zone_num;
-
-#else
-    metadata.file_zone_num = (core->media->geo.nbytes * OBJ_SEC_NUM * OBJ_TABLE_SIZE * 2 + core->media->geo.nbytes)
-    / core->media->geo.nbytes_zn + 1;
-    metadata.zone_num = metadata.file_zone_num;
-#endif
+    metadata.zone_num = 1;
     metadata.nlb_max = _zndmedia->devgeo->mdts_nbytes/core->media->geo.nbytes;
     metadata.metadata_zone = (struct ztl_pro_zone*) calloc(
             sizeof(struct ztl_pro_zone), metadata.zone_num);
@@ -113,69 +100,47 @@ int ztl_metadata_init(struct app_group *grp) {
         zone->lock = 0;
         zmde->wptr = zmde->wptr_inflight = zinfo->wp;
     }
-#if !ZNS_OBJ_STORE
-    metadata.file_slba = get_metadata_slba(0, metadata.file_zone_num);
-    metadata.page_slba = get_metadata_slba(metadata.file_zone_num,
-            metadata.zone_num);
-#else
     metadata.file_slba = get_metadata_slba(0, metadata.zone_num);
-#endif
+    printf("init metadata.file_slba:%d\n", metadata.file_slba);
     return 0;
 }
 
 int zrocks_read_metadata(uint64_t slba, unsigned char* buf, uint32_t length) {
-    struct xztl_mp_entry *mp_entry;
-    uint16_t nlb;
-    int ret;
-    nlb = length / _zndmedia->devgeo->nbytes;
+    struct xztl_mp_entry *mp_entry = NULL;
+    uint16_t nlb = length / _zndmedia->devgeo->nbytes;
+    int ret = 0;
+    uint16_t left_nlb = nlb;
+    while (left_nlb > 0) {
+        uint16_t read_nlb = left_nlb > MAX_READ_NLB_NUM ? MAX_READ_NLB_NUM : left_nlb;
+        mp_entry = xztl_mempool_get(ZROCKS_MEMORY, 0);
+        if (!mp_entry) {
+            return -1;
+        }
 
-    mp_entry = xztl_mempool_get(ZROCKS_MEMORY, 0);
-    if (!mp_entry) {
-        return -1;
-    }
+        struct xztl_io_mcmd cmd;
+        cmd.opcode  = XZTL_CMD_READ;
+        cmd.naddr   = 1;
+        cmd.synch   = 1;
+        cmd.addr[0].addr = 0;
+        cmd.nsec[0] = read_nlb;
+        cmd.prp[0]  = (uint64_t) mp_entry->opaque;
+        cmd.addr[0].g.sect = slba;
+        cmd.status  = 0;
+        ret = xztl_media_submit_io(&cmd);
+        if (ret) {
+            xztl_mempool_put(mp_entry, ZROCKS_MEMORY, 0);
+            log_erra("zrocks_read_metadata. ret %d", ret);
+            return ret;
+        }
 
-    struct xztl_io_mcmd cmd;
-    cmd.opcode  = XZTL_CMD_READ;
-    cmd.naddr   = 1;
-    cmd.synch   = 1;
-    cmd.addr[0].addr = 0;
-    cmd.nsec[0] = nlb;
-    cmd.prp[0]  = (uint64_t) mp_entry->opaque;
-    cmd.addr[0].g.sect = slba;
-    cmd.status  = 0;
-
-    ret = xztl_media_submit_io(&cmd);
-    if (ret) {
+        memcpy(buf, (unsigned char *) mp_entry->opaque, read_nlb * ZNS_ALIGMENT);
         xztl_mempool_put(mp_entry, ZROCKS_MEMORY, 0);
-        log_erra("zrocks_read_metadata. ret %d", ret);
-        return ret;
+        left_nlb -= read_nlb;
+        buf += (read_nlb * ZNS_ALIGMENT);
+        slba += read_nlb;
     }
-    memcpy(buf, (unsigned char *) mp_entry->opaque, length);
-    xztl_mempool_put(mp_entry, ZROCKS_MEMORY, 0);
 
     return ret;
-}
-
-int zrocks_write_page_metadata(const unsigned char* buf, uint32_t length,
-        uint64_t* slba_page) {
-    struct xnvme_req xreq = { 0 };
-    struct xztl_core *core;
-    get_xztl_core(&core);
-    uint16_t nlb;
-    int err = 0;
-    nlb = length / core->media->geo.nbytes;
-    pthread_mutex_lock(&metadata.page_spin);
-    err = xnvme_cmd_write(_zndmedia->dev, xnvme_dev_get_nsid(_zndmedia->dev),
-            metadata.page_slba, nlb - 1, buf, NULL, XNVME_CMD_SYNC, &xreq);
-
-    if (err || xnvme_req_cpl_status(&xreq)) {
-        log_erra("xnvme_cmd_write() err %d ", err);
-        err = err ? err : -XZTL_ZTL_MD_ERR;
-    }
-    *slba_page = metadata.page_slba;
-    metadata.page_slba += nlb;
-    pthread_mutex_unlock(&metadata.page_spin);
-    return err;
 }
 
 static inline int zrocks_reset_file_md(uint8_t reset_op) {
@@ -183,7 +148,7 @@ static inline int zrocks_reset_file_md(uint8_t reset_op) {
     int err = 0;
     int zone_id;
 
-    for (zone_id = 0; zone_id < metadata.file_zone_num; zone_id++) {
+    for (zone_id = 0; zone_id < metadata.zone_num; zone_id++) {
         err = znd_cmd_mgmt_send(_zndmedia->dev, xnvme_dev_get_nsid(_zndmedia->dev),
                 metadata.metadata_zone[zone_id].zmd_entry->addr.addr, reset_op,
                 0, NULL, XNVME_CMD_SYNC, &xreq);
@@ -202,15 +167,16 @@ int zrocks_write_file_metadata(const unsigned char* buf, uint32_t length) {
     get_xztl_core(&core);
     struct xnvme_req xreq = { 0 };
     int err = 0;
-    max_len = metadata.nlb_max * core->media->geo.nbytes;
+    max_len = MAX_WRITE_NLB_NUM * ZNS_ALIGMENT;
     remain_len = length;
     const unsigned char *data = buf;
+    pthread_mutex_lock(&metadata.page_spin);
     if (metadata.file_slba*core->media->geo.nbytes + length
-            >= (metadata.metadata_zone[metadata.file_zone_num - 1].zmd_entry->addr.addr
-                    + metadata.metadata_zone[metadata.file_zone_num - 1].capacity)*core->media->geo.nbytes) {
+            >= (metadata.metadata_zone[metadata.zone_num - 1].capacity)*core->media->geo.nbytes) {
         zrocks_reset_file_md(ZND_SEND_RESET);
         metadata.file_slba = 0;
     }
+
     while (remain_len > 0) {
         write_len = (remain_len > max_len) ? max_len : remain_len;
         nlb = write_len / core->media->geo.nbytes;
@@ -226,5 +192,6 @@ int zrocks_write_file_metadata(const unsigned char* buf, uint32_t length) {
         data += write_len;
         remain_len -= write_len;
     }
+    pthread_mutex_unlock(&metadata.page_spin);
     return err;
 }

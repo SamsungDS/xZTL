@@ -235,6 +235,7 @@ EXIT:
     return NULL;
 }
 
+/* Please ignore the failure of this case since APPEND command is not supportable yet */
 int main(int argc, const char **argv) {
     pthread_t thread_id[TEST_THREAD];
     uint32_t tid, zone_th, left;

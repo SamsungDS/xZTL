@@ -24,7 +24,7 @@
 #define ZNS_DEBUG_AF  (ZNS_DEBUG && 0) /* Append and Flush */
 
 #define ZNS_OBJ_STORE 0
-#define ZNS_PREFETCH  1
+#define ZNS_PREFETCH  0
 #define ZNS_PREFETCH_BUF_SZ (1024 * 1024 * 1) /* 1MB */
 #define ZROCKS_MAX_READ_SZ    (1024 * ZNS_ALIGMENT)
 
