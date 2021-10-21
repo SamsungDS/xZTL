@@ -23,21 +23,21 @@
 #include <xztl.h>
 #include <xztl-ztl.h>
 #include <ztl.h>
+#include <ztl_metadata.h>
+#define DATA_LEN 512*256*8
 
-extern uint16_t app_ngrps;
-extern struct xztl_core core;
-
-uint8_t app_map_new;
+// extern uint16_t app_ngrps;
+static uint8_t app_map_new;
 static struct app_mpe *smap;
 
-static int ztl_mpe_create (void)
-{
+static int ztl_mpe_create(void) {
+    smap = &ztl()->smap;
     int i;
     struct app_map_entry *ent;
 
     for (i = 0; i < smap->entries; i++) {
-	ent = ((struct app_map_entry *) smap->tbl) + i;
-	memset (ent, 0x0, sizeof (struct app_map_entry));
+        ent = ((struct app_map_entry *) smap->tbl) + i;
+        memset(ent, 0x0, sizeof (struct app_map_entry));
     }
 
     app_map_new = 1;
@@ -45,32 +45,24 @@ static int ztl_mpe_create (void)
     return 0;
 }
 
-static int ztl_mpe_load (void)
-{
-    smap = &ztl()->smap;
-
-    /* Set byte for table creation */
-    smap->byte.magic = APP_MAGIC;
+static int ztl_mpe_load(void) {
 
     return 0;
 }
 
-static int ztl_mpe_flush (void)
-{
+static int ztl_mpe_flush(void) {
+
     return 0;
 }
 
-static struct map_md_addr *ztl_mpe_get (uint32_t index)
-{
+static struct map_md_addr *ztl_mpe_get(uint32_t index) {
     /* TODO: In case we implement recovery at the ZTL:
      *       If index > n_entries, increase size of table */
 
     return ((struct map_md_addr *) smap->tbl) + index;
 }
 
-static void ztl_mpe_mark (uint32_t index)
-{
-
+static void ztl_mpe_mark(uint32_t index) {
 }
 
 static struct app_mpe_mod ztl_mpe = {
@@ -83,7 +75,6 @@ static struct app_mpe_mod ztl_mpe = {
     .mark_fn        = ztl_mpe_mark
 };
 
-void ztl_mpe_register (void)
-{
-    ztl_mod_register (ZTLMOD_MPE, LIBZTL_MPE, &ztl_mpe);
+void ztl_mpe_register(void) {
+    ztl_mod_register(ZTLMOD_MPE, LIBZTL_MPE, &ztl_mpe);
 }

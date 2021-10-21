@@ -1,183 +1,193 @@
+/* xZTL: Zone Translation Layer User-space Library
+ *
+ * Copyright 2019 Samsung Electronics
+ *
+ * Written by Ivan L. Picoli <i.picoli@samsung.com>
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
 #include <ztl-media.h>
 #include <xztl.h>
 #include <xztl-ztl.h>
 #include <ztl.h>
+#include <libzrocks.h>
 #include "CUnit/Basic.h"
 
 static const char **devname;
 
-static void cunit_ztl_assert_ptr (char *fn, void *ptr)
-{
-    CU_ASSERT ((uint64_t) ptr != 0);
+static void cunit_ztl_assert_ptr(char *fn, void *ptr) {
+    CU_ASSERT((uint64_t) ptr != 0);
     if (!ptr)
-	printf ("\n %s: ptr %p\n", fn, ptr);
+        printf("\n %s: ptr %p\n", fn, ptr);
 }
 
-static void cunit_ztl_assert_int (char *fn, uint64_t status)
-{
-    CU_ASSERT (status == 0);
+static void cunit_ztl_assert_int(char *fn, uint64_t status) {
+    CU_ASSERT(status == 0);
     if (status)
-	printf ("\n %s: %lx\n", fn, status);
+        printf("\n %s: %lx\n", fn, status);
 }
 
-static void cunit_ztl_assert_int_equal (char *fn, int value, int expected)
-{
-    CU_ASSERT_EQUAL (value, expected);
+static void cunit_ztl_assert_int_equal(char *fn, int value, int expected) {
+    CU_ASSERT_EQUAL(value, expected);
     if (value != expected)
-	printf ("\n %s: value %d != expected %d\n", fn, value, expected);
+        printf("\n %s: value %d != expected %d\n", fn, value, expected);
 }
 
-static void test_ztl_init (void)
-{
+static void test_ztl_init(void) {
     int ret;
 
-    ret = znd_media_register (*devname);
-    cunit_ztl_assert_int ("znd_media_register", ret);
+    ret = znd_media_register(*devname);
+    cunit_ztl_assert_int("znd_media_register", ret);
     if (ret)
-	return;
+        return;
 
-    ret = xztl_media_init ();
-    cunit_ztl_assert_int ("xztl_media_init", ret);
+    ret = xztl_media_init();
+    cunit_ztl_assert_int("xztl_media_init", ret);
     if (ret)
-	return;
+        return;
 
     /* Register ZTL modules */
-    ztl_zmd_register ();
-    ztl_pro_register ();
-    ztl_mpe_register ();
-    ztl_map_register ();
-    ztl_wca_register ();
+    ztl_zmd_register();
+    ztl_pro_register();
+    ztl_mpe_register();
+    ztl_map_register();
+    ztl_wca_register();
 
-    ret = ztl_init ();
-    cunit_ztl_assert_int ("ztl_init", ret);
+    ret = ztl_init();
+    cunit_ztl_assert_int("ztl_init", ret);
     if (ret)
-	return;
+        return;
 }
 
-static void test_ztl_exit (void)
-{
+static void test_ztl_exit(void) {
     ztl_exit();
     xztl_media_exit();
 }
 
 
-static void test_ztl_pro_new_free (void)
-{
+static void test_ztl_pro_new_free(void) {
     struct app_pro_addr *proe[2];
     struct app_zmd_entry *zmde;
     uint32_t nsec = 128;
     int i;
 
-    proe[0] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER, 0);
-    cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[0]);
+    proe[0] = ztl()->pro->new_fn(nsec, ZTL_PRO_TUSER, 0);
+    cunit_ztl_assert_ptr("ztl()->pro->new_fn", proe[0]);
     if (!proe[0])
-	return;
+        return;
 
     for (i = 0; i < proe[0]->naddr; i++) {
-	zmde = ztl()->zmd->get_fn (proe[0]->grp, proe[0]->addr[i].g.zone, 0);
-	cunit_ztl_assert_int_equal ("ztl()->pro->new_fn:zmd:wptr_inflight",
-		    zmde->wptr_inflight, zmde->wptr + proe[0]->nsec[i]);
+        zmde = ztl()->zmd->get_fn(proe[0]->grp, proe[0]->addr[i].g.zone, 0);
+        cunit_ztl_assert_int_equal("ztl()->pro->new_fn:zmd:wptr_inflight",
+                zmde->wptr_inflight, zmde->wptr + proe[0]->nsec[i]);
     }
 
-    ztl()->pro->free_fn (proe[0]);
+    ztl()->pro->free_fn(proe[0]);
 
     proe[0] = NULL;
 
     for (int i = 0; i < 2; i++) {
-	proe[i] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER, 0);
-	cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[i]);
+        proe[i] = ztl()->pro->new_fn(nsec, ZTL_PRO_TUSER, 0);
+        cunit_ztl_assert_ptr("ztl()->pro->new_fn", proe[i]);
     }
 
-    ztl()->pro->free_fn (proe[1]);
+    ztl()->pro->free_fn(proe[1]);
     proe[1] = NULL;
 
-    proe[1] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER, 0);
-    cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[1]);
+    proe[1] = ztl()->pro->new_fn(nsec, ZTL_PRO_TUSER, 0);
+    cunit_ztl_assert_ptr("ztl()->pro->new_fn", proe[1]);
 
-    ztl()->pro->free_fn (proe[0]);
-    ztl()->pro->free_fn (proe[1]);
+    ztl()->pro->free_fn(proe[0]);
+    ztl()->pro->free_fn(proe[1]);
     proe[0] = NULL;
     proe[1] = NULL;
 
-    proe[0] = ztl()->pro->new_fn (nsec, ZTL_PRO_TUSER, 0);
-    cunit_ztl_assert_ptr ("ztl()->pro->new_fn", proe[0]);
+    proe[0] = ztl()->pro->new_fn(nsec, ZTL_PRO_TUSER, 0);
+    cunit_ztl_assert_ptr("ztl()->pro->new_fn", proe[0]);
 
-    ztl()->pro->free_fn (proe[0]);
+    ztl()->pro->free_fn(proe[0]);
 }
 
-static void test_ztl_map_upsert_read (void)
-{
+static void test_ztl_map_upsert_read(void) {
     uint64_t id, val, count, interval, old;
     int ret;
 
-    count    = 256 * 4096 - 1;
+    count    = 256 * ZNS_ALIGMENT - 1;
     interval = 1;
 
     for (id = 1; id <= count; id++) {
-	ret = ztl()->map->upsert_fn (id * interval, id * interval, &old, 0);
-	cunit_ztl_assert_int ("ztl()->map->upsert_fn", ret);
+        ret = ztl()->map->upsert_fn(id * interval, id * interval, &old, 0);
+        cunit_ztl_assert_int("ztl()->map->upsert_fn", ret);
     }
 
     for (id = 1; id <= count; id++) {
-	val = ztl()->map->read_fn (id * interval);
-	cunit_ztl_assert_int_equal ("ztl()->map->read", val, id * interval);
+        val = ztl()->map->read_fn(id * interval);
+        cunit_ztl_assert_int_equal("ztl()->map->read", val, id * interval);
     }
 
-    id = 456789;
-    val = 1234;
+    id = 456;
+    val = 457;
     old = 0;
 
-    ret = ztl()->map->upsert_fn (id, val, &old, 0);
-    cunit_ztl_assert_int ("ztl()->map->upsert_fn", ret);
-    cunit_ztl_assert_int_equal ("ztl()->map->upsert_fn:old", old, id);
+    ret = ztl()->map->upsert_fn(id, val, &old, 0);
+    cunit_ztl_assert_int("ztl()->map->upsert_fn", ret);
+    cunit_ztl_assert_int_equal("ztl()->map->upsert_fn:old", old, id);
 
-    old = ztl()->map->read_fn (id);
-    cunit_ztl_assert_int_equal ("ztl()->map->read", old, val);
+    old = ztl()->map->read_fn(id);
+    cunit_ztl_assert_int_equal("ztl()->map->read", old, val);
 }
 
-static int cunit_ztl_init (void)
-{
+static int cunit_ztl_init(void) {
     return 0;
 }
 
-static int cunit_ztl_exit (void)
-{
+static int cunit_ztl_exit(void) {
     return 0;
 }
 
-int main (int argc, const char **argv)
-{
+int main(int argc, const char **argv) {
     int failed;
 
     if (argc < 2) {
-	printf ("Please provide the device path. e.g. liou:/dev/nvme0n2\n");
-	return -1;
+        printf("Please provide the device path. e.g. liou:/dev/nvme0n2\n");
+        return -1;
     }
 
     devname = &argv[1];
-    printf ("Device: %s\n", *devname);
+    printf("Device: %s\n", *devname);
     CU_pSuite pSuite = NULL;
 
     if (CUE_SUCCESS != CU_initialize_registry())
-	return CU_get_error();
+        return CU_get_error();
 
     pSuite = CU_add_suite("Suite_ztl", cunit_ztl_init, cunit_ztl_exit);
     if (pSuite == NULL) {
-	CU_cleanup_registry();
-	return CU_get_error();
+        CU_cleanup_registry();
+        return CU_get_error();
     }
 
-    if ((CU_add_test (pSuite, "Initialize ZTL",
-		      test_ztl_init) == NULL) ||
-	(CU_add_test (pSuite, "New/Free prov offset",
-		      test_ztl_pro_new_free ) == NULL) ||
-	(CU_add_test (pSuite, "Upsert/Read mapping",
-		      test_ztl_map_upsert_read ) == NULL) ||
-        (CU_add_test (pSuite, "Close ZTL",
-		      test_ztl_exit) == NULL)) {
-	failed = 1;
-	CU_cleanup_registry();
-	return CU_get_error();
+    if ((CU_add_test(pSuite, "Initialize ZTL",
+              test_ztl_init) == NULL) ||
+        (CU_add_test(pSuite, "New/Free prov offset",
+              test_ztl_pro_new_free ) == NULL) ||
+        (CU_add_test(pSuite, "Upsert/Read mapping",
+              test_ztl_map_upsert_read ) == NULL) ||
+        (CU_add_test(pSuite, "Close ZTL",
+              test_ztl_exit) == NULL)) {
+        failed = 1;
+        CU_cleanup_registry();
+        return CU_get_error();
     }
 
     CU_basic_set_mode(CU_BRM_VERBOSE);

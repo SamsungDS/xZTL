@@ -4,6 +4,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(ZTL_VERSION_MAJOR 0)
 set(ZTL_VERSION_MINOR 1)
 set(ZTL_VERSION_PATCH 0)
+set(ZNS_OBJ_STORE 0)
 set(ZTL_VERSION "${ZTL_VERSION_MAJOR}.${ZTL_VERSION_MINOR}.${ZTL_VERSION_PATCH}")
 
 project(ztl C)
@@ -19,12 +20,14 @@ add_definitions(-DZTL_VERSION_MINOR=${ZTL_VERSION_MINOR})
 add_definitions(-DZTL_VERSION_PATCH=${ZTL_VERSION_PATCH})
 add_definitions(-DZTL_VERSION=${ZTL_VERSION})
 add_definitions(-DZTL_LABEL="xZTL: Zone Translation Layer User-space Library")
+add_definitions(-DZNS_OBJ_STORE=${ZNS_OBJ_STORE})
 
 use_c11()
 enable_c_flag("-std=c11")
 enable_c_flag("-Wall")
 enable_c_flag("-pedantic")
 enable_c_flag("-fopenmp")
+enable_c_flag("-fPIC")
 #enable_c_flag("-g")
 
 set(HEADER_FILES
@@ -34,6 +37,7 @@ set(HEADER_FILES
     ${PROJECT_SOURCE_DIR}/include/xztl-ztl.h
     ${PROJECT_SOURCE_DIR}/include/ztl.h
     ${PROJECT_SOURCE_DIR}/include/ztl-media.h
+    ${PROJECT_SOURCE_DIR}/include/ztl_metadata.h
 )
 
 set(SOURCE_FILES
@@ -51,9 +55,12 @@ set(SOURCE_FILES
     ${PROJECT_SOURCE_DIR}/src/ztl-mpe.c
     ${PROJECT_SOURCE_DIR}/src/ztl-map.c
     ${PROJECT_SOURCE_DIR}/src/ztl-wca.c
+    ${PROJECT_SOURCE_DIR}/src/ztl_metadata.c
 )
 
-include_directories("${PROJECT_SOURCE_DIR}/include")
+include_directories("${PROJECT_SOURCE_DIR}/include"
+    "${PROJECT_SOURCE_DIR}/zrocks/include/"
+)
 
 set(LNAME "ztl")
 

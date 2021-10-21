@@ -39,9 +39,9 @@ enum znd_media_error {
 };
 
 struct znd_media {
-    struct xnvme_dev 	   *dev;
+    struct xnvme_dev       *dev;
     const struct xnvme_geo *devgeo;
-    struct xztl_media 	    media;
+    struct xztl_media      media;
 };
 
 struct znd_log_cmd {
@@ -50,10 +50,9 @@ struct znd_log_cmd {
     void     *buf;
     uint64_t lba;
     uint32_t nlogs;
-
 };
 
 /* Registration function */
-int znd_media_register (const char *dev_name);
+int znd_media_register(const char *dev_name);
 
 #endif /* ZNMEDIA */

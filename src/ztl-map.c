@@ -28,11 +28,9 @@
 #include <ztl.h>
 
 #define MAP_BUF_PGS     8192      /* 256 MB per cache with 32KB page */
-#define MAP_N_CACHES	1
+#define MAP_N_CACHES    1
 
 #define MAP_ADDR_FLAG   ((1 & AND64) << 63)
-
-extern struct xztl_core    core;
 
 struct map_cache_entry {
     uint8_t                     dirty;
@@ -50,7 +48,7 @@ struct map_cache {
     LIST_HEAD(mb_free_l, map_cache_entry)   mbf_head;
     TAILQ_HEAD(mb_used_l, map_cache_entry)  mbu_head;
     pthread_spinlock_t                      mb_spin;
-    pthread_mutex_t			    mutex;
+    pthread_mutex_t                         mutex;
     uint32_t                                nfree;
     uint32_t                                nused;
     uint16_t                                id;
@@ -60,28 +58,26 @@ static struct map_cache    *map_caches;
 static volatile uint8_t     cp_running;
 
 /* The mapping strategy ensures the entry size matches with the NVM pg size */
-static uint32_t 	    map_pg_sz;
+static uint32_t             map_pg_sz;
 static uint64_t             map_ent_per_pg;
 
-static int map_nvm_read (struct map_cache_entry *ent)
-{
+static int map_nvm_read(struct map_cache_entry *ent) {
     return 0;
 }
 
-static int map_evict_pg_cache (struct map_cache *cache, uint8_t is_checkpoint)
-{
+static int map_evict_pg_cache(struct map_cache *cache, uint8_t is_checkpoint) {
     struct map_cache_entry *cache_ent;
 
-    pthread_spin_lock (&cache->mb_spin);
+    pthread_spin_lock(&cache->mb_spin);
     cache_ent = TAILQ_FIRST(&cache->mbu_head);
     if (!cache_ent) {
-        pthread_spin_unlock (&cache->mb_spin);
+        pthread_spin_unlock(&cache->mb_spin);
         return -1;
     }
 
     TAILQ_REMOVE(&cache->mbu_head, cache_ent, u_entry);
     cache->nused--;
-    pthread_spin_unlock (&cache->mb_spin);
+    pthread_spin_unlock(&cache->mb_spin);
 
     /* TODO: Evict the page if recovery is done at the ZTL */
 
@@ -89,17 +85,16 @@ static int map_evict_pg_cache (struct map_cache *cache, uint8_t is_checkpoint)
     cache_ent->addr.addr = 0;
     cache_ent->md_entry = NULL;
 
-    pthread_spin_lock (&cache->mb_spin);
-    LIST_INSERT_HEAD (&cache->mbf_head, cache_ent, f_entry);
+    pthread_spin_lock(&cache->mb_spin);
+    LIST_INSERT_HEAD(&cache->mbf_head, cache_ent, f_entry);
     cache->nfree++;
-    pthread_spin_unlock (&cache->mb_spin);
+    pthread_spin_unlock(&cache->mb_spin);
 
     return 0;
 }
 
-static int map_load_pg_cache (struct map_cache *cache,
-           struct map_md_addr *md_entry, uint64_t first_id, uint32_t pg_off)
-{
+static int map_load_pg_cache(struct map_cache *cache,
+           struct map_md_addr *md_entry, uint64_t first_id, uint32_t pg_off) {
     struct map_cache_entry *cache_ent;
     struct app_map_entry *map_ent;
     uint64_t ent_id;
@@ -107,28 +102,28 @@ static int map_load_pg_cache (struct map_cache *cache,
 WAIT:
     if (LIST_EMPTY(&cache->mbf_head)) {
         if (cp_running) {
-            usleep (200);
+            usleep(200);
             goto WAIT;
         }
 
-	pthread_mutex_lock (&cache->mutex);
-	if (map_evict_pg_cache (cache, 0)) {
-	    pthread_mutex_unlock (&cache->mutex);
-	    return -1;
+        pthread_mutex_lock(&cache->mutex);
+        if (map_evict_pg_cache(cache, 0)) {
+            pthread_mutex_unlock(&cache->mutex);
+            return -1;
         }
-	pthread_mutex_unlock (&cache->mutex);
+        pthread_mutex_unlock(&cache->mutex);
     }
 
-    pthread_spin_lock (&cache->mb_spin);
+    pthread_spin_lock(&cache->mb_spin);
     cache_ent = LIST_FIRST(&cache->mbf_head);
     if (!cache_ent) {
-        pthread_spin_unlock (&cache->mb_spin);
+        pthread_spin_unlock(&cache->mb_spin);
         return -1;
     }
 
     LIST_REMOVE(cache_ent, f_entry);
     cache->nfree--;
-    pthread_spin_unlock (&cache->mb_spin);
+    pthread_spin_unlock(&cache->mb_spin);
 
     cache_ent->md_entry = md_entry;
 
@@ -140,14 +135,14 @@ WAIT:
         }
         cache_ent->dirty = 1;
     } else {
-        if (map_nvm_read (cache_ent)) {
+        if (map_nvm_read(cache_ent)) {
             cache_ent->md_entry = NULL;
             cache_ent->addr.addr = 0;
 
-            pthread_spin_lock (&cache->mb_spin);
+            pthread_spin_lock(&cache->mb_spin);
             LIST_INSERT_HEAD(&cache->mbf_head, cache_ent, f_entry);
             cache->nfree++;
-            pthread_spin_unlock (&cache->mb_spin);
+            pthread_spin_unlock(&cache->mb_spin);
 
             return -1;
         }
@@ -155,33 +150,32 @@ WAIT:
         /* Cache entry PPA is set after the read completes */
     }
 
-    pthread_spin_lock (&cache->mb_spin);
+    pthread_spin_lock(&cache->mb_spin);
     md_entry->addr = (uint64_t) cache_ent;
     md_entry->addr |= MAP_ADDR_FLAG;
 
     TAILQ_INSERT_TAIL(&cache->mbu_head, cache_ent, u_entry);
     cache->nused++;
-    pthread_spin_unlock (&cache->mb_spin);
+    pthread_spin_unlock(&cache->mb_spin);
 
-    ZDEBUG (ZDEBUG_MAP, "ztl-map: Page cache loaded. Offset 0x%lu",
-				(uint64_t) cache_ent->addr.g.offset);
+    ZDEBUG(ZDEBUG_MAP, "ztl-map: Page cache loaded. Offset 0x%lu",
+                                (uint64_t) cache_ent->addr.g.offset);
 
     return 0;
 }
 
-static int map_init_cache (struct map_cache *cache)
-{
+static int map_init_cache(struct map_cache *cache) {
     uint32_t pg_i;
 
-    cache->pg_buf = calloc (sizeof(struct map_cache_entry), MAP_BUF_PGS);
+    cache->pg_buf = calloc(sizeof(struct map_cache_entry), MAP_BUF_PGS);
     if (!cache->pg_buf)
         return -1;
 
-    if (pthread_spin_init (&cache->mb_spin, 0))
+    if (pthread_spin_init(&cache->mb_spin, 0))
         goto FREE_BUF;
 
-    if (pthread_mutex_init (&cache->mutex, NULL))
-	goto SPIN;
+    if (pthread_mutex_init(&cache->mutex, NULL))
+        goto SPIN;
 
     cache->mbf_head.lh_first = NULL;
     LIST_INIT(&cache->mbf_head);
@@ -196,11 +190,11 @@ static int map_init_cache (struct map_cache *cache)
         cache->pg_buf[pg_i].md_entry = NULL;
         cache->pg_buf[pg_i].cache = cache;
 
-        cache->pg_buf[pg_i].buf = calloc (map_pg_sz, 1);
+        cache->pg_buf[pg_i].buf = calloc(map_pg_sz, 1);
         if (!cache->pg_buf[pg_i].buf)
             goto FREE_PGS;
 
-        LIST_INSERT_HEAD (&cache->mbf_head, &cache->pg_buf[pg_i], f_entry);
+        LIST_INSERT_HEAD(&cache->mbf_head, &cache->pg_buf[pg_i], f_entry);
         cache->nfree++;
     }
 
@@ -211,75 +205,71 @@ FREE_PGS:
         pg_i--;
         LIST_REMOVE(&cache->pg_buf[pg_i], f_entry);
         cache->nfree--;
-        free (cache->pg_buf[pg_i].buf);
+        free(cache->pg_buf[pg_i].buf);
     }
-    pthread_mutex_destroy (&cache->mutex);
+    pthread_mutex_destroy(&cache->mutex);
 SPIN:
-    pthread_spin_destroy (&cache->mb_spin);
+    pthread_spin_destroy(&cache->mb_spin);
 FREE_BUF:
-    free (cache->pg_buf);
+    free(cache->pg_buf);
     return -1;
 }
 
-static void map_flush_cache (struct map_cache *cache, uint8_t full)
-{
+static void map_flush_cache(struct map_cache *cache, uint8_t full) {
     /* TODO: Persist all pages */
 }
 
-static void map_flush_all_caches (void)
-{
+static void map_flush_all_caches(void) {
     uint32_t cache_i = MAP_N_CACHES;
 
     while (cache_i) {
         cache_i--;
-        map_flush_cache (&map_caches[cache_i], 0);
+        map_flush_cache(&map_caches[cache_i], 0);
     }
 }
 
-static void map_exit_cache (struct map_cache *cache)
-{
+static void map_exit_cache(struct map_cache *cache) {
     struct map_cache_entry *ent;
 
-    map_flush_cache (cache, 1);
+    map_flush_cache(cache, 1);
 
     while (!(LIST_EMPTY(&cache->mbf_head))) {
         ent = LIST_FIRST(&cache->mbf_head);
         if (ent != NULL) {
             LIST_REMOVE(ent, f_entry);
             cache->nfree--;
-            free (ent->buf);
+            free(ent->buf);
         }
     }
 
-    pthread_spin_destroy (&cache->mb_spin);
-    pthread_mutex_destroy (&cache->mutex);
-    free (cache->pg_buf);
+    pthread_spin_destroy(&cache->mb_spin);
+    pthread_mutex_destroy(&cache->mutex);
+    free(cache->pg_buf);
 }
 
-static void map_exit_all_caches (void)
-{
+static void map_exit_all_caches(void) {
     uint32_t cache_i = MAP_N_CACHES;
 
     while (cache_i) {
         cache_i--;
-        map_exit_cache (&map_caches[cache_i]);
+        map_exit_cache(&map_caches[cache_i]);
     }
 }
 
-static int map_init (void)
-{
+static int map_init(void) {
+    struct xztl_core *core;
+    get_xztl_core(&core);
     uint32_t cache_i;
-
-    map_caches = calloc (sizeof (struct map_cache), MAP_N_CACHES);
+    map_caches = calloc(sizeof (struct map_cache), MAP_N_CACHES);
     if (!map_caches)
         return -1;
 
-    map_pg_sz      = (ZTL_MPE_PG_SEC * core.media->geo.nbytes);
+    map_pg_sz      = (ZTL_MPE_PG_SEC * core->media->geo.nbytes);
     map_ent_per_pg = map_pg_sz / sizeof (struct app_map_entry);
 
     for (cache_i = 0; cache_i < MAP_N_CACHES; cache_i++) {
 
-        if (map_init_cache (&map_caches[cache_i]))
+        if (map_init_cache(&map_caches[cache_i]))
             goto EXIT_CACHES;
 
         map_caches[cache_i].id = cache_i;
@@ -292,26 +282,24 @@ static int map_init (void)
     return 0;
 
 EXIT_CACHES:
-    while (cache_i) {
+   /* while (cache_i) {
         cache_i--;
-        map_exit_cache (&map_caches[cache_i]);
-    }
-    free (map_caches);
+        map_exit_cache(&map_caches[cache_i]);
+    } */
+    free(map_caches);
 
     return -1;
 }
 
-static void map_exit (void)
-{
-    map_exit_all_caches ();
+static void map_exit(void) {
+    map_exit_all_caches();
 
-    free (map_caches);
+    free(map_caches);
 
     log_info("ztl-map: Global Mapping stopped.");
 }
 
-static struct map_cache_entry *map_get_cache_entry (uint64_t id)
-{
+static struct map_cache_entry *map_get_cache_entry(uint64_t id) {
     uint32_t cache_id, pg_off;
     uint64_t first_pg_lba;
     struct map_md_addr *md_ent;
@@ -321,12 +309,12 @@ static struct map_cache_entry *map_get_cache_entry (uint64_t id)
     cache_id = id % MAP_N_CACHES;
     pg_off   = id / map_ent_per_pg;
 
-    ZDEBUG (ZDEBUG_MAP, "ztl-map: get cache. ID: %lu, off %d.", id, pg_off);
+    ZDEBUG(ZDEBUG_MAP, "ztl-map: get cache. ID: %lu, off %d.", id, pg_off);
 
-    md_ent = ztl()->mpe->get_fn (pg_off);
+    md_ent = ztl()->mpe->get_fn(pg_off);
     if (!md_ent) {
-        log_erra ("ztl-map: Map MD page out of bounds. ID: %lu, off %d",
-								id, pg_off);
+        log_erra("ztl-map: Map MD page out of bounds. ID: %lu, off %d",
+                                id, pg_off);
         return NULL;
     }
 
@@ -334,16 +322,16 @@ static struct map_cache_entry *map_get_cache_entry (uint64_t id)
 
     /* If the ADDR flag is zero, the mapping page is not cached yet */
     /* There is a mutex per metadata page */
-    pthread_mutex_lock (&ztl()->smap.entry_mutex[pg_off]);
+    pthread_mutex_lock(&ztl()->smap.entry_mutex[pg_off]);
     if (!addr->g.flag) {
 
         first_pg_lba = (id / map_ent_per_pg) * map_ent_per_pg;
 
-        if (map_load_pg_cache (&map_caches[cache_id], md_ent, first_pg_lba,
+        if (map_load_pg_cache(&map_caches[cache_id], md_ent, first_pg_lba,
                                                                      pg_off)) {
-            pthread_mutex_unlock (&ztl()->smap.entry_mutex[pg_off]);
-            log_erra ("ztl-map: Mapping page not loaded cache %d, pg_off %d\n",
-								cache_id, pg_off);
+            pthread_mutex_unlock(&ztl()->smap.entry_mutex[pg_off]);
+            log_erra("ztl-map: Mapping page not loaded cache %d, pg_off %d\n",
+                            cache_id, pg_off);
             return NULL;
         }
 
@@ -353,14 +341,13 @@ static struct map_cache_entry *map_get_cache_entry (uint64_t id)
 
         /* Keep cache entry as hot, in the tail of the queue */
         if (!cp_running) {
-            pthread_spin_lock (&map_caches[cache_id].mb_spin);
+            pthread_spin_lock(&map_caches[cache_id].mb_spin);
             TAILQ_REMOVE(&map_caches[cache_id].mbu_head, cache_ent, u_entry);
             TAILQ_INSERT_TAIL(&map_caches[cache_id].mbu_head, cache_ent, u_entry);
-            pthread_spin_unlock (&map_caches[cache_id].mb_spin);
+            pthread_spin_unlock(&map_caches[cache_id].mb_spin);
         }
-
     }
-    pthread_mutex_unlock (&ztl()->smap.entry_mutex[pg_off]);
+    pthread_mutex_unlock(&ztl()->smap.entry_mutex[pg_off]);
 
     /* At this point, the ADDR only points to the cache */
     if (cache_ent == NULL)
@@ -369,28 +356,26 @@ static struct map_cache_entry *map_get_cache_entry (uint64_t id)
     return cache_ent;
 }
 
-static int map_upsert_md (uint64_t index, uint64_t new_addr, uint64_t old_addr)
-{
+static int map_upsert_md(uint64_t index, uint64_t new_addr, uint64_t old_addr) {
     return 0;
 }
 
-static int map_upsert (uint64_t id, uint64_t val, uint64_t *old,
-                                                        uint64_t old_caller)
-{
+static int map_upsert(uint64_t id, uint64_t val, uint64_t *old,
+                                                        uint64_t old_caller) {
     uint32_t ent_off;
     struct app_map_entry *map_ent;
     struct map_cache_entry *cache_ent;
 
     ent_off = id % map_ent_per_pg;
     if (ent_off >= map_ent_per_pg) {
-        log_erra ("ztl-map: upsert. Entry offset out of bounds. ID %lu, off %d",
-								id, ent_off);
+        log_erra("ztl-map: upsert. Entry offset out of bounds. ID %lu, off %d",
+                                            id, ent_off);
         return -1;
     }
 
-    ZDEBUG (ZDEBUG_MAP, "ztl-map: upsert. ID: %lu, off %d.", id, ent_off);
+    ZDEBUG(ZDEBUG_MAP, "ztl-map: upsert. ID: %lu, off %d.", id, ent_off);
 
-    cache_ent = map_get_cache_entry (id);
+    cache_ent = map_get_cache_entry(id);
     if (!cache_ent)
         return -1;
 
@@ -406,19 +391,18 @@ static int map_upsert (uint64_t id, uint64_t val, uint64_t *old,
         return 1;
     }
 
-    xztl_atomic_int64_update (&map_ent->addr, val);
+    xztl_atomic_int64_update(&map_ent->addr, val);
 
     /* Uncomment this line if we implement recovery at the ZTL */
-    //cache_ent->dirty = 1;
+    // cache_ent->dirty = 1;
 
-    ZDEBUG (ZDEBUG_MAP, "  upsert succeed: ID: %lu, val: (0x%lx/%d/%d)",
+    ZDEBUG(ZDEBUG_MAP, "  upsert succeed: ID: %lu, val: (0x%lx/%d/%d)",
 	    id, (uint64_t) map_ent->g.offset, map_ent->g.nsec, map_ent->g.multi);
 
     return 0;
 }
 
-static uint64_t map_read (uint64_t id)
-{
+static uint64_t map_read(uint64_t id) {
     struct map_cache_entry *cache_ent;
     struct app_map_entry *map_ent;
     uint32_t ent_off;
@@ -426,13 +410,13 @@ static uint64_t map_read (uint64_t id)
 
     ent_off = id % map_ent_per_pg;
     if (ent_off >= map_ent_per_pg) {
-        log_erra ("ztl-map: read. Entry offset out of bounds. ID %lu", id);
+        log_erra("ztl-map: read. Entry offset out of bounds. ID %lu", id);
         return AND64;
     }
 
-    ZDEBUG (ZDEBUG_MAP, "ztl-map: read. ID: %lu, off %d.", id, ent_off);
+    ZDEBUG(ZDEBUG_MAP, "ztl-map: read. ID: %lu, off %d.", id, ent_off);
 
-    cache_ent = map_get_cache_entry (id);
+    cache_ent = map_get_cache_entry(id);
     if (!cache_ent)
         return AND64;
 
@@ -440,8 +424,8 @@ static uint64_t map_read (uint64_t id)
 
     ret = map_ent->g.offset;
 
-    ZDEBUG (ZDEBUG_MAP, "  read succeed: ID: %lu, val (0x%lx/%d/%d)",
-	    id, (uint64_t) map_ent->g.offset, map_ent->g.nsec, map_ent->g.multi);
+    ZDEBUG(ZDEBUG_MAP, "  read succeed: ID: %lu, val (0x%lx/%d/%d)",
+          id, (uint64_t) map_ent->g.offset, map_ent->g.nsec, map_ent->g.multi);
 
     return ret;
 }
@@ -457,6 +441,6 @@ static struct app_map_mod libztl_map = {
     .read_fn        = map_read
 };
 
-void ztl_map_register (void) {
-    ztl_mod_register (ZTLMOD_MAP, LIBZTL_MAP, &libztl_map);
+void ztl_map_register(void) {
+    ztl_mod_register(ZTLMOD_MAP, LIBZTL_MAP, &libztl_map);
 }
