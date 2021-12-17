@@ -17,54 +17,54 @@
  * limitations under the License.
 */
 
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <xztl.h>
 #include <xztl-ztl.h>
+#include <xztl.h>
 
 // extern uint16_t app_ngrps;
 static int ztl_zmd_create(struct app_group *grp) {
-    uint64_t zn_i;
+    uint64_t              zn_i;
     struct app_zmd_entry *zn;
-    struct app_zmd *zmd = &grp->zmd;
-    struct xztl_mgeo *g;
-    struct xztl_core *core;
+    struct app_zmd *      zmd = &grp->zmd;
+    struct xztl_mgeo *    g;
+    struct xztl_core *    core;
     get_xztl_core(&core);
     g = &core->media->geo;
 
     for (zn_i = 0; zn_i < zmd->entries; zn_i++) {
-        zn = ((struct app_zmd_entry *) zmd->tbl) + zn_i;
-        memset (zn, 0x0, sizeof (struct app_zmd_entry));
+        zn = ((struct app_zmd_entry *)zmd->tbl) + zn_i;
+        memset(zn, 0x0, sizeof(struct app_zmd_entry));
         zn->addr.addr   = 0;
         zn->addr.g.grp  = grp->id;
         zn->addr.g.zone = zn_i;
         zn->addr.g.sect = (g->sec_grp * grp->id) + (g->sec_zn * zn_i);
 
         zn->flags |= XZTL_ZMD_AVLB;
-        zn->level = 0;
-        zn->npieces = 0;
-        zn->ndeletes = 0;
+        zn->level         = 0;
+        zn->npieces       = 0;
+        zn->ndeletes      = 0;
         zn->wptr_inflight = zn->wptr = zn->addr.g.sect;
     }
 
-    return 0;
+    return XZTL_OK;
 }
 
 static int ztl_zmd_load_report(struct app_group *grp) {
     struct xztl_core *core;
     get_xztl_core(&core);
     struct xztl_zn_mcmd cmd;
-    int ret;
+    int                 ret;
 
-    cmd.opcode = XZTL_ZONE_MGMT_REPORT;
+    cmd.opcode      = XZTL_ZONE_MGMT_REPORT;
     cmd.addr.g.grp  = grp->id;
     cmd.addr.g.zone = core->media->geo.zn_grp * grp->id * 1UL;
-    cmd.nzones = core->media->geo.zn_grp;
+    cmd.nzones      = core->media->geo.zn_grp;
 
     ret = xztl_media_submit_zn(&cmd);
     if (!ret) {
-        grp->zmd.report = (struct znd_report *) cmd.opaque;
+        grp->zmd.report = (struct xnvme_znd_report *)cmd.opaque;
     }
 
     if (ret) {
@@ -81,16 +81,16 @@ static int ztl_zmd_load(struct app_group *grp) {
     /* Set byte for table creation */
     grp->zmd.byte.magic = APP_MAGIC;
 
-    return 0;
+    return XZTL_OK;
 }
 
 static int ztl_zmd_flush(struct app_group *grp) {
-    return 0;
+    return XZTL_OK;
 }
 
-static struct app_zmd_entry *ztl_zmd_get(struct app_group *grp,
-                        uint64_t zone, uint8_t by_offset) {
-    struct app_zmd *zmd = &grp->zmd;
+static struct app_zmd_entry *ztl_zmd_get(struct app_group *grp, uint64_t zone,
+                                         uint8_t by_offset) {
+    struct app_zmd *  zmd = &grp->zmd;
     struct xztl_core *core;
     get_xztl_core(&core);
 
@@ -100,26 +100,24 @@ static struct app_zmd_entry *ztl_zmd_get(struct app_group *grp,
     if (by_offset)
         zone = zone / core->media->geo.sec_zn;
 
-    return ((struct app_zmd_entry *) zmd->tbl) + zone;
+    return ((struct app_zmd_entry *)zmd->tbl) + zone;
 }
 
 static void ztl_zmd_mark(struct app_group *grp, uint64_t index) {
 }
 
-static void ztl_zmd_invalidate(struct app_group *grp,
-                                        struct xztl_maddr *addr, uint8_t full) {
+static void ztl_zmd_invalidate(struct app_group *grp, struct xztl_maddr *addr,
+                               uint8_t full) {
 }
 
-static struct app_zmd_mod ztl_zmd = {
-    .mod_id         = LIBZTL_ZMD,
-    .name           = "LIBZTL-ZMD",
-    .create_fn      = ztl_zmd_create,
-    .flush_fn       = ztl_zmd_flush,
-    .load_fn        = ztl_zmd_load,
-    .get_fn         = ztl_zmd_get,
-    .invalidate_fn  = ztl_zmd_invalidate,
-    .mark_fn        = ztl_zmd_mark
-};
+static struct app_zmd_mod ztl_zmd = {.mod_id        = LIBZTL_ZMD,
+                                     .name          = "LIBZTL-ZMD",
+                                     .create_fn     = ztl_zmd_create,
+                                     .flush_fn      = ztl_zmd_flush,
+                                     .load_fn       = ztl_zmd_load,
+                                     .get_fn        = ztl_zmd_get,
+                                     .invalidate_fn = ztl_zmd_invalidate,
+                                     .mark_fn       = ztl_zmd_mark};
 
 void ztl_zmd_register(void) {
     ztl_mod_register(ZTLMOD_ZMD, LIBZTL_ZMD, &ztl_zmd);

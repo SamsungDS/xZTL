@@ -18,41 +18,53 @@
 */
 
 #include <omp.h>
+#include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <libzrocks.h>
 #include <xztl.h>
+#include <libzrocks.h>
+
+
 #include "CUnit/Basic.h"
 
 /* Write Buffer Size */
-#define WRITE_TBUFFER_SZ (1024 * 1024 * 2) // 2 MB
+#define WRITE_TBUFFER_SZ (1024 * 1024 * 2)  // 2 MB
 
 /* Number of buffers to write */
-#define WRITE_COUNT      (1024 * 2) // 4GB
+#define WRITE_COUNT (1024 * 2)  // 4GB
 
 /* Parallel reads */
-#define READ_NTHREADS    16
+#define READ_NTHREADS 64
 
 /* Sector to read per zone */
-#define READ_ZONE_SEC    (1024 * 16)
+#define READ_ZONE_SEC (1024 * 16)
 
 /* Size of each read command */
-#define READ_SZ        (16 * ZNS_ALIGMENT)
+#define READ_SZ (16 * ZNS_ALIGMENT * 8)
 
 /* Read Iterations */
-#define READ_ITERATIONS  16
+#define READ_ITERATIONS 16
+#define WRITE_NTHREADS  64
 
 static const char **devname;
 
 static uint64_t buffer_sz = WRITE_TBUFFER_SZ;
 static uint64_t nwrites   = WRITE_COUNT;
-static uint64_t nthreads  = READ_NTHREADS;
+static uint32_t nthreads  = READ_NTHREADS;
+static int32_t *nodes     = NULL;
 
-static struct zrocks_map **map = NULL;
-static uint16_t *pieces = NULL;
+struct tparams {
+    void *   buf;
+    size_t   size;
+    int32_t *node_id;
+    int      xztl_tid;
+    int      waiting;
+};
+
+static struct tparams th_param[WRITE_NTHREADS];
 
 static void cunit_zrocksrw_assert_ptr(char *fn, void *ptr) {
-    CU_ASSERT((uint64_t) ptr != 0);
+    CU_ASSERT((uint64_t)ptr != 0);
     if (!ptr)
         printf("\n %s: ptr %p\n", fn, ptr);
 }
@@ -84,7 +96,7 @@ static void test_zrocksrw_exit(void) {
 
 static void test_zrockswr_fill_buffer(void *buf) {
     uint32_t byte;
-    uint8_t value = 0x1;
+    uint8_t  value = 0x1;
 
     for (byte = 0; byte < buffer_sz; byte += 16) {
         value += 0x1;
@@ -92,18 +104,41 @@ static void test_zrockswr_fill_buffer(void *buf) {
     }
 }
 
+static void *test_write_th(int th_i) {
+    int ret, i;
+    int strip = 8;
+
+    printf("\rStart... th:%d \r\n", th_i);
+    for (i = 0; i < nwrites; i++) {
+        ret = zrocks_write(th_param[th_i].buf, th_param[th_i].size,
+                           th_param[th_i].node_id, th_param[th_i].xztl_tid);
+        cunit_zrocksrw_assert_int("zrocksrw_write:write", ret);
+
+        if ((i + 1) * th_param[th_i].size >= (strip * 96 * 1024 * 1024)) {
+            zrocks_node_finish(*th_param[th_i].node_id);
+            *th_param[th_i].node_id = -1;
+        }
+    }
+    // printf("\rWriting... th:%d  node:%d\r\n", th_i, *th_param[th_i].node_id);
+
+    th_param[th_i].waiting = 0;
+    zrocksk_put_resource(th_param[th_i].xztl_tid);
+    return NULL;
+}
+
 static void test_zrocksrw_write(void) {
     if (nthreads == 0) {
         return;
     }
-    void *buf[nthreads];
-    int bufi, th_i;
+    void *    buf[nthreads];
+    int       bufi, th_i, ret;
+    pthread_t thread_id[nthreads];
 
     struct timespec ts_s;
     struct timespec ts_e;
-    uint64_t start_ns;
-    uint64_t end_ns;
-    double seconds, mb;
+    uint64_t        start_ns;
+    uint64_t        end_ns;
+    double          seconds, mb;
 
     for (bufi = 0; bufi < nthreads; bufi++) {
         buf[bufi] = zrocks_alloc(buffer_sz);
@@ -115,20 +150,35 @@ static void test_zrocksrw_write(void) {
     }
 
     GET_NANOSECONDS(start_ns, ts_s);
-
     printf("\n");
-    for (th_i = 0; th_i < nwrites; th_i++) {
-        int ret;
+    for (th_i = 0; th_i < nthreads; th_i++) {
+        th_param[th_i].buf      = buf[th_i];
+        th_param[th_i].size     = buffer_sz;
+        th_param[th_i].waiting  = 1;
+        th_param[th_i].node_id  = &nodes[th_i];
+        th_param[th_i].xztl_tid = zrocks_get_resource();
 
-        ret = zrocks_write(buf[th_i % nthreads], buffer_sz, 0, &map[th_i], &pieces[th_i]);
-
-        printf("\rWriting... %d/%lu", th_i, nwrites);
-        cunit_zrocksrw_assert_int("zrocksrw_write:write", ret);
+        ret = pthread_create(&thread_id[th_i], NULL, test_write_th,
+                             th_i);  // NOLINT
+        if (ret) {
+            printf("Thread %d NOT started.\n", th_i);
+        }
     }
 
+    /* Wait until all threads complete */
+    do {
+        usleep(10);
+        int left = 0;
+
+        for (int tid = 0; tid < nthreads; tid++) left += th_param[tid].waiting;
+
+        if (!left)
+            break;
+    } while (1);
+
     GET_NANOSECONDS(end_ns, ts_e);
-    seconds = (double) (end_ns - start_ns) / (double) 1000000000; // NOLINT
-    mb = ( (double) nwrites * (double) buffer_sz ) / (double) 1024 / (double) 1024; // NOLINT
+    seconds = (double)(end_ns - start_ns) / (double)1000000000;  // NOLINT
+    mb = ((double)nwrites * (double)nthreads * (double)buffer_sz) / (double)1024 / (double)1024;  // NOLINT
 
     printf("\n");
     printf("Written data: %.2lf MB\n", mb);
@@ -142,60 +192,171 @@ FREE:
     }
 }
 
+static void *test_read_th(int th_i) {
+    int      ret;
+    uint64_t offset;
+
+    for (int j = 0; j < nwrites; j++) {
+        offset = 0;
+        for (int i = 0; i < buffer_sz / th_param[th_i].size; i++) {
+            ret =
+                zrocks_read(*th_param[th_i].node_id, offset, th_param[th_i].buf,
+                            th_param[th_i].size, th_param[th_i].xztl_tid);
+            cunit_zrocksrw_assert_int("zrocks_read:read", ret);
+            offset += th_param[th_i].size;
+        }
+    }
+
+    // printf("\rReading... th:%d  node:%d\r\n", th_i, *th_param[th_i].node_id);
+    th_param[th_i].waiting = 0;
+    zrocksk_put_resource(th_param[th_i].xztl_tid);
+    return NULL;
+}
+
 static void test_zrocksrw_read(void) {
-    void *buf[nthreads];
-    uint64_t bufi, th_i, it;
+    void *    buf[nthreads];
+    uint64_t  bufi, th_i, it;
+    pthread_t thread_id[nthreads];
 
     struct timespec ts_s;
     struct timespec ts_e;
-    uint64_t start_ns;
-    uint64_t end_ns;
-    uint64_t read_gl[nthreads];
-    double seconds, mb;
+    uint64_t        start_ns;
+    uint64_t        end_ns;
+    uint64_t        read_gl[nthreads];
+    double          seconds, mb;
+
+    size_t data_buff = (4 * 1024) * 128;
 
     for (bufi = 0; bufi < nthreads; bufi++) {
-        buf[bufi] = zrocks_alloc((uint64_t) READ_ZONE_SEC * (uint64_t) ZNS_ALIGMENT);
+        buf[bufi] = zrocks_alloc(data_buff);
         cunit_zrocksrw_assert_ptr("zrocksrw_read:alloc", buf[bufi]);
         if (!buf[bufi])
             goto FREE;
     }
 
-    memset (read_gl, 0x0, sizeof(uint64_t) * nthreads);
+    memset(read_gl, 0x0, sizeof(uint64_t) * nthreads);
     GET_NANOSECONDS(start_ns, ts_s);
 
     printf("\n");
-
-    #pragma omp parallel for num_threads(nthreads)
+    int ret;
     for (th_i = 0; th_i < nthreads; th_i++) {
+        th_param[th_i].buf      = buf[th_i];
+        th_param[th_i].size     = data_buff;
+        th_param[th_i].waiting  = 1;
+        th_param[th_i].node_id  = &nodes[th_i];
+        th_param[th_i].xztl_tid = zrocks_get_resource();
 
-        for (it = 0; it < READ_ITERATIONS; it++) {
-            int ret;
-            uint64_t offset, size, read;
-
-            size = (uint64_t) READ_ZONE_SEC * (uint64_t) ZNS_ALIGMENT;
-            offset = th_i * size;
-            read = 0;
-
-            while (size) {
-                ret = zrocks_read(offset, (char *) buf[th_i] + read, READ_SZ); // NOLINT
-                cunit_zrocksrw_assert_int("zrocksrw_read:read", ret);
-
-                offset += READ_SZ;
-                read += READ_SZ;
-                read_gl[th_i] += READ_SZ;
-                size -= READ_SZ;
-            }
+        ret = pthread_create(&thread_id[th_i], NULL, test_read_th,
+                             th_i);  // NOLINT
+        if (ret) {
+            printf("Thread %d NOT started.\n", th_i);
         }
     }
 
+    /* Wait until all threads complete */
+    do {
+        usleep(10);
+        int left = 0;
+
+        for (int tid = 0; tid < nthreads; tid++) left += th_param[tid].waiting;
+
+        if (!left)
+            break;
+    } while (1);
+
     GET_NANOSECONDS(end_ns, ts_e);
-    seconds = (double) (end_ns - start_ns) / (double) 1000000000; // NOLINT
+    seconds = (double)(end_ns - start_ns) / (double)1000000000;  // NOLINT
+    mb = ((double)nwrites * (double)nthreads * (double)buffer_sz) / (double)1024 / (double)1024;  // NOLINT
 
-    mb = 0;
-    for (th_i = 0; th_i < nthreads; th_i++)
-        mb += read_gl[th_i];
+    printf("\n");
+    printf("Read data: %.2lf MB\n", mb);
+    printf("Elapsed time: %.4lf sec\n", seconds);
+    printf("Bandwidth: %.4lf MB/s\n", mb / seconds);
 
-    mb = mb / (double) 1024 / (double) 1024; // NOLINT
+FREE:
+    while (bufi) {
+        bufi--;
+        zrocks_free(buf[bufi]);
+    }
+}
+
+static void *test_random_read_th(int th_i) {
+    int      ret;
+    uint64_t offset        = 0;
+    size_t   size          = 4096;
+    uint64_t readtime      = nwrites * 512;
+    uint64_t totalwritesec = buffer_sz * nwrites / size;
+    uint64_t randoffidx    = rand() % totalwritesec;
+    // printf("\rStart... th:%d \r\n", th_i);
+    for (int i = 0; i < readtime; i++) {
+        randoffidx = rand() % totalwritesec;
+        offset     = (randoffidx * size);
+
+        ret = zrocks_read(*th_param[th_i].node_id, offset, th_param[th_i].buf,
+                          size, th_param[th_i].xztl_tid);
+        cunit_zrocksrw_assert_int("zrocks_read:read", ret);
+    }
+    zrocksk_put_resource(th_param[th_i].xztl_tid);
+    th_param[th_i].waiting = 0;
+    return NULL;
+}
+
+static void test_zrocksrw_random_read(void) {
+    void *    buf[nthreads];
+    uint64_t  bufi, th_i, it;
+    pthread_t thread_id[nthreads];
+
+    struct timespec ts_s;
+    struct timespec ts_e;
+    uint64_t        start_ns;
+    uint64_t        end_ns;
+    uint64_t        read_gl[nthreads];
+    double          seconds, mb;
+
+    size_t data_buff = (1 * 1024 * 1024);
+
+    for (bufi = 0; bufi < nthreads; bufi++) {
+        buf[bufi] = zrocks_alloc(data_buff);
+        cunit_zrocksrw_assert_ptr("zrocksrw_read:alloc", buf[bufi]);
+        if (!buf[bufi])
+            goto FREE;
+    }
+
+    memset(read_gl, 0x0, sizeof(uint64_t) * nthreads);
+    GET_NANOSECONDS(start_ns, ts_s);
+
+    printf("\n");
+    int ret;
+    for (th_i = 0; th_i < nthreads; th_i++) {
+        th_param[th_i].buf     = buf[th_i];
+        th_param[th_i].size    = data_buff;
+        th_param[th_i].waiting = 1;
+        // int a = *th_param[nthreads - 1].node_id + 1;
+        // *th_param[th_i].node_id = th_i;
+        *th_param[th_i].node_id = nodes[th_i];
+        th_param[th_i].xztl_tid = zrocks_get_resource();
+
+        ret = pthread_create(&thread_id[th_i], NULL, test_random_read_th,
+                             th_i);  // NOLINT
+        if (ret) {
+            printf("Thread %d NOT started.\n", th_i);
+        }
+    }
+
+    /* Wait until all threads complete */
+    do {
+        usleep(10);
+        int left = 0;
+
+        for (int tid = 0; tid < nthreads; tid++) left += th_param[tid].waiting;
+
+        if (!left)
+            break;
+    } while (1);
+
+    GET_NANOSECONDS(end_ns, ts_e);
+    seconds = (double)(end_ns - start_ns) / (double)1000000000;  // NOLINT
+    mb = ((double)(nwrites * 512) * (double)nthreads * (double)4096) / (double)1024 / (double)1024;  // NOLINT
 
     printf("\n");
     printf("Read data: %.2lf MB\n", mb);
@@ -218,10 +379,12 @@ uint64_t atoull(const char *args) {
 }
 int main(int argc, const char **argv) {
     int failed = 1;
+    uint64_t bsize = 0;
 
     if (argc < 2 || !memcmp(argv[1], "--help\0", strlen(argv[1]))) {
-        printf(" Usage: zrocks-test-rw <DEV_PATH> <NUM_THREADS> "
-                         "<BUFFER_SIZE_IN_MB> <NUM_OF_BUFFERS>\n");
+        printf(
+            " Usage: zrocks-test-rw <DEV_PATH> <NUM_THREADS> "
+            "<BUFFER_SIZE_IN_MB> <NUM_OF_BUFFERS>\n");
         printf("\n   e.g.: test-zrocks-rw liou:/dev/nvme0n2 8 2 1024\n");
         printf("         This command uses 8 threads to read data and\n");
         printf("         writes 2 GB to the device\n");
@@ -230,20 +393,36 @@ int main(int argc, const char **argv) {
 
     if (argc >= 3) {
         nthreads = 1UL * atoi(argv[2]);
+        if (nthreads > 1024) {
+            printf("Error: thread number exceed 1024.");
+            return failed;
+        }
     }
 
     if (argc >= 5) {
-        buffer_sz = (1024 * 1024) * atoull(argv[3]);
-        nwrites = 1UL * atoi(argv[4]);
+        bsize = atoull(argv[3]);
+        if (bsize > 256) {
+            printf("Error: user buffer exceed 256M.");
+            return failed;
+        }
+
+        buffer_sz = (1024 * 1024) * bsize;
+        nwrites   = 1UL * atoi(argv[4]);
     }
 
-    map = NULL;
-    pieces = NULL;
     if (nwrites <= 0) {
         return failed;
     }
-    map = malloc(sizeof(struct zrocks_map *) * nwrites);
-    pieces = malloc(sizeof(uint16_t) * nwrites);
+
+    nodes = (int32_t *)(malloc(sizeof(int32_t) * nthreads)); // NOLINT
+    if (!nodes) {
+        printf("Error: no remain mem.");
+        return failed;
+    }
+
+    for (uint32_t node_i = 0; node_i < nthreads; node_i++) {
+        nodes[node_i] = -1;
+    }
 
     devname = &argv[1];
     printf("Device: %s\n", *devname);
@@ -253,23 +432,20 @@ int main(int argc, const char **argv) {
     if (CUE_SUCCESS != CU_initialize_registry())
         goto FREE;
 
-    if (!map || !pieces)
-        goto FREE;
-
-    pSuite = CU_add_suite("Suite_zrocks_rw", cunit_zrocksrw_init, cunit_zrocksrw_exit);
+    pSuite = CU_add_suite("Suite_zrocks_rw", cunit_zrocksrw_init,
+                          cunit_zrocksrw_exit);
     if (pSuite == NULL) {
         CU_cleanup_registry();
         goto FREE;
     }
 
-    if ((CU_add_test(pSuite, "Initialize ZRocks",
-              test_zrocksrw_init) == NULL) ||
-        (CU_add_test(pSuite, "Write Bandwidth",
-              test_zrocksrw_write) == NULL) ||
-        (CU_add_test(pSuite, "Read Bandwidth",
-              test_zrocksrw_read) == NULL) ||
-        (CU_add_test(pSuite, "Close ZRocks",
-              test_zrocksrw_exit) == NULL)) {
+    if ((CU_add_test(pSuite, "Initialize ZRocks", test_zrocksrw_init) ==
+         NULL) ||
+        (CU_add_test(pSuite, "Write Bandwidth", test_zrocksrw_write) == NULL) ||
+        (CU_add_test(pSuite, "Read Bandwidth", test_zrocksrw_read) == NULL) ||
+        (CU_add_test(pSuite, "Random Read Bandwidth",
+                     test_zrocksrw_random_read) == NULL) ||
+        (CU_add_test(pSuite, "Close ZRocks", test_zrocksrw_exit) == NULL)) {
         failed = 1;
         CU_cleanup_registry();
         goto FREE;
@@ -280,9 +456,6 @@ int main(int argc, const char **argv) {
 
     failed = CU_get_number_of_tests_failed();
     CU_cleanup_registry();
-
 FREE:
-    if (map) free(map);
-    if (pieces) free(pieces);
     return failed;
 }

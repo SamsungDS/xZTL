@@ -17,20 +17,20 @@
  * limitations under the License.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/queue.h>
+#include <libxnvme.h>
+#include <libxnvme_znd.h>
 #include <pthread.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <libznd.h>
-#include <libxnvme.h>
-#include <xztl.h>
+#include <sys/queue.h>
 #include <xztl-media.h>
 #include <xztl-ztl.h>
+#include <xztl.h>
 
-
-static LIST_HEAD(app_grp, app_group) app_grp_head = LIST_HEAD_INITIALIZER(app_grp_head);
+static LIST_HEAD(app_grp,
+                 app_group) app_grp_head = LIST_HEAD_INITIALIZER(app_grp_head);
 
 static struct app_group *groups_get(uint16_t grp_id) {
     struct app_group *grp;
@@ -44,8 +44,8 @@ static struct app_group *groups_get(uint16_t grp_id) {
 }
 
 static int groups_get_list(struct app_group **list, uint16_t ngrp) {
-    int n = 0;
-    int i = ngrp - 1;
+    int               n = 0;
+    int               i = ngrp - 1;
     struct app_group *grp;
 
     LIST_FOREACH(grp, &app_grp_head, entry) {
@@ -62,29 +62,27 @@ static int groups_get_list(struct app_group **list, uint16_t ngrp) {
 static void groups_zmd_exit(void) {
     struct app_group *grp;
 
-
-
-        LIST_FOREACH(grp, &app_grp_head, entry) {
-            xnvme_buf_virt_free(grp->zmd.report);
-            free(grp->zmd.tbl);
-            log_infoa("ztl-group: Zone MD stopped. Grp: %d", grp->id);
+    LIST_FOREACH(grp, &app_grp_head, entry) {
+        xnvme_buf_virt_free(grp->zmd.report);
+        free(grp->zmd.tbl);
+        log_infoa("ztl-group: Zone MD stopped. Grp: %d", grp->id);
     }
 }
 
 static int groups_zmd_init(struct app_group *grp) {
-    struct app_zmd *zmd;
+    struct app_zmd *  zmd;
     struct xztl_mgeo *g;
-    int ret;
+    int               ret;
     struct xztl_core *core;
     get_xztl_core(&core);
     zmd = &grp->zmd;
-    g = &core->media->geo;
+    g   = &core->media->geo;
 
-    zmd->entry_sz   = sizeof (struct app_zmd_entry);
+    zmd->entry_sz   = sizeof(struct app_zmd_entry);
     zmd->ent_per_pg = g->nbytes / zmd->entry_sz;
     zmd->entries    = g->zn_grp;
 
-    zmd->tbl = calloc(zmd->entry_sz, g->zn_grp);
+    zmd->tbl = calloc(g->zn_grp, zmd->entry_sz);
     if (!zmd->tbl)
         return -1;
 
@@ -122,9 +120,9 @@ FREE:
 static void groups_free(void) {
     struct app_group *grp;
     while (!LIST_EMPTY(&app_grp_head)) {
-            grp = LIST_FIRST(&app_grp_head);
-            LIST_REMOVE(grp, entry);
-            free(grp);
+        grp = LIST_FIRST(&app_grp_head);
+        LIST_REMOVE(grp, entry);
+        free(grp);
     }
 }
 
@@ -142,7 +140,7 @@ static int groups_init(void) {
     uint16_t grp_i;
 
     for (grp_i = 0; grp_i < core->media->geo.ngrps; grp_i++) {
-        grp = calloc(sizeof (struct app_group), 1);
+        grp = calloc(1, sizeof(struct app_group));
         if (!grp) {
             log_err("ztl-groups: Memory allocation failed");
             return -1;
@@ -177,4 +175,3 @@ void ztl_grp_register(void) {
 
     LIST_INIT(&app_grp_head);
 }
-

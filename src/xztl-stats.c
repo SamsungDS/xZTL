@@ -17,9 +17,9 @@
  * limitations under the License.
 */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <xztl.h>
 
@@ -33,7 +33,7 @@ static struct xztl_stats_data xztl_stats;
 
 void xztl_stats_print_io(void) {
     uint64_t tot_b, tot_b_w, tot_b_r;
-    double wa;
+    double   wa;
 
     printf("\n User I/O commands\n");
     printf("   write  : %lu\n", xztl_stats.io[XZTL_STATS_APPEND_UCMD]);
@@ -46,51 +46,53 @@ void xztl_stats_print_io(void) {
 
     tot_b_r = xztl_stats.io[XZTL_STATS_READ_BYTES_U];
     tot_b_w = xztl_stats.io[XZTL_STATS_APPEND_BYTES_U];
-    tot_b = tot_b_w + tot_b_r;
+    tot_b   = tot_b_w + tot_b_r;
 
     wa = tot_b_w;
 
     printf("\n Data transferred (Application->ZTL): %.2f MB (%lu bytes)\n",
-                            tot_b / (double) 1048576, (uint64_t) tot_b); // NOLINT
+           tot_b / (double)1048576, (uint64_t)tot_b);  // NOLINT
     printf("   data written     : %10.2lf MB (%lu bytes)\n",
-                    (double) tot_b_w / (double) 1048576, (uint64_t) tot_b_w); // NOLINT
+           (double)tot_b_w / (double)1048576, (uint64_t)tot_b_w);  // NOLINT
     printf("   data read        : %10.2lf MB (%lu bytes)\n",
-                (double) tot_b_r / (double) 1048576, (uint64_t) tot_b_r); // NOLINT
+           (double)tot_b_r / (double)1048576, (uint64_t)tot_b_r);  // NOLINT
 
     tot_b_r = xztl_stats.io[XZTL_STATS_READ_BYTES];
     tot_b_w = xztl_stats.io[XZTL_STATS_APPEND_BYTES];
-    tot_b = tot_b_w + tot_b_r;
+    tot_b   = tot_b_w + tot_b_r;
 
-    wa = (double) tot_b_w / wa; // NOLINT
+    wa = (double)tot_b_w / wa;  // NOLINT
 
     printf("\n Data transferred (ZTL->Media): %.2f MB (%lu bytes)\n",
-                            tot_b / (double) 1048576, (uint64_t) tot_b); // NOLINT
+           tot_b / (double)1048576, (uint64_t)tot_b);  // NOLINT
     printf("   data written     : %10.2lf MB (%lu bytes)\n",
-                    (double) tot_b_w / (double) 1048576, (uint64_t) tot_b_w); // NOLINT
+           (double)tot_b_w / (double)1048576, (uint64_t)tot_b_w);  // NOLINT
     printf("   data read        : %10.2lf MB (%lu bytes)\n",
-                (double) tot_b_r / (double) 1048576, (uint64_t) tot_b_r); // NOLINT
+           (double)tot_b_r / (double)1048576, (uint64_t)tot_b_r);  // NOLINT
 
     printf("\n Write Amplification: %.6lf\n", wa);
 }
 
 void xztl_stats_print_io_simple(void) {
     uint64_t flush_w, app_w, padding_w;
-    FILE *fp;
+    FILE *   fp;
 
-    flush_w = xztl_stats.io[XZTL_STATS_APPEND_BYTES];
-    app_w = xztl_stats.io[XZTL_STATS_APPEND_BYTES_U];
+    flush_w   = xztl_stats.io[XZTL_STATS_APPEND_BYTES];
+    app_w     = xztl_stats.io[XZTL_STATS_APPEND_BYTES_U];
     padding_w = flush_w - app_w;
 
     printf("\nZTL Application Writes : %.2f MB (%lu bytes)\n",
-                                    app_w / (double) 1048576, app_w); // NOLINT
+           app_w / (double)1048576, app_w);  // NOLINT
     printf("ZTL Padding            : %.2f MB (%lu bytes)\n",
-                                    padding_w / (double) 1048576, padding_w); // NOLINT
+           padding_w / (double)1048576, padding_w);  // NOLINT
     printf("ZTL Total Writes       : %.2f MB (%lu bytes)\n",
-                                    flush_w / (double) 1048576, flush_w); // NOLINT
-    printf("ZTL write-amplification: %.6lf\n", (double) flush_w / (double) app_w); // NOLINT
-    printf("\nRecycled Zones: %lu (%.2f MB, %lu bytes)\n",
+           flush_w / (double)1048576, flush_w);  // NOLINT
+    printf("ZTL write-amplification: %.6lf\n",
+           (double)flush_w / (double)app_w);  // NOLINT
+    printf(
+        "\nRecycled Zones: %lu (%.2f MB, %lu bytes)\n",
         xztl_stats.io[XZTL_STATS_RECYCLED_ZONES],
-        xztl_stats.io[XZTL_STATS_RECYCLED_BYTES] / (double) 1048576, // NOLINT
+        xztl_stats.io[XZTL_STATS_RECYCLED_BYTES] / (double)1048576,  // NOLINT
         xztl_stats.io[XZTL_STATS_RECYCLED_BYTES]);
     printf("Zone Resets   : %lu\n", xztl_stats.io[XZTL_STATS_RESET_MCMD]);
     printf("\n");
@@ -108,11 +110,10 @@ void xztl_stats_print_io_simple(void) {
 }
 
 void xztl_stats_add_io(struct xztl_io_mcmd *cmd) {
-    uint32_t nsec = 0, type_b, type_c, i;
+    uint32_t          nsec = 0, type_b, type_c, i;
     struct xztl_core *core;
     get_xztl_core(&core);
-    for (i = 0; i < cmd->naddr; i++)
-        nsec += cmd->nsec[i];
+    for (i = 0; i < cmd->naddr; i++) nsec += cmd->nsec[i];
 
     switch (cmd->opcode) {
         case XZTL_ZONE_APPEND:
@@ -128,10 +129,10 @@ void xztl_stats_add_io(struct xztl_io_mcmd *cmd) {
             return;
     }
 
-    xztl_atomic_int64_update(&xztl_stats.io[type_c],
-                                        xztl_stats.io[type_c] + 1);
-    xztl_atomic_int64_update(&xztl_stats.io[type_b],
-                xztl_stats.io[type_b] + (nsec * core->media->geo.nbytes));
+    xztl_atomic_int64_update(&xztl_stats.io[type_c], xztl_stats.io[type_c] + 1);
+    xztl_atomic_int64_update(
+        &xztl_stats.io[type_b],
+        xztl_stats.io[type_b] + (nsec * core->media->geo.nbytes));
 
 #if XZTL_PROMETHEUS
     /* Prometheus */
@@ -140,14 +141,13 @@ void xztl_stats_add_io(struct xztl_io_mcmd *cmd) {
 }
 
 void xztl_stats_inc(uint32_t type, uint64_t val) {
-    xztl_atomic_int64_update(&xztl_stats.io[type],
-                                xztl_stats.io[type] + val);
+    xztl_atomic_int64_update(&xztl_stats.io[type], xztl_stats.io[type] + val);
 
 #if XZTL_PROMETHEUS
     /* Prometheus */
     if (type == XZTL_STATS_APPEND_BYTES_U) {
         xztl_prometheus_add_wa(xztl_stats.io[XZTL_STATS_APPEND_BYTES_U],
-                                xztl_stats.io[XZTL_STATS_APPEND_BYTES]);
+                               xztl_stats.io[XZTL_STATS_APPEND_BYTES]);
     }
 #endif
 }
@@ -166,7 +166,7 @@ void xztl_stats_exit(void) {
 }
 
 int xztl_stats_init(void) {
-    memset (xztl_stats.io, 0x0, sizeof(uint64_t) * XZTL_STATS_IO_TYPES);
+    memset(xztl_stats.io, 0x0, sizeof(uint64_t) * XZTL_STATS_IO_TYPES);
 
 #if XZTL_PROMETHEUS
     if (xztl_prometheus_init()) {

@@ -17,17 +17,18 @@
  * limitations under the License.
 */
 
-#include <ztl-media.h>
 #include <xztl.h>
-#include <xztl-ztl.h>
-#include <ztl.h>
 #include <libzrocks.h>
+#include <xztl-ztl.h>
+#include <ztl-media.h>
+#include <ztl.h>
+
 #include "CUnit/Basic.h"
 
 static const char **devname;
 
 static void cunit_ztl_assert_ptr(char *fn, void *ptr) {
-    CU_ASSERT((uint64_t) ptr != 0);
+    CU_ASSERT((uint64_t)ptr != 0);
     if (!ptr)
         printf("\n %s: ptr %p\n", fn, ptr);
 }
@@ -75,53 +76,9 @@ static void test_ztl_exit(void) {
     xztl_media_exit();
 }
 
-
-static void test_ztl_pro_new_free(void) {
-    struct app_pro_addr *proe[2];
-    struct app_zmd_entry *zmde;
-    uint32_t nsec = 128;
-    int i;
-
-    proe[0] = ztl()->pro->new_fn(nsec, ZTL_PRO_TUSER, 0);
-    cunit_ztl_assert_ptr("ztl()->pro->new_fn", proe[0]);
-    if (!proe[0])
-        return;
-
-    for (i = 0; i < proe[0]->naddr; i++) {
-        zmde = ztl()->zmd->get_fn(proe[0]->grp, proe[0]->addr[i].g.zone, 0);
-        cunit_ztl_assert_int_equal("ztl()->pro->new_fn:zmd:wptr_inflight",
-                zmde->wptr_inflight, zmde->wptr + proe[0]->nsec[i]);
-    }
-
-    ztl()->pro->free_fn(proe[0]);
-
-    proe[0] = NULL;
-
-    for (int i = 0; i < 2; i++) {
-        proe[i] = ztl()->pro->new_fn(nsec, ZTL_PRO_TUSER, 0);
-        cunit_ztl_assert_ptr("ztl()->pro->new_fn", proe[i]);
-    }
-
-    ztl()->pro->free_fn(proe[1]);
-    proe[1] = NULL;
-
-    proe[1] = ztl()->pro->new_fn(nsec, ZTL_PRO_TUSER, 0);
-    cunit_ztl_assert_ptr("ztl()->pro->new_fn", proe[1]);
-
-    ztl()->pro->free_fn(proe[0]);
-    ztl()->pro->free_fn(proe[1]);
-    proe[0] = NULL;
-    proe[1] = NULL;
-
-    proe[0] = ztl()->pro->new_fn(nsec, ZTL_PRO_TUSER, 0);
-    cunit_ztl_assert_ptr("ztl()->pro->new_fn", proe[0]);
-
-    ztl()->pro->free_fn(proe[0]);
-}
-
 static void test_ztl_map_upsert_read(void) {
     uint64_t id, val, count, interval, old;
-    int ret;
+    int      ret;
 
     count    = 256 * ZNS_ALIGMENT - 1;
     interval = 1;
@@ -136,7 +93,7 @@ static void test_ztl_map_upsert_read(void) {
         cunit_ztl_assert_int_equal("ztl()->map->read", val, id * interval);
     }
 
-    id = 456;
+    id  = 456;
     val = 457;
     old = 0;
 
@@ -177,14 +134,10 @@ int main(int argc, const char **argv) {
         return CU_get_error();
     }
 
-    if ((CU_add_test(pSuite, "Initialize ZTL",
-              test_ztl_init) == NULL) ||
-        (CU_add_test(pSuite, "New/Free prov offset",
-              test_ztl_pro_new_free ) == NULL) ||
-        (CU_add_test(pSuite, "Upsert/Read mapping",
-              test_ztl_map_upsert_read ) == NULL) ||
-        (CU_add_test(pSuite, "Close ZTL",
-              test_ztl_exit) == NULL)) {
+    if ((CU_add_test(pSuite, "Initialize ZTL", test_ztl_init) == NULL) ||
+        (CU_add_test(pSuite, "Upsert/Read mapping", test_ztl_map_upsert_read) ==
+         NULL) ||
+        (CU_add_test(pSuite, "Close ZTL", test_ztl_exit) == NULL)) {
         failed = 1;
         CU_cleanup_registry();
         return CU_get_error();

@@ -17,17 +17,17 @@
  * limitations under the License.
 */
 
-#include <syslog.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include <xztl.h>
 #include <xztl-media.h>
 #include <xztl-ztl.h>
 
 static struct xztl_core core;
 
-void get_xztl_core(struct xztl_core** tcore) {
+void get_xztl_core(struct xztl_core **tcore) {
     *tcore = &core;
 }
 
@@ -71,19 +71,18 @@ void xztl_print_mcmd(struct xztl_io_mcmd *cmd) {
     printf("status : %d\n", cmd->status);
     printf("nlba0  : %lu\n", cmd->nsec[0]);
     printf("addr[0]: (%d/%d/%d/%lx)\n", cmd->addr[0].g.grp,
-                                         cmd->addr[0].g.punit,
-                                         cmd->addr[0].g.zone,
-                              (uint64_t) cmd->addr[0].g.sect);
+           cmd->addr[0].g.punit, cmd->addr[0].g.zone,
+           (uint64_t)cmd->addr[0].g.sect);
     printf("prp0   : 0x%lx\n", cmd->prp[0]);
     printf("callba : %s\n", (cmd->callback) ? "OK" : "NULL");
-    printf("async_c: %p\n", (void *) cmd->async_ctx); // NOLINT
+    printf("async_c: %p\n", (void *)cmd->async_ctx);  // NOLINT
     printf("opaque : %p\n", cmd->opaque);
 }
 
 static xztl_register_media_fn *media_fn = NULL;
 
-void *xztl_media_dma_alloc(size_t bytes, uint64_t *phys) {
-    return core.media->dma_alloc(bytes, phys);
+void *xztl_media_dma_alloc(size_t bytes) {
+    return core.media->dma_alloc(bytes);
 }
 
 void xztl_media_dma_free(void *ptr) {
@@ -96,7 +95,6 @@ int xztl_media_submit_io(struct xztl_io_mcmd *cmd) {
     if (ZDEBUG_MEDIA_R && (cmd->opcode == XZTL_CMD_READ))
         xztl_print_mcmd(cmd);
 
-    xztl_stats_add_io(cmd);
     return core.media->submit_io(cmd);
 }
 
@@ -135,8 +133,8 @@ static int xztl_media_check(struct xztl_media *media) {
     if (!media->init_fn)
         return XZTL_NOINIT;
 
-    /* if (!media->init_fn)
-        return XZTL_NOEXIT; */
+    if (!media->exit_fn)
+        return XZTL_NOEXIT;
 
     if (!media->submit_io)
         return XZTL_MEDIA_NOIO;
@@ -152,25 +150,25 @@ static int xztl_media_check(struct xztl_media *media) {
 
     /* Check the geometry */
     g = &media->geo;
-    if (!g->ngrps  || g->ngrps   > XZTL_MEDIA_MAX_GRP   ||
-        !g->pu_grp || g->pu_grp  > XZTL_MEDIA_MAX_PUGRP ||
-        !g->zn_pu  || g->zn_pu   > XZTL_MEDIA_MAX_ZNPU  ||
-        !g->sec_zn || g->sec_zn  > XZTL_MEDIA_MAX_SECZN ||
-        !g->nbytes || g->nbytes  > XZTL_MEDIA_MAX_SECSZ ||
-        g->nbytes_oob  > XZTL_MEDIA_MAX_OOBSZ )
+    if (!g->ngrps || g->ngrps > XZTL_MEDIA_MAX_GRP || !g->pu_grp ||
+        g->pu_grp > XZTL_MEDIA_MAX_PUGRP || !g->zn_pu ||
+        g->zn_pu > XZTL_MEDIA_MAX_ZNPU || !g->sec_zn ||
+        g->sec_zn > XZTL_MEDIA_MAX_SECZN || !g->nbytes ||
+        g->nbytes > XZTL_MEDIA_MAX_SECSZ ||
+        g->nbytes_oob > XZTL_MEDIA_MAX_OOBSZ)
         return XZTL_MEDIA_GEO;
 
     /* Fill up geometry fields */
-    g->zn_grp     = g->pu_grp    * g->zn_pu;
-    g->zn_dev     = g->zn_grp    * g->ngrps;
-    g->sec_grp    = g->zn_grp    * g->sec_zn;
-    g->sec_pu     = g->zn_pu     * g->sec_zn;
-    g->sec_dev    = g->sec_grp   * g->ngrps;
-    g->nbytes_zn  = g->nbytes    * g->sec_zn * 1UL;
+    g->zn_grp     = g->pu_grp * g->zn_pu;
+    g->zn_dev     = g->zn_grp * g->ngrps;
+    g->sec_grp    = g->zn_grp * g->sec_zn;
+    g->sec_pu     = g->zn_pu * g->sec_zn;
+    g->sec_dev    = g->sec_grp * g->ngrps;
+    g->nbytes_zn  = g->nbytes * g->sec_zn * 1UL;
     g->nbytes_grp = g->nbytes_zn * g->zn_grp;
-    g->oob_grp    = g->sec_grp   * g->nbytes_oob;
-    g->oob_pu     = g->sec_pu    * g->nbytes_oob;
-    g->oob_zn     = g->sec_zn    * g->nbytes_oob;
+    g->oob_grp    = g->sec_grp * g->nbytes_oob;
+    g->oob_pu     = g->sec_pu * g->nbytes_oob;
+    g->oob_zn     = g->sec_zn * g->nbytes_oob;
 
     return XZTL_OK;
 }
@@ -182,11 +180,11 @@ int xztl_media_set(struct xztl_media *media) {
     if (ret)
         return ret;
 
-    core.media = malloc(sizeof (struct xztl_media));
+    core.media = malloc(sizeof(struct xztl_media));
     if (!core.media)
         return XZTL_MEM;
 
-    memcpy(core.media, media, sizeof (struct xztl_media));
+    memcpy(core.media, media, sizeof(struct xztl_media));
 
     return XZTL_OK;
 }
@@ -194,7 +192,6 @@ int xztl_media_set(struct xztl_media *media) {
 void xztl_add_media(xztl_register_media_fn *fn) {
     media_fn = fn;
 }
-
 
 int xztl_exit(void) {
     int ret;
@@ -205,7 +202,6 @@ int xztl_exit(void) {
     ret = xztl_media_exit();
     if (ret)
         log_err("core: Could not exit media.");
-
 
     xztl_mempool_exit();
 
@@ -223,28 +219,24 @@ int xztl_exit(void) {
 int xztl_init(const char *dev_name) {
     int ret;
 
-    openlog("ztl" , LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL0);
+    openlog("ztl", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL0);
 
     log_info("core: Starting xZTL...");
 
     if (!media_fn)
         return XZTL_NOMEDIA;
 
-
-        ret = media_fn(dev_name);
-        if (ret)
-            return XZTL_MEDIA_ERROR | ret;
-
+    ret = media_fn(dev_name);
+    if (ret)
+        return XZTL_MEDIA_ERROR | ret;
 
     ret = xztl_mempool_init();
     if (ret)
         return ret;
 
-
-        ret = xztl_media_init();
-        if (ret)
-            goto MP;
-
+    ret = xztl_media_init();
+    if (ret)
+        goto MP;
 
     ret = ztl_init();
     if (ret)
@@ -255,16 +247,14 @@ int xztl_init(const char *dev_name) {
         goto ZTL;
 
     log_info("core: xZTL started successfully.");
-
     return XZTL_OK;
 
 ZTL:
     ztl_exit();
 MEDIA:
 
-        xztl_media_exit();
+    xztl_media_exit();
 MP:
-
-        xztl_mempool_exit();
+    xztl_mempool_exit();
     return ret;
 }
