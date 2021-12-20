@@ -26,34 +26,34 @@ extern "C" {
 
 #include <stdlib.h>
 
-#define ZNS_ALIGMENT 4096
-#define ZNS_PAGE_SIZE_8K (8 * 1024)
-#define ZNS_PAGE_SIZE_16K (16 * 1024)
-#define ZNS_PAGE_SIZE_32K (32 * 1024)
+#define ZNS_ALIGMENT          4096
+#define ZNS_PAGE_SIZE_8K      (8 * 1024)
+#define ZNS_PAGE_SIZE_16K     (16 * 1024)
+#define ZNS_PAGE_SIZE_32K     (32 * 1024)
 #define ZNS_FILE_METADATA_LEN 256
-#define ZNS_PPA_SIZE 8
+#define ZNS_PPA_SIZE          8
 
 /* 4KB aligment : 16 GB user buffers
  * 512b aligment: 2 GB user buffers */
 // #define ZNS_MAX_BUF  (ZNS_ALIGMENT * 65536)
-#define ZNS_MAX_BUF  (ZNS_ALIGMENT * 16384)
+#define ZNS_MAX_BUF_SEC_NUM 16384
+#define ZNS_MAX_BUF         (ZNS_ALIGMENT * ZNS_MAX_BUF_SEC_NUM)
 
 struct zrocks_map {
     union {
         struct {
-
             /* Media offset */
             /* 4KB  sector: Max capacity: 4PB
-                 * 512b sector: Max capacity: 512TB */
-                uint64_t offset : 40;
+             * 512b sector: Max capacity: 512TB */
+            uint64_t offset : 40;
 
             /* Number of sectors */
-                /* 4KB  sector: Max entry size: 32GB
-                 * 512b sector: Max entry size: 4GB */
-            uint64_t nsec   : 23;
+            /* 4KB  sector: Max entry size: 32GB
+             * 512b sector: Max entry size: 4GB */
+            uint64_t nsec : 23;
 
             /* Multi-piece mapping bit */
-            uint64_t multi  : 1;
+            uint64_t multi : 1;
         } g;
 
         uint64_t addr;
@@ -97,7 +97,6 @@ void *zrocks_alloc(size_t size);
  */
 void zrocks_free(void *ptr);
 
-
 /* >>> OBJECT INTERFACE FUNCTIONS
  * >>> WARNING: Recovery of objects after shutdown is still under development
  * 	    Use the BLOCK INTERFACE functions if your application provides
@@ -140,7 +139,6 @@ int zrocks_delete(uint64_t id);
  **/
 int zrocks_read_obj(uint64_t id, uint64_t offset, void *buf, size_t size);
 
-
 /* >>> BLOCK INTERFACE FUNCTIONS
  * >>> Use these functions if your application provides recovery
  */
@@ -154,7 +152,7 @@ int zrocks_read_obj(uint64_t id, uint64_t offset, void *buf, size_t size);
  * @return Returns zero if the calls succeed, or a negative value
  *      if the call fails
  */
-int zrocks_trim(struct zrocks_map *map, uint16_t level);
+int zrocks_trim(uint32_t node_id);
 /**
  * Write to ZNS device and return the mapping multi-piece list
  *
@@ -173,8 +171,7 @@ int zrocks_trim(struct zrocks_map *map, uint16_t level);
  * 	   calling 'zrocks_free' and free 'map' by passing its value as
  * 	   parameter. A negative value is return in case of failure.
  */
-int zrocks_write(void *buf, size_t size, uint16_t level,
-                            struct zrocks_map **map, uint16_t *pieces);
+int zrocks_write(void *buf, size_t size, int32_t *node_id, int tid);
 
 /**
  * Read from the ZNS drive using physical offsets
@@ -186,7 +183,12 @@ int zrocks_write(void *buf, size_t size, uint16_t level,
  * @return Returns zero if the calls succeed, or a negative value
  *      if the call fails
  */
-int zrocks_read(uint64_t offset, void *buf, size_t size);
+int zrocks_read(uint32_t node_id, uint64_t offset, void *buf, uint64_t size,
+                int tid);
+
+int zrocks_get_resource();
+
+void zrocksk_put_resource(int id);
 
 /**
  * Get metadata zone's start lba from the ZNS device
@@ -205,7 +207,7 @@ uint64_t zrocks_get_metadata_slba();
  * @return Returns zero if the calls succeed, or a negative value
  *      if the call fails
  */
-int zrocks_read_metadata(uint64_t slba, unsigned char* buf, uint32_t length);
+int zrocks_read_metadata(uint64_t slba, unsigned char *buf, uint32_t length);
 
 /**
  * Write metadata to ZNS device
@@ -216,10 +218,11 @@ int zrocks_read_metadata(uint64_t slba, unsigned char* buf, uint32_t length);
  * @return Returns zero if the calls succeed, or a negative value
  *      if the call fails
  */
-int zrocks_write_file_metadata(const unsigned char* buf, uint32_t length);
+int zrocks_write_file_metadata(const unsigned char *buf, uint32_t length);
+int zrocks_node_finish(uint32_t node_id);
 
 #ifdef __cplusplus
-}; // closing brace for extern "C"
+};  // closing brace for extern "C"
 #endif
 
-#endif // LIBZROCKS_H
+#endif  // LIBZROCKS_H

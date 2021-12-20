@@ -17,14 +17,14 @@
  * limitations under the License.
 */
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <time.h>
-#include <xztl.h>
 #include <sys/queue.h>
+#include <time.h>
+#include <unistd.h>
 #include <xztl-mempool.h>
+#include <xztl.h>
 
 struct xztl_prometheus_stats {
     uint64_t written_bytes;
@@ -36,19 +36,19 @@ struct xztl_prometheus_stats {
     /* Flushing thread Timing */
     struct timespec ts_s;
     struct timespec ts_e;
-    uint64_t us_s;
-    uint64_t us_e;
+    uint64_t        us_s;
+    uint64_t        us_e;
 
     /* Flushing latency thread Timing */
     struct timespec ts_l_s;
     struct timespec ts_l_e;
-    uint64_t us_l_s;
-    uint64_t us_l_e;
+    uint64_t        us_l_s;
+    uint64_t        us_l_e;
 };
 
-static pthread_t th_flush;
+static pthread_t                    th_flush;
 static struct xztl_prometheus_stats pr_stats;
-static uint8_t xztl_flush_l_running, xztl_flush_running;
+static uint8_t                      xztl_flush_l_running, xztl_flush_running;
 
 /* Latency queue */
 
@@ -56,11 +56,11 @@ static uint8_t xztl_flush_l_running, xztl_flush_running;
 
 struct latency_entry {
     uint64_t usec;
-    void *mp_entry;
+    void *   mp_entry;
     STAILQ_ENTRY(latency_entry) entry;
 };
 
-static pthread_t latency_tid;
+static pthread_t          latency_tid;
 static pthread_spinlock_t lat_spin;
 static STAILQ_HEAD(latency_head, latency_entry) lat_head;
 
@@ -86,7 +86,7 @@ static void xztl_prometheus_file_double(const char *fname, double val) {
 
 static void xztl_prometheus_reset(void) {
     uint64_t write, read, io;
-    double thput_w, thput_r, thput, wa;
+    double   thput_w, thput_r, thput, wa;
 
     GET_MICROSECONDS(pr_stats.us_s, pr_stats.ts_s);
 
@@ -98,14 +98,14 @@ static void xztl_prometheus_reset(void) {
     xztl_atomic_int64_update(&pr_stats.read_bytes, 0);
     xztl_atomic_int64_update(&pr_stats.io_count, 0);
 
-    thput_w = (double) write / (double) 1048576; // NOLINT
-    thput_r = (double) read / (double) 1048576; // NOLINT
+    thput_w = (double)write / (double)1048576;  // NOLINT
+    thput_r = (double)read / (double)1048576;   // NOLINT
     thput   = thput_w + thput_r;
 
     if (pr_stats.user_write_bytes) {
-        wa  = (double) pr_stats.zns_write_bytes / (double) pr_stats.user_write_bytes; // NOLINT
+        wa = (double)pr_stats.zns_write_bytes / (double)pr_stats.user_write_bytes;  // NOLINT
     } else {
-        wa  = 1;
+        wa = 1;
     }
 
     xztl_prometheus_file_double("/tmp/ztl_prometheus_thput_w", thput_w);
@@ -137,23 +137,22 @@ void *xztl_prometheus_flush(void *arg) {
 }
 
 void xztl_prometheus_add_io(struct xztl_io_mcmd *cmd) {
-    uint32_t nsec = 0, i;
+    uint32_t          nsec = 0, i;
     struct xztl_core *core;
     get_xztl_core(&core);
-    for (i = 0; i < cmd->naddr; i++)
-        nsec += cmd->nsec[i];
+    for (i = 0; i < cmd->naddr; i++) nsec += cmd->nsec[i];
 
     switch (cmd->opcode) {
         case XZTL_ZONE_APPEND:
         case XZTL_CMD_WRITE:
-            xztl_atomic_int64_update(&pr_stats.written_bytes,
-                                      pr_stats.written_bytes +
-                                      (nsec * core->media->geo.nbytes));
+            xztl_atomic_int64_update(
+                &pr_stats.written_bytes,
+                pr_stats.written_bytes + (nsec * core->media->geo.nbytes));
             break;
         case XZTL_CMD_READ:
-            xztl_atomic_int64_update(&pr_stats.read_bytes,
-                                     pr_stats.read_bytes +
-                                     (nsec * core->media->geo.nbytes));
+            xztl_atomic_int64_update(
+                &pr_stats.read_bytes,
+                pr_stats.read_bytes + (nsec * core->media->geo.nbytes));
             break;
         default:
             return;
@@ -168,10 +167,10 @@ void xztl_prometheus_add_wa(uint64_t user_writes, uint64_t zns_writes) {
 }
 
 static void xztl_prometheus_flush_latency(void) {
-    FILE *fp;
-    int dequeued = 0;
+    FILE *                fp;
+    int                   dequeued = 0;
     struct latency_entry *ent;
-    uint64_t lat;
+    uint64_t              lat;
 
     GET_MICROSECONDS(pr_stats.us_l_s, pr_stats.ts_l_s);
 
@@ -235,20 +234,20 @@ void xztl_prometheus_add_read_latency(uint64_t usec) {
         pthread_spin_unlock(&lat_spin);
         return;
     }
-    ent = (struct latency_entry *) mp_ent->opaque;
+    ent           = (struct latency_entry *)mp_ent->opaque;
     ent->mp_entry = mp_ent;
-    ent->usec = usec;
+    ent->usec     = usec;
 
     STAILQ_INSERT_TAIL(&lat_head, ent, entry);
 
     pthread_spin_unlock(&lat_spin);
 
-//    if (usec > 10000)
-//          printf("TOO HIGH LATENCY (add): %lu\n", usec);
+    //    if (usec > 10000)
+    //          printf("TOO HIGH LATENCY (add): %lu\n", usec);
 }
 
 void xztl_prometheus_exit(void) {
-    xztl_flush_running = 0;
+    xztl_flush_running   = 0;
     xztl_flush_l_running = 0;
     pthread_join(th_flush, NULL);
     pthread_join(latency_tid, NULL);
@@ -268,7 +267,7 @@ int xztl_prometheus_init(void) {
         return -1;
 
     ret = xztl_mempool_create(XZTL_PROMETHEUS_LAT, 0, MAX_LATENCY_ENTS,
-                            sizeof(struct latency_entry), NULL, NULL);
+                              sizeof(struct latency_entry), NULL, NULL);
     if (ret) {
         log_err("xztl-prometheus: Latency memory pool not started.");
         goto SPIN;
@@ -286,12 +285,14 @@ int xztl_prometheus_init(void) {
         goto LAT_TH;
     }
 
-    while (!xztl_flush_running || !xztl_flush_l_running) {}
+    while (!xztl_flush_running || !xztl_flush_l_running) {
+    }
 
     return 0;
 
 LAT_TH:
-    while (!xztl_flush_l_running) {}
+    while (!xztl_flush_l_running) {
+    }
     xztl_flush_l_running = 0;
     pthread_join(th_flush, NULL);
 MP:

@@ -17,17 +17,18 @@
  * limitations under the License.
 */
 
-#include <pthread.h>
 #include <omp.h>
-#include <xztl.h>
+#include <pthread.h>
 #include <xztl-mempool.h>
+#include <xztl.h>
 #include <ztl-media.h>
+
 #include "CUnit/Basic.h"
 
 static const char **devname;
 
 static void cunit_mempool_assert_ptr(char *fn, void *ptr) {
-    CU_ASSERT((uint64_t) ptr != 0);
+    CU_ASSERT((uint64_t)ptr != 0);
     if (!ptr)
         printf("\n %s: ptr %p\n", fn, ptr);
 }
@@ -66,43 +67,45 @@ static void test_mempool_create(void) {
     uint16_t type, tid, ents;
     uint32_t ent_sz;
 
-    type = XZTL_MEMPOOL_MCMD;
-    tid = 0;
-    ents = 32;
+    type   = XZTL_MEMPOOL_MCMD;
+    tid    = 0;
+    ents   = 32;
     ent_sz = 1024;
 
-    cunit_mempool_assert_int("xztl_mempool_create",
-            xztl_mempool_create(type, tid, ents, ent_sz, NULL, NULL));
+    cunit_mempool_assert_int(
+        "xztl_mempool_create",
+        xztl_mempool_create(type, tid, ents, ent_sz, NULL, NULL));
 }
 
 static void test_mempool_destroy(void) {
     uint16_t type, tid;
 
     type = XZTL_MEMPOOL_MCMD;
-    tid = 0;
+    tid  = 0;
 
     cunit_mempool_assert_int("xztl_mempool_destroy",
-                        xztl_mempool_destroy(type, tid));
+                             xztl_mempool_destroy(type, tid));
 }
 
 static void test_mempool_create_mult(void) {
     uint16_t type, tid, ents;
     uint32_t ent_sz;
 
-    type = XZTL_MEMPOOL_MCMD;
-    ents = 32;
+    type   = XZTL_MEMPOOL_MCMD;
+    ents   = 32;
     ent_sz = 128;
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for (tid = 0; tid < 8; tid++) {
-        cunit_mempool_assert_int("xztl_mempool_create",
-                xztl_mempool_create(type, tid, ents, ent_sz, NULL, NULL));
+        cunit_mempool_assert_int(
+            "xztl_mempool_create",
+            xztl_mempool_create(type, tid, ents, ent_sz, NULL, NULL));
     }
 }
 
 static void test_mempool_get_put(void) {
-    uint16_t ent_i, ents = 30;
-    uint32_t ent_sz = 128;
+    uint16_t              ent_i, ents = 30;
+    uint32_t              ent_sz = 128;
     struct xztl_mp_entry *ent[ents];
 
     /* Get entries */
@@ -155,25 +158,23 @@ int main(int argc, const char **argv) {
     if (CUE_SUCCESS != CU_initialize_registry())
         return CU_get_error();
 
-    pSuite = CU_add_suite("Suite_mempool", cunit_mempool_init,
-                                            cunit_mempool_exit);
+    pSuite =
+        CU_add_suite("Suite_mempool", cunit_mempool_init, cunit_mempool_exit);
     if (pSuite == NULL) {
         CU_cleanup_registry();
         return CU_get_error();
     }
 
-    if ((CU_add_test(pSuite, "Initialize",
-                test_mempool_init) == NULL) ||
-        (CU_add_test(pSuite, "Create a mempool",
-                test_mempool_create) == NULL) ||
-        (CU_add_test(pSuite, "Destroy a mempool",
-                test_mempool_destroy) == NULL) ||
+    if ((CU_add_test(pSuite, "Initialize", test_mempool_init) == NULL) ||
+        (CU_add_test(pSuite, "Create a mempool", test_mempool_create) ==
+         NULL) ||
+        (CU_add_test(pSuite, "Destroy a mempool", test_mempool_destroy) ==
+         NULL) ||
         (CU_add_test(pSuite, "Create parallel mempools",
-                test_mempool_create_mult) == NULL) ||
-        (CU_add_test(pSuite, "Get and put entries",
-                test_mempool_get_put) == NULL) ||
-        (CU_add_test(pSuite, "Closes the module",
-                test_mempool_exit) == NULL)) {
+                     test_mempool_create_mult) == NULL) ||
+        (CU_add_test(pSuite, "Get and put entries", test_mempool_get_put) ==
+         NULL) ||
+        (CU_add_test(pSuite, "Closes the module", test_mempool_exit) == NULL)) {
         CU_cleanup_registry();
         return CU_get_error();
     }

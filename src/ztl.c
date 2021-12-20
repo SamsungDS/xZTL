@@ -17,20 +17,19 @@
  * limitations under the License.
 */
 
+#include <pthread.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <pthread.h>
 #include <sys/queue.h>
-#include <xztl.h>
 #include <xztl-media.h>
 #include <xztl-ztl.h>
+#include <xztl.h>
 #include <ztl_metadata.h>
 
 struct app_global __ztl;
-static uint8_t gl_fn; /* Positive if function has been called */
-
+static uint8_t    gl_fn; /* Positive if function has been called */
 
 uint16_t app_ngrps;
 
@@ -43,13 +42,12 @@ inline struct app_global *ztl(void) {
 static int app_init_map_lock(struct app_mpe *mpe) {
     uint32_t ent_i;
 
-    mpe->entry_mutex = malloc (sizeof(pthread_mutex_t) * mpe->entries);
+    mpe->entry_mutex = malloc(sizeof(pthread_mutex_t) * mpe->entries);
     if (!mpe->entry_mutex)
         return -1;
 
-
     for (ent_i = 0; ent_i < mpe->entries; ent_i++) {
-        if (pthread_mutex_init (&mpe->entry_mutex[ent_i], NULL))
+        if (pthread_mutex_init(&mpe->entry_mutex[ent_i], NULL))
             goto MUTEX;
     }
     return 0;
@@ -76,27 +74,23 @@ static void app_exit_map_lock(struct app_mpe *mpe) {
 }
 
 static int app_mpe_init(void) {
-    struct app_mpe *mpe;
+    struct app_mpe *  mpe;
     struct xztl_mgeo *g;
     struct xztl_core *core;
-    int ret;
+    int               ret;
     get_xztl_core(&core);
     mpe = &ztl()->smap;
     g   = &core->media->geo;
 
     mpe->entry_sz   = sizeof(struct app_map_entry);
     mpe->ent_per_pg = (ZTL_MPE_PG_SEC * g->nbytes) / mpe->entry_sz;
-    mpe->entries = ZTL_MPE_CPGS;
+    mpe->entries    = ZTL_MPE_CPGS;
 
-    mpe->tbl = calloc(mpe->entry_sz, ZTL_MPE_CPGS);
+    mpe->tbl = calloc(ZTL_MPE_CPGS, mpe->entry_sz);
     if (!mpe->tbl)
         return -1;
 
     mpe->byte.magic = APP_MAGIC;
-
-    /*ret = ztl()->mpe->load_fn ();
-    if (ret == -1)
-    goto FREE;*/
 
     if (app_init_map_lock(mpe))
         goto FREE;
@@ -107,7 +101,6 @@ static int app_mpe_init(void) {
         if (ret)
             goto LOCK;
     }
-
 
     /* TODO: Setup tiny table if we implement recovery at the ZTL */
 
@@ -125,7 +118,6 @@ FREE:
 }
 
 static void app_mpe_exit(void) {
-
     app_exit_map_lock(&ztl()->smap);
 
     free(ztl()->smap.tbl);
@@ -190,7 +182,7 @@ static void app_global_exit(void) {
 }
 
 int ztl_mod_set(uint8_t *modset) {
-    int mod_i;
+    int   mod_i;
     void *mod;
 
     for (mod_i = 0; mod_i < APP_MOD_COUNT; mod_i++)
@@ -198,7 +190,6 @@ int ztl_mod_set(uint8_t *modset) {
             return -1;
 
     for (mod_i = 0; mod_i < APP_MOD_COUNT; mod_i++) {
-
         /* Set pointer if module ID is positive */
         if (modset[mod_i]) {
             mod = ztl()->mod_list[mod_i][modset[mod_i]];
@@ -207,25 +198,27 @@ int ztl_mod_set(uint8_t *modset) {
 
             switch (mod_i) {
                 case ZTLMOD_ZMD:
-                    ztl()->zmd = (struct app_zmd_mod *) mod;
+                    ztl()->zmd = (struct app_zmd_mod *)mod;
                     break;
                 case ZTLMOD_PRO:
-                    ztl()->pro = (struct app_pro_mod *) mod;
+                    ztl()->pro = (struct app_pro_mod *)mod;
                     break;
                 case ZTLMOD_MPE:
-                    ztl()->mpe = (struct app_mpe_mod *) mod;
+                    ztl()->mpe = (struct app_mpe_mod *)mod;
                     break;
                 case ZTLMOD_MAP:
-                    ztl()->map = (struct app_map_mod *) mod;
+                    ztl()->map = (struct app_map_mod *)mod;
                     break;
                 case ZTLMOD_WCA:
-                    ztl()->wca = (struct app_wca_mod *) mod;
+                    ztl()->wca = (struct app_wca_mod *)mod;
                     break;
                 default:
                     log_erra("ztl: Invalid module ID: %d", mod_i);
             }
-            log_infoa("ztl: Module set. "
-                    "type: %d, id: %d, ptr: %p\n", mod_i, modset[mod_i], mod);
+            log_infoa(
+                "ztl: Module set. "
+                "type: %d, id: %d, ptr: %p\n",
+                mod_i, modset[mod_i], mod);
         }
     }
     return 0;
@@ -233,33 +226,38 @@ int ztl_mod_set(uint8_t *modset) {
 
 int ztl_mod_register(uint8_t modtype, uint8_t modid, void *mod) {
     if (modid >= APP_FN_SLOTS || modtype >= APP_MOD_COUNT || !mod) {
-        log_erra("ztl (mod_register): Module NOT registered. "
-                           "type: %d, id: %d, ptr: %p\n", modtype, modid, mod);
+        log_erra(
+            "ztl (mod_register): Module NOT registered. "
+            "type: %d, id: %d, ptr: %p\n",
+            modtype, modid, mod);
         return -1;
     }
 
     ztl()->mod_list[modtype][modid] = mod;
-    app_modset_libztl[modtype] = modid;
+    app_modset_libztl[modtype]      = modid;
 
-    log_infoa("ztl: Module registered. "
-                           "type: %d, id: %d, ptr: %p\n", modtype, modid, mod);
+    log_infoa(
+        "ztl: Module registered. "
+        "type: %d, id: %d, ptr: %p\n",
+        modtype, modid, mod);
 
     return 0;
 }
 
 void ztl_exit(void) {
+    /*
     log_info("ztl: Closing...");
 
     app_global_exit();
     ztl()->groups.exit_fn();
-
+    */
     log_info("ztl: Closed successfully.");
 }
 
 int ztl_init(void) {
     int ret, ngrps;
 
-    gl_fn = 0;
+    gl_fn     = 0;
     app_ngrps = 0;
 
     ztl_grp_register();
