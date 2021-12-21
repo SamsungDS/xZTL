@@ -20,23 +20,24 @@
 #ifndef XZTLMEMPOOL
 #define XZTLMEMPOOL
 
+#include <libxnvme.h>
 #include <pthread.h>
 #include <sys/queue.h>
-#include <libxnvme.h>
 
-#define XZTLMP_THREADS          64
-#define XZTLMP_TYPES            4
-#define XZTLMP_MAX_ENT          (65536 + 2)
-#define XZTLMP_MAX_ENT_SZ       (1024 * 1024)  /* 1 MB */
+#define XZTLMP_THREADS    64
+#define XZTLMP_TYPES      5
+#define XZTLMP_MAX_ENT    (65536 + 2)
+#define XZTLMP_MAX_ENT_SZ (1024 * 1024) /* 1 MB */
 
 typedef void *(xztl_mp_alloc)(size_t size);
-typedef void  (xztl_mp_free)(void *ptr);
+typedef void(xztl_mp_free)(void *ptr);
 
 enum xztl_mp_types {
-    XZTL_MEMPOOL_MCMD   = 0x0,
-    XZTL_ZTL_PRO_CTX    = 0x1,
-    ZROCKS_MEMORY       = 0x2,
-    XZTL_PROMETHEUS_LAT = 0x3
+    XZTL_MEMPOOL_MCMD    = 0x0,
+    XZTL_ZTL_PRO_CTX     = 0x1,
+    ZROCKS_MEMORY        = 0x2,
+    XZTL_PROMETHEUS_LAT  = 0x3,
+    XZTL_NODE_MGMT_ENTRY = 0x4
 };
 
 enum xztl_mp_status {
@@ -48,20 +49,20 @@ enum xztl_mp_status {
 };
 
 struct xztl_mp_entry {
-    void        *opaque;
-    uint16_t    tid;
-    uint32_t    entry_id;
+    void *   opaque;
+    uint16_t tid;
+    uint32_t entry_id;
     STAILQ_ENTRY(xztl_mp_entry) entry;
 };
 
 struct xztl_mp_pool_i {
-    uint8_t             active;
-    volatile uint16_t   in_count;
-    uint16_t            out_count;
-    uint32_t            entries;
-    pthread_spinlock_t  spin;
-    xztl_mp_alloc      *alloc_fn;
-    xztl_mp_free       *free_fn;
+    uint8_t            active;
+    volatile uint16_t  in_count;
+    uint16_t           out_count;
+    uint32_t           entries;
+    pthread_spinlock_t spin;
+    xztl_mp_alloc *    alloc_fn;
+    xztl_mp_free *     free_fn;
     STAILQ_HEAD(mp_head, xztl_mp_entry) head;
 };
 
@@ -100,7 +101,8 @@ w *
  * @return Returns zero if the call succeeds, or a negative value if it fails
  */
 int xztl_mempool_create(uint32_t type, uint16_t tid, uint32_t entries,
-    uint32_t ent_sz, xztl_mp_alloc *alloc, xztl_mp_free *free);
+                        uint32_t ent_sz, xztl_mp_alloc *alloc,
+                        xztl_mp_free *free);
 
 /**
  * Destroys a mempool previosly created with xztl_mempool_create

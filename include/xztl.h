@@ -22,11 +22,11 @@
 
 #define _GNU_SOURCE
 
+#include <pthread.h>
 #include <stdint.h>
-#include <unistd.h>
 #include <sys/queue.h>
 #include <syslog.h>
-#include <pthread.h>
+#include <unistd.h>
 
 #define XZTL_DEV_NAME "q"
 
@@ -40,60 +40,65 @@
 #define ZDEBUG_MEDIA_R 0
 #define ZDEBUG_MP      0
 
-#define ZDEBUG(type, format, ...) do {      \
-    if ((type)) {                           \
-        log_infoa(format, ## __VA_ARGS__); \
-    }                                       \
-} while ( 0 )
+#define ZDEBUG(type, format, ...)             \
+    do {                                      \
+        if ((type)) {                         \
+            log_infoa(format, ##__VA_ARGS__); \
+        }                                     \
+    } while (0)
 
-#define XZTL_PROMETHEUS 1
+#define XZTL_PROMETHEUS 0
 
-#define log_erra(format, ...)         syslog(LOG_ERR, format, ## __VA_ARGS__)
-#define log_infoa(format, ...)        syslog(LOG_INFO, format, ## __VA_ARGS__)
-#define log_err(format)               syslog(LOG_ERR, format)
-#define log_info(format)              syslog(LOG_INFO, format)
+#define log_erra(format, ...)  syslog(LOG_ERR, format, ##__VA_ARGS__)
+#define log_infoa(format, ...) syslog(LOG_INFO, format, ##__VA_ARGS__)
+#define log_err(format)        syslog(LOG_ERR, format)
+#define log_info(format)       syslog(LOG_INFO, format)
 
-#define GET_NANOSECONDS(ns, ts) do {                                     \
-            clock_gettime(CLOCK_REALTIME, &ts);                          \
-            (ns) = ((ts).tv_sec * 1000000000 + (ts).tv_nsec);           \
-} while ( 0 )
+#define GET_NANOSECONDS(ns, ts)                           \
+    do {                                                  \
+        clock_gettime(CLOCK_REALTIME, &ts);               \
+        (ns) = ((ts).tv_sec * 1000000000 + (ts).tv_nsec); \
+    } while (0)
 
-#define GET_MICROSECONDS(us, ts) do {                                    \
-            clock_gettime(CLOCK_REALTIME, &ts);                          \
-            (us) = ( ((ts).tv_sec * 1000000) + ((ts).tv_nsec / 1000) ); \
-} while ( 0 )
+#define GET_MICROSECONDS(us, ts)                                  \
+    do {                                                          \
+        clock_gettime(CLOCK_REALTIME, &ts);                       \
+        (us) = (((ts).tv_sec * 1000000) + ((ts).tv_nsec / 1000)); \
+    } while (0)
 
-#define TV_ELAPSED_USEC(tvs, tve, usec) do {                              \
-            (usec) = ((tve).tv_sec*(uint64_t)1000000+(tve).tv_usec) -   \
-            ((tvs).tv_sec*(uint64_t)1000000+(tvs).tv_usec);             \
-} while ( 0 )
+#define TV_ELAPSED_USEC(tvs, tve, usec)                               \
+    do {                                                              \
+        (usec) = ((tve).tv_sec * (uint64_t)1000000 + (tve).tv_usec) - \
+                 ((tvs).tv_sec * (uint64_t)1000000 + (tvs).tv_usec);  \
+    } while (0)
 
-#define TS_ADD_USEC(ts, tv, usec) do {                                     \
-            (ts).tv_sec = (tv).tv_sec;                                   \
-            gettimeofday(&tv, NULL);                                    \
-            (ts).tv_sec += ((tv).tv_usec + (usec) >= 1000000) ? 1 : 0;   \
-            (ts).tv_nsec = ((tv).tv_usec + (usec) >= 1000000) ?          \
-                            ((usec) - (1000000 - (tv).tv_usec)) * 1000 : \
-                            ((tv).tv_usec + (usec)) * 1000;              \
-} while ( 0 )
+#define TS_ADD_USEC(ts, tv, usec)                                       \
+    do {                                                                \
+        (ts).tv_sec = (tv).tv_sec;                                      \
+        gettimeofday(&tv, NULL);                                        \
+        (ts).tv_sec += ((tv).tv_usec + (usec) >= 1000000) ? 1 : 0;      \
+        (ts).tv_nsec = ((tv).tv_usec + (usec) >= 1000000)               \
+                           ? ((usec) - (1000000 - (tv).tv_usec)) * 1000 \
+                           : ((tv).tv_usec + (usec)) * 1000;            \
+    } while (0)
 
 #undef MAX
-#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
 #undef MIN
-#define MIN(a, b)  (((a) < (b)) ? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
-#define APP_MAGIC 0x3c
+#define APP_MAGIC           0x3c
 #define METADATA_HEAD_MAGIC 0x4c
 
-#define AND64   0xffffffffffffffff
+#define AND64 0xffffffffffffffff
 
-typedef int   (xztl_init_fn)     (void);
-typedef int   (xztl_exit_fn)     (void);
-typedef int   (xztl_register_fn) (void);
-typedef int   (xztl_register_media_fn) (const char *dev_name);
-typedef void *(xztl_thread)      (void *arg);
-typedef void  (xztl_callback)    (void *arg);
+typedef int(xztl_init_fn)(void);
+typedef int(xztl_exit_fn)(void);
+typedef int(xztl_register_fn)(void);
+typedef int(xztl_register_media_fn)(const char *dev_name);
+typedef void *(xztl_thread)(void *arg);
+typedef void(xztl_callback)(void *arg);
 
 struct xztl_maddr {
     union {
@@ -109,33 +114,48 @@ struct xztl_maddr {
 
 #include <xztl-media.h>
 
-#define XZTL_IO_MAX_MCMD     65536 /* 4KB sectors : 16 GB user buffers */
-                                   /* 512b sectors: 2 GB user buffers */
+#define XZTL_IO_MAX_MCMD 65536 /* 4KB sectors : 16 GB user buffers */
+                               /* 512b sectors: 2 GB user buffers */
+#define XZTL_WIO_MAX_MCMD 1024
+
+struct xztl_mthread_info {
+    pthread_t comp_tid;
+    int       comp_active;
+};
+
+struct xztl_th_data {
+    uint32_t            node_id;
+    int                 tid;
+    struct xztl_thread *tdinfo;
+};
 
 struct xztl_io_ucmd {
-    uint64_t        id;
-    void            *buf;
-    size_t          size;
-    uint16_t        prov_type;
-    uint8_t         app_md;  /* Application is responsible for mapping/recovery */
-    uint8_t         status;
+    uint64_t id;
+    void *   buf;
+    size_t   size;
+    uint64_t offset;  // for read command
+    uint16_t prov_type;
+    uint8_t  app_md; /* Application is responsible for mapping/recovery */
+    uint8_t  status;
 
-    xztl_callback   *callback;
+    xztl_callback *callback;
+
+    struct xztl_th_data xd;
 
     struct app_pro_addr *prov;
-    struct xztl_io_mcmd *mcmd[XZTL_IO_MAX_MCMD];
+    struct xztl_io_mcmd *mcmd[XZTL_WIO_MAX_MCMD];
 
-    uint16_t        nmcmd;
-    uint16_t        noffs;
-    uint64_t        moffset[XZTL_IO_MAX_MCMD];
-    uint32_t        msec[XZTL_IO_MAX_MCMD];
-    uint16_t        ncb;
-    uint16_t        completed;
+    uint16_t nmcmd;
+    uint16_t noffs;
+    uint64_t moffset[XZTL_WIO_MAX_MCMD];
+    uint32_t msec[XZTL_WIO_MAX_MCMD];
+    uint16_t ncb;
+    uint16_t completed;
 
     pthread_spinlock_t inflight_spin;
-    volatile uint8_t minflight[256];
+    volatile uint8_t   minflight[256];
 
-    STAILQ_ENTRY(xztl_io_ucmd)	entry;
+    STAILQ_ENTRY(xztl_io_ucmd) entry;
 };
 
 struct xztl_core {
@@ -168,6 +188,7 @@ enum xztl_status {
     XZTL_ZTL_WCA_S_ERR  = 0x16,
     XZTL_ZTL_WCA_S2_ERR = 0x17,
     XZTL_ZTL_MD_ERR     = 0x18,
+    XZTL_ZTL_RED_ERR    = 0x19,
     XZTL_MEDIA_ERROR    = 0x100,
 };
 
@@ -186,6 +207,9 @@ enum xztl_stats_io_types {
     XZTL_STATS_RECYCLED_BYTES,
     XZTL_STATS_RECYCLED_ZONES
 };
+
+/* Return xzlt core */
+void get_xztl_core(struct xztl_core **tcore);
 
 /* Compare and swap atomic operations */
 
@@ -207,15 +231,19 @@ int xztl_init(const char *device_name);
 int xztl_exit(void);
 
 /* Media functions */
-void *xztl_media_dma_alloc(size_t bytes, uint64_t *phys);
+void *xztl_media_dma_alloc(size_t bytes);
 void  xztl_media_dma_free(void *ptr);
 int   xztl_media_submit_zn(struct xztl_zn_mcmd *cmd);
 int   xztl_media_submit_misc(struct xztl_misc_cmd *cmd);
 int   xztl_media_submit_io(struct xztl_io_mcmd *cmd);
 
 /* Thread context functions */
-struct xztl_mthread_ctx *xztl_ctx_media_init(uint16_t tid, uint32_t depth);
+struct xztl_mthread_ctx *xztl_ctx_media_init(uint32_t depth);
 int                      xztl_ctx_media_exit(struct xztl_mthread_ctx *tctx);
+int                      xztl_init_thread_ctxs();
+int                      xztl_exit_thread_ctxs();
+struct xztl_mthread_ctx *get_thread_ctx();
+void                     put_thread_ctx(struct xztl_mthread_ctx *ctx);
 
 /* Layer specific functions (for testing) */
 int xztl_media_init(void);

@@ -27,38 +27,37 @@
 extern "C" {
 #endif
 
-#define ZNS_OBJ_STORE 0
-#define OBJ_SEC_NUM    8
-#define OBJ_TABLE_SIZE 256
-#define MAX_READ_NLB_NUM 128
-#define MAX_WRITE_NLB_NUM 128
+#define ZNS_OBJ_STORE     0
+#define OBJ_SEC_NUM       8
+#define OBJ_TABLE_SIZE    256
+#define MAX_READ_NLB_NUM  128
+#define MAX_WRITE_NLB_NUM 64  // 128 got errors ocassionally
 
 struct ztl_metadata {
     struct ztl_pro_zone *metadata_zone;
-    int zone_num;
-    uint64_t file_slba;
-    int nlb_max;
-    pthread_mutex_t  page_spin;
+    int                  zone_num;
+    uint64_t             file_slba;
+    int                  nlb_max;
+    pthread_mutex_t      page_spin;
 };
 
 struct obj_meta_data_head {
     union {
         struct head {
             struct app_magic byte;
-            uint64_t metadata_len;
+            uint64_t         metadata_len;
         } h;
         uint8_t addr[ZNS_ALIGMENT];
     };
 };
 
 struct ztl_metadata *get_ztl_metadata();
-uint64_t zrocks_get_metadata_slba();
-int ztl_metadata_init(struct app_group *grp);
-int get_metadata_zone_num();
+uint64_t             zrocks_get_metadata_slba();
+int                  ztl_metadata_init(struct app_group *grp);
+int                  get_metadata_zone_num();
 
 #ifdef __cplusplus
-}; // closing brace for extern "C"
+};  // closing brace for extern "C"
 #endif
 
 #endif
-
