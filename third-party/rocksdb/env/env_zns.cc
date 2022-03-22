@@ -19,19 +19,24 @@
 namespace rocksdb {
 
 std::uint32_t ZNSFile::GetFileMetaLen() {
-  uint32_t metaLen = sizeof(ZrocksFileMeta);
+  uint32_t metaLen = sizeof(ZrocksFileMeta) + nodes.size() * sizeof(std::int32_t);
   return metaLen;
 }
 
 std::uint32_t ZNSFile::WriteMetaToBuf(unsigned char* buf) {
   // reserved single file head
   std::uint32_t length = sizeof(ZrocksFileMeta);
+    std::uint32_t nodeNum = nodes.size();
+    for (std::uint32_t i = 0; i < nodeNum; i++) {
+        memcpy(buf + length, &nodes[i], sizeof(std::uint32_t));
+        length += sizeof(std::uint32_t);
+    }
 
   ZrocksFileMeta fileMetaData;
   fileMetaData.magic = FILE_METADATA_MAGIC;
   fileMetaData.filesize = size;
   fileMetaData.level = level;
-  fileMetaData.znode_id = znode_id;
+  fileMetaData.node_num = nodeNum;
   memcpy(fileMetaData.filename, name.c_str(), name.length());
   memcpy(buf, &fileMetaData, sizeof(ZrocksFileMeta));
 
@@ -39,8 +44,12 @@ std::uint32_t ZNSFile::WriteMetaToBuf(unsigned char* buf) {
 }
 
 void ZNSFile::PrintMetaData() {
-  std::cout << __func__ << " FileName: " << name << " znode_id: " << znode_id
-            << std::endl;
+  std::cout << __func__ << " FileName: " << name << std::endl;
+    std::vector<std::int32_t>::iterator iterMap = nodes.begin();
+    for (; iterMap != nodes.end(); ++iterMap) {
+       std::cout << __func__ <<  "   znode_id: " << *iterMap << std::endl;
+    }
+    printf("\n");
 }
 /* ### ZNS Environment method implementation ### */
 void ZNSEnv::NodeSta(std::int32_t znode_id, size_t n) {
@@ -118,19 +127,23 @@ Status ZNSEnv::NewWritableFile(const std::string& fname,
     posixEnv->NewWritableFile(fname, result, options);
   }
 
-  ZNSWritableFile* f = new ZNSWritableFile(fname, this, options, 0);
-  result->reset(dynamic_cast<WritableFile*>(f));
 
   filesMutex.Lock();
   fileNum = files.count(fname);
+  filesMutex.Unlock();
+
   if (fileNum != 0) {
     delete files[fname];
     files.erase(fname);
   }
 
+  filesMutex.Lock();
   files[fname] = new ZNSFile(fname, 0);
   files[fname]->uuididx = uuididx++;
   filesMutex.Unlock();
+
+  ZNSWritableFile *f = new ZNSWritableFile (fname, this, options, 0);
+  result->reset(dynamic_cast<WritableFile*>(f));
 
   return Status::OK();
 }
@@ -153,24 +166,29 @@ Status ZNSEnv::NewWritableLeveledFile(const std::string& fname,
     return NewWritableFile(fname, result, options);
   }
 
-  ZNSWritableFile* f = new ZNSWritableFile(fname, this, options, level);
-  result->reset(dynamic_cast<WritableFile*>(f));
 
   filesMutex.Lock();
   fileNum = files.count(fname);
+  filesMutex.Unlock();
+
   if (fileNum != 0) {
     delete files[fname];
     files.erase(fname);
   }
 
+  filesMutex.Lock();
   files[fname] = new ZNSFile(fname, level);
   files[fname]->uuididx = uuididx++;
   filesMutex.Unlock();
+
+  ZNSWritableFile* f = new ZNSWritableFile(fname, this, options, level);
+  result->reset(dynamic_cast<WritableFile*>(f));
 
   return Status::OK();
 }
 
 Status ZNSEnv::DeleteFile(const std::string& fname) {
+  std::int32_t zoned_id = -1;
   if (ZNS_DEBUG) std::cout << __func__ << ":" << fname << std::endl;
 
   if (IsFilePosix(fname)) {
@@ -185,7 +203,12 @@ Status ZNSEnv::DeleteFile(const std::string& fname) {
     return Status::OK();
   }
 
-  if (files[fname]->znode_id != -1) zrocks_trim(files[fname]->znode_id);
+  ZNSFile* znsfile = files[fname];
+  for (uint32_t i = 0; i < znsfile->nodes.size(); i++) {
+      zoned_id = znsfile->nodes[i];
+      if (zoned_id != -1)
+          zrocks_trim(zoned_id);
+  }
 
   delete files[fname];
   files.erase(fname);
@@ -307,9 +330,14 @@ void ZNSEnv::RecoverFileFromBuf(unsigned char* buf, std::uint32_t& praseLen) {
 
   znsFile->size = fileMetaData.filesize;
   znsFile->level = fileMetaData.level;
-  znsFile->znode_id = fileMetaData.znode_id;
 
   std::uint32_t len = sizeof(ZrocksFileMeta);
+  for (std::uint8_t i = 0; i < fileMetaData.node_num; i++) {
+    std::int32_t node_id = *(std::int32_t*)(buf+len);
+    znsFile->nodes.push_back(node_id);
+    len += sizeof(std::int32_t);
+  }
+
   if (ZNS_DEBUG_META) {
     znsFile->PrintMetaData();
   }

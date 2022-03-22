@@ -54,11 +54,13 @@ int ztl_pro_grp_get(struct app_group *grp, struct app_pro_addr *ctx,
     struct ztl_pro_node_grp *pro = NULL;
     pro                          = (struct ztl_pro_node_grp *)grp->pro;
     struct ztl_pro_node *node    = &pro->vnodes[*node_id];
+    uint64_t sec_avlb, actual_sec;
 
     uint64_t nlevel     = nsec / (ZTL_PRO_ZONE_NUM_INNODE * ZTL_READ_SEC_MCMD);
     int32_t  remain_sec = nsec % (ZTL_PRO_ZONE_NUM_INNODE * ZTL_READ_SEC_MCMD);
     int      zn_i       = 0;
     ctx->naddr          = 0;
+    bool isfull = false;
     for (zn_i = 0; zn_i < ZTL_PRO_ZONE_NUM_INNODE; zn_i++) {
         struct ztl_pro_zone *zone = node->vzones[zn_i];
         uint64_t sec_avlb = zone->zmd_entry->addr.g.sect + zone->capacity -
@@ -87,14 +89,20 @@ int ztl_pro_grp_get(struct app_group *grp, struct app_pro_addr *ctx,
         ctx->nsec[zn_i]        = actual_sec;
         zone->zmd_entry->wptr_inflight += ctx->nsec[zn_i];
 
+        sec_avlb = zone->zmd_entry->addr.g.sect + zone->capacity - zone->zmd_entry->wptr_inflight;
+        if (!sec_avlb) {
+            isfull = true;
+        }
         ZDEBUG(ZDEBUG_PRO,
                "ztl-pro-grp  (get): (%d/%d/0x%lx/0x%lx/0x%lx) "
                " sp: %d, remain_sec: %d",
                zone->addr.g.grp, zone->addr.g.zone, (uint64_t)zone->addr.g.sect,
                zone->zmd_entry->wptr, zone->zmd_entry->wptr_inflight,
                ctx->nsec[zn_i], remain_sec);
+        if (isfull) {
+            node->status = XZTL_ZMD_NODE_FULL;
+        }
     }
-
     return 0;
 
 NO_LEFT:
@@ -117,7 +125,7 @@ void ztl_pro_grp_free(struct app_group *grp, uint32_t zone_i, uint32_t nsec) {
     int                      ret;
 
     pro  = (struct ztl_pro_node_grp *)grp->pro;
-    zone = &(pro->vzones[zone_i - get_metadata_zone_num()]);
+    zone = &((struct ztl_pro_node_grp *) grp->pro)->vzones[zone_i-get_metadata_zone_num()];
 
     /* Move the write pointer */
     /* A single thread touches the write pointer, no lock needed */
@@ -218,6 +226,11 @@ static void *znd_pro_grp_process_mgmt(void *args) {
     return XZTL_OK;
 }
 
+char ztl_pro_grp_is_node_full(struct app_group *grp, uint32_t nodeid) {
+    struct ztl_pro_node_grp *pro = (struct ztl_pro_node_grp *) grp->pro;
+    return (pro->vnodes[nodeid].status == XZTL_ZMD_NODE_FULL);
+}
+
 int ztl_pro_grp_finish_zn(struct app_group *grp, uint32_t zid, uint8_t type) {
     struct ztl_pro_zone *    zone;
     struct ztl_pro_node_grp *pro;
@@ -225,7 +238,7 @@ int ztl_pro_grp_finish_zn(struct app_group *grp, uint32_t zid, uint8_t type) {
     // struct xztl_zn_mcmd cmd;
 
     pro  = (struct ztl_pro_node_grp *)grp->pro;
-    zone = &(pro->vzones[zid - get_metadata_zone_num()]);
+    zone = &((struct ztl_pro_node_grp *) grp->pro)->vzones[zid-get_metadata_zone_num()];
     zmde = zone->zmd_entry;
 
     /* Zone is already empty */

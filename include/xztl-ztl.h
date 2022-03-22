@@ -50,13 +50,17 @@
 #define ZTL_WRITE_AFFINITY 0
 #define ZTL_WRITE_CORE     0
 
-#define ZTL_ALLOC_NODE_NUM  32
+#define ZTL_ALLOC_NODE_NUM 16
+#define ZNS_ALIGMENT 4096
+#define ZNA_1M_BUF   (ZNS_ALIGMENT * 256)
+#define ZNS_MAX_M_BUF 32
+#define ZNS_MAX_BUF  (ZNS_MAX_M_BUF * ZNA_1M_BUF)
 #define ZTL_TH_NUM          128
-#define ZNS_MAX_BUF_SEC_NUM 16384
-#define ZTL_TH_RC_NUM       (ZNS_MAX_BUF_SEC_NUM / ZTL_WCA_SEC_MCMD)
+//#define ZTL_TH_RC_NUM   (ZNS_MAX_BUF / (ZTL_WCA_SEC_MCMD * ZNS_ALIGMENT)) 
+#define ZTL_TH_RC_NUM 1024
 
 struct xztl_thread {
-    struct xztl_mthread_ctx *tctx;
+    struct xztl_mthread_ctx *tctx[2];//-----------??1024
     struct xztl_io_mcmd *    mcmd[ZTL_TH_RC_NUM];
     void *                   prov;
     char *prp[ZTL_TH_RC_NUM];
@@ -124,7 +128,7 @@ enum xztl_zmd_flags {
     XZTL_ZMD_META = (1 << 5)  /* Contains metadata, such as log for recovery*/
 };
 
-enum xztl_zmd_node_status { XZTL_ZMD_NODE_FREE = 0, XZTL_ZMD_NODE_USED };
+enum xztl_zmd_node_status { XZTL_ZMD_NODE_FREE = 0, XZTL_ZMD_NODE_USED, XZTL_ZMD_NODE_FULL };
 
 struct app_magic {
     uint8_t magic;
@@ -256,6 +260,7 @@ typedef int(app_pro_finish_node)(struct app_group *   grp,
                                  struct ztl_pro_node *node);
 typedef int(app_pro_submit_node)(struct app_group *   grp,
                                  struct ztl_pro_node *node, int32_t op_code);
+typedef char(app_pro_get_node) (struct app_group *grp, uint32_t nodeid);
 
 typedef int(app_mpe_create)(void);
 typedef int(app_mpe_load)(void);
@@ -308,6 +313,7 @@ struct app_pro_mod {
     app_pro_reset_node * reset_node_fn;
     app_pro_finish_node *finish_node_fn;
     app_pro_submit_node *submit_node_fn;
+    app_pro_get_node    *is_node_full_fn;
 };
 
 struct app_mpe_mod {

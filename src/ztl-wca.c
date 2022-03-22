@@ -26,7 +26,7 @@
 
 #define ZTL_MCMD_ENTS       XZTL_IO_MAX_MCMD
 #define ZROCKS_DEBUG        0
-#define ZNS_ALIGMENT        4096
+
 #define XZTL_CTX_NVME_DEPTH 128
 
 extern struct app_group **glist;
@@ -287,7 +287,7 @@ int ztl_wca_read_ucmd(struct xztl_io_ucmd *ucmd, uint32_t node_id,
     int      ret = 0;
 
     struct xztl_thread *     tdinfo = ucmd->xd.tdinfo;
-    struct xztl_mthread_ctx *tctx   = tdinfo->tctx;
+    struct xztl_mthread_ctx* tctx = tdinfo->tctx[0];
 
     // struct app_group *grp = ztl()->groups.get_fn(0);
     struct app_group *grp = glist[0];
@@ -438,7 +438,7 @@ void ztl_wca_write_ucmd(struct xztl_io_ucmd *ucmd, int32_t *node_id) {
     int      ret, ncmd_zn, zncmd_i;
 
     struct xztl_thread *     tdinfo = ucmd->xd.tdinfo;
-    struct xztl_mthread_ctx *tctx   = tdinfo->tctx;
+    struct xztl_mthread_ctx* tctx = tdinfo->tctx[0];
 
     ZDEBUG(ZDEBUG_WCA, "ztl-wca: Processing user write. ID %lu", ucmd->id);
 
@@ -650,7 +650,7 @@ static int _ztl_thd_init(struct xztl_thread *td) {
 
     for (mcmd_id = 0; mcmd_id < ZTL_TH_RC_NUM; mcmd_id++) {
         // each mcmd read max 256K(64 * 4K)
-        td->prp[mcmd_id] = zrocks_alloc(256 * 1024);
+        td->prp[mcmd_id] = zrocks_alloc(64 *1024); //each mcmd read max 64K(64 * 4K)
         td->mcmd[mcmd_id] = aligned_alloc(64, sizeof(struct xztl_io_mcmd));
     }
 
@@ -663,8 +663,8 @@ static int _ztl_thd_init(struct xztl_thread *td) {
     struct app_pro_addr *prov = (struct app_pro_addr *)td->prov;
     prov->grp                 = glist[0];
 
-    td->tctx = xztl_ctx_media_init(XZTL_CTX_NVME_DEPTH);
-    if (!td->tctx) {
+    td->tctx[0] = xztl_ctx_media_init(XZTL_CTX_NVME_DEPTH);
+    if (!td->tctx[0]) {
         log_err("Thread resource (tctx) allocation error.");
         return -1;
     }

@@ -201,7 +201,8 @@ static void test_zrocks_random_read(void) {
 
     xztl_media_dma_free(buf);
 
-    for (int i = 0; i < TEST_N_BUFFERS; i++) xztl_media_dma_free(wbuf[i]);
+    for (int i = 0; i < TEST_N_BUFFERS; i++)
+	    xztl_media_dma_free(wbuf[i]);
 }
 
 int main(int argc, const char **argv) {
