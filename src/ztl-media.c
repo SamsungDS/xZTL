@@ -117,8 +117,10 @@ static int znd_media_submit_read_asynch(struct xztl_io_mcmd *cmd) {
 
     ret = xnvme_nvm_read(xnvme_ctx, xnvme_dev_get_nsid(zndmedia.dev), slba,
                          (uint16_t)cmd->nsec[sec_i] - 1, dbuf, NULL);
-    if (ret)
+    if (ret) {
+        xnvme_queue_put_cmd_ctx(tctx->queue, xnvme_ctx);
         xztl_print_mcmd(cmd);
+    }
 
     return ret;
 }

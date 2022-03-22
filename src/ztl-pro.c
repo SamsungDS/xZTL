@@ -75,6 +75,10 @@ int ztl_pro_put_zone(struct app_group *grp, uint32_t zid) {
     return ztl_pro_grp_put_zone(grp, zid);
 }
 
+bool ztl_pro_is_node_full(struct app_group *grp, uint32_t nodeid) {
+    return ztl_pro_grp_is_node_full(grp, nodeid);
+}
+
 int ztl_pro_finish_zone(struct app_group *grp, uint32_t zid, uint8_t type) {
     return ztl_pro_grp_finish_zn(grp, zid, type);
 }
@@ -167,7 +171,9 @@ static struct app_pro_mod ztl_pro = {.mod_id         = LIBZTL_PRO,
                                      .free_fn        = ztl_pro_free,
                                      .reset_node_fn  = ztl_pro_grp_node_reset,
                                      .finish_node_fn = ztl_pro_grp_node_finish,
-                                     .submit_node_fn = ztl_pro_grp_submit_mgmt};
+    .submit_node_fn = ztl_pro_grp_submit_mgmt,
+    .is_node_full_fn = ztl_pro_is_node_full
+};
 
 void ztl_pro_register(void) {
     ztl_mod_register(ZTLMOD_PRO, LIBZTL_PRO, &ztl_pro);

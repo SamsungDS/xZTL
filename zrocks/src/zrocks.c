@@ -33,6 +33,7 @@
 #define ZROCKS_DEBUG       0
 #define ZROCKS_BUF_ENTS    1024
 #define ZROCKS_MAX_READ_SZ (256 * ZNS_ALIGMENT) /* 512 KB */
+#define ZONE_SIZE (96 * 1024 * 1024)
 
 extern struct znd_media zndmedia;
 
@@ -124,6 +125,11 @@ int zrocks_write(void *buf, size_t size, int32_t *node_id, int tid) {
         return ucmd.status;
 
     return 0;
+}
+
+char zrocks_node_is_full(uint32_t node_id) {
+    struct app_group *grp = ztl()->groups.get_fn(0);
+    return ztl()->pro->is_node_full_fn(grp , node_id);
 }
 
 int zrocks_read_obj(uint64_t id, uint64_t offset, void *buf, size_t size) {
@@ -225,15 +231,24 @@ int zrocks_exit(void) {
 }
 
 int zrocks_node_finish(uint32_t node_id) {
-    struct app_group *       grp      = ztl()->groups.get_fn(0);
+    struct app_group *grp = ztl()->groups.get_fn(0);
     struct ztl_pro_node_grp *node_grp = grp->pro;
-    struct ztl_pro_node *    node =
-        (struct ztl_pro_node *)(&node_grp->vnodes[node_id]);
+    struct ztl_pro_node *node = (struct ztl_pro_node *)(&node_grp->vnodes[node_id]);
+    struct ztl_pro_zone *zone;
+    uint32_t zid;
     int ret;
+    if (!node) {
+        log_erra("zrocks_node_finish: node %u is nullptr.\n", node_id);
+        return -1;
+    }
 
     ret = ztl()->pro->submit_node_fn(grp, node, ZTL_MGMG_FULL_ZONE);
 
     return ret;
+}
+
+uint64_t zrocks_get_node_size() {
+    return ZTL_PRO_ZONE_NUM_INNODE * ZONE_SIZE;
 }
 
 int zrocks_init(const char *dev_name) {

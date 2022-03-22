@@ -35,9 +35,10 @@ extern "C" {
 
 /* 4KB aligment : 16 GB user buffers
  * 512b aligment: 2 GB user buffers */
-// #define ZNS_MAX_BUF  (ZNS_ALIGMENT * 65536)
-#define ZNS_MAX_BUF_SEC_NUM 16384
-#define ZNS_MAX_BUF         (ZNS_ALIGMENT * ZNS_MAX_BUF_SEC_NUM)
+//#define ZNS_MAX_BUF  (ZNS_ALIGMENT * 65536)
+#define ZNS_MAX_M_BUF 32
+#define ZNA_1M_BUF   (ZNS_ALIGMENT * 256)
+#define ZNS_MAX_BUF  (ZNS_MAX_M_BUF * ZNA_1M_BUF)
 
 struct zrocks_map {
     union {
@@ -153,6 +154,11 @@ int zrocks_read_obj(uint64_t id, uint64_t offset, void *buf, size_t size);
  *      if the call fails
  */
 int zrocks_trim(uint32_t node_id);
+
+
+char zrocks_node_is_full(uint32_t node_id);
+
+
 /**
  * Write to ZNS device and return the mapping multi-piece list
  *
@@ -220,6 +226,8 @@ int zrocks_read_metadata(uint64_t slba, unsigned char *buf, uint32_t length);
  */
 int zrocks_write_file_metadata(const unsigned char *buf, uint32_t length);
 int zrocks_node_finish(uint32_t node_id);
+
+uint64_t zrocks_get_node_size();
 
 #ifdef __cplusplus
 };  // closing brace for extern "C"

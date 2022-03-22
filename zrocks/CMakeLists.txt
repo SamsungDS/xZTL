@@ -26,7 +26,7 @@ enable_c_flag("-Wall")
 enable_c_flag("-pedantic")
 enable_c_flag("-fopenmp")
 enable_c_flag("-fPIC")
-enable_c_flag("-g")
+#enable_c_flag("-g")
 
 set(HEADER_FILES
 	${PROJECT_SOURCE_DIR}/include/libzrocks.h

@@ -41,6 +41,7 @@
 #define FILE_METADATA_MAGIC 0x3E
 #define FILE_NAME_LEN 128
 
+#define ZNS_FILE_TAIL_BUF (2 * 1024 * 1024) 
 #define GET_NANOSECONDS(ns, ts)                       \
   do {                                                \
     clock_gettime(CLOCK_REALTIME, &ts);               \
@@ -75,13 +76,14 @@ struct ZrocksFileMeta {
   int8_t level;
   std::uint32_t filesize;
   char filename[FILE_NAME_LEN];
-  std::int32_t znode_id;
+  int8_t node_num;
+
 
   ZrocksFileMeta() {
     magic = 0;
     filesize = 0;
     level = -1;
-    znode_id = -1;
+    node_num = 0;
     memset(filename, 0, sizeof(filename));
   }
 };
@@ -94,15 +96,23 @@ struct ZrocksMediaRes {
 class ZNSFile {
  public:
   const std::string name;
+  port::Mutex readMutex;
   size_t size;
+  size_t before_truncate_size;
   std::uint64_t uuididx;
   int level;
+  std::vector<std::int32_t> nodes;
   std::int32_t znode_id;
+  char* cache;
+  uint64_t cache_size;
 
   ZNSFile(const std::string& fname, int lvl)
       : name(fname), uuididx(0), level(lvl) {
+    before_truncate_size = 0;
     size = 0;
     znode_id = -1;
+    cache = reinterpret_cast<char*> (zrocks_alloc(ZNS_FILE_TAIL_BUF));
+    cache_size = 0;
   }
 
   ~ZNSFile() {}
@@ -414,7 +424,8 @@ class ZNSSequentialFile : public SequentialFile {
   std::string filename_;
   bool use_direct_io_;
   size_t logical_sector_size_;
-
+  std::uint64_t ztl_id;
+  ZNSFile* znsfile;
   ZNSEnv* env_zns;
   uint64_t read_off;
   int xztlrid;
@@ -427,7 +438,7 @@ class ZNSSequentialFile : public SequentialFile {
         logical_sector_size_(ZNS_ALIGMENT) {
     env_zns = zns;
     read_off = 0;
-
+    znsfile = env_zns->files[fname];
     xztlrid = env_zns->updateMediaResource();
   }
 
@@ -463,13 +474,15 @@ class ZNSRandomAccessFile : public RandomAccessFile {
   std::string filename_;
   bool use_direct_io_;
   size_t logical_sector_size_;
+  std::uint64_t ztl_id;
   std::uint64_t uuididx;
 
   ZNSEnv* env_zns;
+  ZNSFile* znsfile;
 
   size_t size;
   std::int32_t znode_id;
-  int xztlrid;
+  bool readflag;
 
 #if ZNS_PREFETCH
   char* prefetch;
@@ -489,9 +502,10 @@ class ZNSRandomAccessFile : public RandomAccessFile {
 #if ZNS_PREFETCH
     prefetch_off = 0;
 #endif
-
-    znode_id = env_zns->files[filename_]->znode_id;
-    size = env_zns->files[filename_]->size;
+    env_zns->filesMutex.Lock();
+    znsfile = env_zns->files[filename_];
+    env_zns->filesMutex.Unlock();
+    size = znsfile->size;
 
 #if ZNS_PREFETCH
     prefetch = reinterpret_cast<char*>(zrocks_alloc(ZNS_PREFETCH_BUF_SZ));
@@ -501,8 +515,6 @@ class ZNSRandomAccessFile : public RandomAccessFile {
     }
     prefetch_sz = 0;
 #endif
-
-    xztlrid = env_zns->updateMediaResource();
   }
 
   virtual ~ZNSRandomAccessFile() {
@@ -543,6 +555,8 @@ class ZNSWritableFile : public WritableFile {
   const bool use_direct_io_;
   int fd_;
   std::uint64_t filesize_;
+  std::uint64_t ztl_id;
+  ZNSFile* znsfile;
   size_t logical_sector_size_;
 #ifdef ROCKSDB_FALLOCATE_PRESENT
   bool allow_fallocate_;
@@ -554,8 +568,6 @@ class ZNSWritableFile : public WritableFile {
 
   ZNSEnv* env_zns;
   std::uint64_t map_off;
-
-  int xztlrid;
 
  public:
   explicit ZNSWritableFile(const std::string& fname, ZNSEnv* zns,
@@ -582,7 +594,7 @@ class ZNSWritableFile : public WritableFile {
     cache_off = wcache;
     map_off = 0;
 
-    xztlrid = env_zns->updateMediaResource();
+    znsfile = env_zns->files[fname];
   }
 
   virtual ~ZNSWritableFile() {
@@ -594,6 +606,8 @@ class ZNSWritableFile : public WritableFile {
   Status Append(const Slice& data) override;
 
   Status PositionedAppend(const Slice& data, std::uint64_t offset) override;
+  Status Append(const rocksdb::Slice&, const rocksdb::DataVerificationInfo&);
+  Status PositionedAppend(const rocksdb::Slice&, uint64_t, const rocksdb::DataVerificationInfo&);
 
   Status Truncate(std::uint64_t size) override;
 

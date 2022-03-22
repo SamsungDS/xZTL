@@ -22,21 +22,52 @@ namespace rocksdb {
 
 Status ZNSSequentialFile::ReadOffset(uint64_t offset, size_t n, Slice* result,
                                      char* scratch, size_t* readLen) const {
-  std::int32_t znode_id = -1;
+    if (znsfile == NULL || offset >= znsfile->size) {
+        return Status::OK();
+    }
 
-  env_zns->filesMutex.Lock();
-  znode_id = env_zns->files[filename_]->znode_id;
-  env_zns->filesMutex.Unlock();
 
-  int ret =
-      zrocks_read(znode_id, offset, scratch, n, env_zns->updateMediaResource());
-  if (ret) {
-    std::cout << __func__ << filename_ << " read error " << ret
-              << " at zone node " << env_zns->files[filename_]->znode_id
-              << std::endl;
-    return Status::IOError();
-  }
+    int ret = 0;
+    uint64_t node_size = zrocks_get_node_size();
+    int zoneid1 = -1, zoneid2 = -1; 
+    int tid = env_zns->updateMediaResource();
+    if (ZNS_DEBUG_R) {
+        printf("ZNSSequentialFile ReadOffset filename[%s] offset[%lu] size[%lu] filesize[%lu] tid[%lu]\n",
+             filename_.c_str(), offset, n, znsfile->size, env_zns->gettid());
+	}
+    uint64_t zone_inner_offset = offset % node_size;
+    int startzidx = offset / node_size;
+    if (znsfile->nodes.empty()) {
+        return Status::OK();
+    }
+    zoneid1 = znsfile->nodes[startzidx];
+    if(zone_inner_offset + n >= node_size) {
+        zoneid2 = znsfile->nodes[startzidx + 1];
+    }
 
+    if (zoneid2 == -1) {
+        ret = zrocks_read(zoneid1, zone_inner_offset, scratch, n, tid);
+        if (ret) {
+            std::cout << __func__ << filename_ << " read error " << ret << " at zone node " 
+                            << zoneid1 << std::endl;
+            return Status::IOError();
+        }
+    } else {
+        uint64_t z1readsize =  node_size - zone_inner_offset;
+        ret = zrocks_read(zoneid1, zone_inner_offset, scratch, z1readsize, tid);
+        if (ret) {
+            std::cout << __func__ << filename_ << " read error " << ret << " at zone node " 
+                            << zoneid1 << std::endl;
+            return Status::IOError();
+        }
+
+        ret = zrocks_read(zoneid2, 0, scratch + z1readsize, n - z1readsize, tid);
+        if (ret) {
+            std::cout << __func__ << filename_ << " read error " << ret << " at zone node " 
+                            << zoneid2 << std::endl;
+            return Status::IOError();
+        }
+    }
   *readLen = n;
   *result = Slice(scratch, n);
   return Status::OK();
@@ -67,9 +98,10 @@ Status ZNSSequentialFile::Skip(uint64_t n) {
 }
 
 Status ZNSSequentialFile::InvalidateCache(size_t offset, size_t length) {
-  if (ZNS_DEBUG)
+  if (ZNS_DEBUG) {
     std::cout << __func__ << " offset: " << offset << " length: " << length
               << std::endl;
+  }
   return Status::OK();
 }
 
@@ -79,11 +111,12 @@ Status ZNSRandomAccessFile::ReadObj(uint64_t offset, size_t n, Slice* result,
                                     char* scratch) const {
   int ret;
 
-  if (ZNS_DEBUG_R)
+  if (ZNS_DEBUG_R) {
     std::cout << __func__ << "name: " << filename_ << " offset: " << offset
               << " size: " << n << std::endl;
+  }
+  ret = zrocks_read_obj(ztl_id, offset, scratch, n);
 
-  ret = zrocks_read_obj(0, offset, scratch, n);
   if (ret) {
     std::cout << " ZRocks (read_obj) error: " << ret << std::endl;
     return Status::IOError();
@@ -96,21 +129,54 @@ Status ZNSRandomAccessFile::ReadObj(uint64_t offset, size_t n, Slice* result,
 
 Status ZNSRandomAccessFile::ReadOffset(uint64_t offset, size_t n, Slice* result,
                                        char* scratch) const {
-  int ret;
+    if (znsfile == NULL || offset >= znsfile->size) {
+        return Status::OK();
+    }
 
-  if (ZNS_DEBUG_R)
-    std::cout << __func__ << "---Filename:" << filename_
-              << " offset: " << offset << " size: " << n << " zid: " << znode_id
-              << std::endl;
+    int ret = 0;
+    uint64_t node_size = zrocks_get_node_size();
+    int zoneid1 = -1, zoneid2 = -1; 
+    int tid = env_zns->updateMediaResource();
 
-  ret =
-      zrocks_read(znode_id, offset, scratch, n, env_zns->updateMediaResource());
-  if (ret) {
-    std::cout << __func__ << filename_ << " read error " << ret
-              << " at zone node " << znode_id << std::endl;
-    return Status::IOError();
-  }
+    if (ZNS_DEBUG_R) {
+        printf(" ZNSRandomAccessFile ReadOffset filename[%s] offset[%lu] size[%lu] filesize[%lu] tid[%lu]\n",
+             filename_.c_str(), offset, n, znsfile->size, env_zns->gettid());
+    }
 
+    uint64_t zone_inner_offset = offset % node_size;
+    int startzidx = offset / node_size;
+    if (znsfile->nodes.empty()) {
+        return Status::OK();
+    }
+
+    zoneid1 = znsfile->nodes[startzidx];
+    if (zone_inner_offset + n >= node_size) {
+        zoneid2 = znsfile->nodes[startzidx + 1];
+    }
+
+    if (zoneid2 == -1) {
+        ret = zrocks_read(zoneid1, zone_inner_offset, scratch, n, tid);
+        if (ret) {
+            std::cout << __func__ << filename_ << " read error " << ret << " at zone node " 
+                            << znode_id << std::endl;
+            return Status::IOError();
+        }
+    } else {
+        uint64_t z1readsize =  node_size - zone_inner_offset;
+        ret = zrocks_read(zoneid1, zone_inner_offset, scratch, z1readsize, tid);
+        if (ret) {
+            std::cout << __func__ << filename_ << " read error " << ret << " at zone node " 
+                            << znode_id << std::endl;
+            return Status::IOError();
+        }
+        //the seconde zone  start offset should be 0 
+        ret = zrocks_read(zoneid2, 0, scratch + z1readsize, n - z1readsize, tid);
+        if (ret) {
+            std::cout << __func__ << filename_ << " read error " << ret << " at zone node " 
+                            << znode_id << std::endl;
+            return Status::IOError();
+        }
+    }
   *result = Slice(scratch, n);
   return Status::OK();
 }
@@ -143,8 +209,10 @@ Status ZNSRandomAccessFile::Read(uint64_t offset, size_t n, Slice* result,
 }
 
 Status ZNSRandomAccessFile::Prefetch(uint64_t offset, size_t n) {
-  if (ZNS_DEBUG)
+  if (ZNS_DEBUG) {
     std::cout << __func__ << " offset: " << offset << " n: " << n << std::endl;
+  }
+
   env_zns->filesMutex.Lock();
   if (env_zns->files[filename_] == NULL) {
     env_zns->filesMutex.Unlock();
@@ -214,14 +282,24 @@ size_t ZNSRandomAccessFile::GetUniqueId(char* id, size_t max_size) const {
 }
 
 Status ZNSRandomAccessFile::InvalidateCache(size_t offset, size_t length) {
-  if (ZNS_DEBUG)
+  if (ZNS_DEBUG) {
     std::cout << __func__ << " offset: " << offset << " length: " << length
               << std::endl;
+  }
+
   return Status::OK();
 }
 
 /* ### WritableFile method implementation ### */
+Status ZNSWritableFile::Append(const rocksdb::Slice&, const rocksdb::DataVerificationInfo&)
+{
+   return Status::OK();
+}
 
+Status ZNSWritableFile::PositionedAppend(const rocksdb::Slice&, uint64_t, const rocksdb::DataVerificationInfo&)
+{
+   return Status::OK();
+}
 Status ZNSWritableFile::Append(const Slice& data) {
   if (ZNS_DEBUG_AF)
     std::cout << __func__ << " size: " << data.size() << std::endl;
@@ -271,22 +349,18 @@ Status ZNSWritableFile::Append(const Slice& data) {
   cache_off += size;
   filesize_ += data.size();
 
-  env_zns->filesMutex.Lock();
-  if (env_zns->files[filename_] == NULL) {
-    env_zns->filesMutex.Unlock();
-    return Status::OK();
-  }
 
-  env_zns->files[filename_]->size += data.size();
-  env_zns->filesMutex.Unlock();
+  znsfile->size += data.size();
 
   return Status::OK();
 }
 
 Status ZNSWritableFile::PositionedAppend(const Slice& data, uint64_t offset) {
-  if (ZNS_DEBUG_AF)
+  if (ZNS_DEBUG_AF) {
     std::cout << __func__ << __func__ << " size: " << data.size()
               << " offset: " << offset << std::endl;
+  }
+
   if (offset != filesize_) {
     std::cout << "Write Violation: " << __func__ << " size: " << data.size()
               << " offset: " << offset << std::endl;
@@ -305,7 +379,7 @@ Status ZNSWritableFile::Truncate(uint64_t size) {
   }
 
   size_t cache_size = (size_t)(cache_off - wcache);
-  size_t trun_size = env_zns->files[filename_]->size - size;
+  size_t trun_size = znsfile->size - size;
 
   if (cache_size < trun_size) {
     // TODO
@@ -315,34 +389,40 @@ Status ZNSWritableFile::Truncate(uint64_t size) {
 
   cache_off -= trun_size;
   filesize_ = size;
-  env_zns->files[filename_]->size = size;
+  znsfile->size = size;
 
   env_zns->filesMutex.Unlock();
   return Status::OK();
 }
 
 Status ZNSWritableFile::Close() {
-  if (ZNS_DEBUG) std::cout << __func__ << " file: " << filename_ << std::endl;
+  if (ZNS_DEBUG) {
+      std::cout << __func__ << " file: " << filename_ << std::endl;
+  }
+
   Sync();
-  env_zns->filesMutex.Lock();
-  std::int32_t node_id = env_zns->files[filename_]->znode_id;
 
-  env_zns->filesMutex.Unlock();
-
-  if (node_id != -1) {
-    zrocks_node_finish(node_id);
+  std::int32_t node_id = -1;    
+  for(uint32_t i = 0; i < znsfile->nodes.size(); i++) {
+    node_id = znsfile->nodes[i];
+    if (node_id != -1) {
+      zrocks_node_finish(node_id);
+    }
   }
   return Status::OK();
 }
 
 Status ZNSWritableFile::Flush() {
-  if (ZNS_DEBUG_AF) std::cout << __func__ << std::endl;
+  if (ZNS_DEBUG_AF) {
+      std::cout << __func__ << std::endl;
+  }
+
   return Status::OK();
 }
 
 Status ZNSWritableFile::Sync() {
   size_t size;
-  int ret;
+  int ret, tid;
 
   if (!cache_off) return Status::OK();
 
@@ -350,10 +430,15 @@ Status ZNSWritableFile::Sync() {
   if (!size) return Status::OK();
 
 #if ZNS_OBJ_STORE
-  ret = zrocks_new(0, wcache, size, level);
+    ret = zrocks_new(ztl_id, wcache, size, level);
 #else
-  int32_t node_id = env_zns->files[filename_]->znode_id;
-  ret = zrocks_write(wcache, size, &node_id, env_zns->updateMediaResource());
+    int32_t node_id = znsfile->znode_id;
+    if(node_id != -1 && zrocks_node_is_full(node_id)) {
+        node_id = -1;
+    }
+
+    tid = env_zns->updateMediaResource();
+    ret = zrocks_write(wcache, size, &node_id, tid);
 #endif
 
   if (ret) {
@@ -361,13 +446,17 @@ Status ZNSWritableFile::Sync() {
     return Status::IOError();
   }
 
-  env_zns->alloc_flag[node_id] = true;
-  env_zns->files[filename_]->znode_id = node_id;
+  if(node_id != znsfile->znode_id) {
+      znsfile->nodes.push_back(node_id);
+      znsfile->znode_id = node_id;
+  }
 #if !ZNS_OBJ_STORE
-  if (ZNS_DEBUG_W)
+  if (ZNS_DEBUG_W) {
     std::cout << __func__
               << " DONE. node_id: " << env_zns->files[filename_]->znode_id
               << std::endl;
+  }
+
   // write page
   env_zns->filesMutex.Lock();
   if (env_zns->files[filename_] == NULL) {
@@ -423,7 +512,7 @@ size_t ZNSWritableFile::GetUniqueId(char* id, size_t max_size) const {
   if (!env_zns->files[filename_]) {
     base = (uint64_t)this;
   } else {
-    base = ((uint64_t)env_zns->files[filename_]->uuididx);
+    base = ((uint64_t)znsfile->uuididx);
   }
   env_zns->filesMutex.Unlock();
   rid = EncodeVarint64(rid, (uint64_t)base);
