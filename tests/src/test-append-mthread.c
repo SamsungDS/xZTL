@@ -121,7 +121,7 @@ static void test_append_poke_ctx(struct xztl_mthread_ctx *tctx) {
 
 static void test_append_callback(void *arg) {
     struct xztl_mp_entry *mp_cmd;
-    struct xztl_io_mcmd * cmd;
+    struct xztl_io_mcmd  *cmd;
 
     cmd    = (struct xztl_io_mcmd *)arg;
     mp_cmd = (struct xztl_mp_entry *)cmd->opaque;
@@ -151,16 +151,16 @@ static int test_append_reset_zone(uint32_t zid) {
 }
 
 static void *test_append_th(void *args) {
-    struct test_params *     par;
+    struct test_params      *par;
     struct xztl_mthread_ctx *tctx = NULL;
-    struct xztl_mp_entry *   mp_cmd;
-    struct xztl_io_mcmd *    cmd;
+    struct xztl_mp_entry    *mp_cmd;
+    struct xztl_io_mcmd     *cmd;
     size_t                   cmd_sz;
     uint32_t                 cmd_i, ncmd, zone_i;
     uint64_t                 sec_cmd;
-    char *                   wbuf;
+    char                    *wbuf;
     int                      ret;
-    struct xztl_core *       core;
+    struct xztl_core        *core;
     get_xztl_core(&core);
     par     = (struct test_params *)args;
     cmd_sz  = TEST_SEC_CMD * core->media->geo.nbytes * 1UL;
@@ -240,7 +240,6 @@ int main(int argc, const char **argv) {
         printf("APPEND command is not supportable yet\n");
         return 0;
     }
-
     pthread_t thread_id[TEST_THREAD];
     uint32_t  tid, zone_th, left;
     int       ret, err;

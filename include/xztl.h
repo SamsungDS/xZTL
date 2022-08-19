@@ -35,7 +35,7 @@
 #define ZDEBUG_PRO     0
 #define ZDEBUG_MPE     0
 #define ZDEBUG_MAP     0
-#define ZDEBUG_WCA     0
+#define ZDEBUG_IO      0
 #define ZDEBUG_MEDIA_W 0
 #define ZDEBUG_MEDIA_R 0
 #define ZDEBUG_MP      0
@@ -91,7 +91,8 @@
 #define APP_MAGIC           0x3c
 #define METADATA_HEAD_MAGIC 0x4c
 
-#define AND64 0xffffffffffffffff
+#define AND64                0xffffffffffffffff
+#define MAX_CALLBACK_ERR_CNT 3
 
 typedef int(xztl_init_fn)(void);
 typedef int(xztl_exit_fn)(void);
@@ -123,15 +124,9 @@ struct xztl_mthread_info {
     int       comp_active;
 };
 
-struct xztl_th_data {
-    uint32_t            node_id;
-    int                 tid;
-    struct xztl_thread *tdinfo;
-};
-
 struct xztl_io_ucmd {
     uint64_t id;
-    void *   buf;
+    void    *buf;
     size_t   size;
     uint64_t offset;  // for read command
     uint16_t prov_type;
@@ -140,13 +135,15 @@ struct xztl_io_ucmd {
 
     xztl_callback *callback;
 
-    struct xztl_th_data xd;
-
     struct app_pro_addr *prov;
     struct xztl_io_mcmd *mcmd[XZTL_WIO_MAX_MCMD];
 
+    uint64_t node_id[2];
+    uint64_t start[2];
+    uint64_t num[2];
+    uint16_t pieces;
+
     uint16_t nmcmd;
-    uint16_t noffs;
     uint64_t moffset[XZTL_WIO_MAX_MCMD];
     uint32_t msec[XZTL_WIO_MAX_MCMD];
     uint16_t ncb;
@@ -163,33 +160,44 @@ struct xztl_core {
 };
 
 enum xztl_status {
-    XZTL_OK             = 0x00,
-    XZTL_MEM            = 0x01,
-    XZTL_NOMEDIA        = 0x02,
-    XZTL_NOINIT         = 0x03,
-    XZTL_NOEXIT         = 0x04,
-    XZTL_MEDIA_NOGEO    = 0x05,
-    XZTL_MEDIA_GEO      = 0x06,
-    XZTL_MEDIA_NOIO     = 0x07,
-    XZTL_MEDIA_NOZONE   = 0x08,
-    XZTL_MEDIA_NOALLOC  = 0x09,
-    XZTL_MEDIA_NOFREE   = 0x0a,
-    XZTL_MCTX_MEM_ERR   = 0x0b,
-    XZTL_MCTX_ASYNC_ERR = 0x0c,
-    XZTL_MCTX_MP_ERR    = 0x0d,
-    XZTL_ZTL_PROV_ERR   = 0x0e,
-    XZTL_ZTL_GROUP_ERR  = 0x0f,
-    XZTL_ZTL_ZMD_REP    = 0x10,
-    XZTL_ZTL_PROV_FULL  = 0x11,
-    XZTL_ZTL_MPE_ERR    = 0x12,
-    XZTL_ZTL_MAP_ERR    = 0x13,
-    XZTL_ZTL_WCA_ERR    = 0x14,
-    XZTL_ZTL_APPEND_ERR = 0x15,
-    XZTL_ZTL_WCA_S_ERR  = 0x16,
-    XZTL_ZTL_WCA_S2_ERR = 0x17,
-    XZTL_ZTL_MD_ERR     = 0x18,
-    XZTL_ZTL_RED_ERR    = 0x19,
-    XZTL_MEDIA_ERROR    = 0x100,
+    XZTL_OK                 = 0x00,
+    XZTL_MEM                = 0x01,
+    XZTL_NOMEDIA            = 0x02,
+    XZTL_NOINIT             = 0x03,
+    XZTL_NOEXIT             = 0x04,
+    XZTL_MEDIA_NOGEO        = 0x05,
+    XZTL_MEDIA_GEO          = 0x06,
+    XZTL_MEDIA_NOIO         = 0x07,
+    XZTL_MEDIA_NOZONE       = 0x08,
+    XZTL_MEDIA_NOALLOC      = 0x09,
+    XZTL_MEDIA_NOFREE       = 0x0a,
+    XZTL_MCTX_MEM_ERR       = 0x0b,
+    XZTL_MCTX_ASYNC_ERR     = 0x0c,
+    XZTL_MCTX_MP_ERR        = 0x0d,
+    XZTL_ZTL_PROV_ERR       = 0x0e,
+    XZTL_ZTL_GROUP_ERR      = 0x0f,
+    XZTL_ZTL_PROV_GRP_ERR   = 0x10,
+    XZTL_ZTL_MOD_ERR        = 0x11,
+    XZTL_ZTL_ZMD_REP        = 0x12,
+    XZTL_ZTL_PROV_FULL      = 0x13,
+    XZTL_ZTL_MPE_ERR        = 0x14,
+    XZTL_ZTL_MAP_ERR        = 0x15,
+    XZTL_ZTL_IO_ERR         = 0x16,
+    XZTL_ZTL_APPEND_ERR     = 0x17,
+    XZTL_ZTL_IO_S_ERR       = 0x18,
+    XZTL_ZTL_IO_S2_ERR      = 0x19,
+    XZTL_ZTL_MD_INIT_ERR    = 0x1a,
+    XZTL_ZTL_MD_READ_ERR    = 0x1b,
+    XZTL_ZTL_MD_WRITE_ERR   = 0x1c,
+    XZTL_ZTL_MD_WRITE_FULL  = 0x1d,
+    XZTL_ZTL_MD_RESET_ERR   = 0x1e,
+    XZTL_ZTL_STATS_ERR      = 0x1f,
+    XZTL_ZTL_PROMETHEUS_ERR = 0x20,
+    XZTL_MEDIA_ERROR        = 0x100,
+    XZTL_ZROCKS_INIT_ERR    = 0x101,
+    XZTL_ZROCKS_WRITE_ERR   = 0x102,
+    XZTL_ZROCKS_READ_ERR    = 0X103,
+    XZTL_ZTL_MGMT_ERR       = 0X104
 };
 
 enum xztl_stats_io_types {
@@ -205,7 +213,15 @@ enum xztl_stats_io_types {
     XZTL_STATS_APPEND_UCMD,
 
     XZTL_STATS_RECYCLED_BYTES,
-    XZTL_STATS_RECYCLED_ZONES
+    XZTL_STATS_RECYCLED_ZONES,
+
+    XZTL_STATS_WRITE_SUBMIT_FAIL,
+    XZTL_STATS_READ_SUBMIT_FAIL,
+    XZTL_STATS_WRITE_CALLBACK_FAIL,
+    XZTL_STATS_READ_CALLBACK_FAIL,
+    XZTL_STATS_MGMT_FAIL,
+    XZTL_STATS_META_WRITE_FAIL,
+    XZTL_STATS_META_READ_FAIL
 };
 
 /* Return xzlt core */
@@ -240,10 +256,6 @@ int   xztl_media_submit_io(struct xztl_io_mcmd *cmd);
 /* Thread context functions */
 struct xztl_mthread_ctx *xztl_ctx_media_init(uint32_t depth);
 int                      xztl_ctx_media_exit(struct xztl_mthread_ctx *tctx);
-int                      xztl_init_thread_ctxs();
-int                      xztl_exit_thread_ctxs();
-struct xztl_mthread_ctx *get_thread_ctx();
-void                     put_thread_ctx(struct xztl_mthread_ctx *ctx);
 
 /* Layer specific functions (for testing) */
 int xztl_media_init(void);

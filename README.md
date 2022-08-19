@@ -1,15 +1,13 @@
 xZTL: Zone Translation Layer User-space Library
 ===============================================
 
-This library provides an easier access to zoned namespace drives via [xNVMe](https://github.com/OpenMPDK/xNVMe) (>= v0.0.25)
+This library provides an easier access to zoned namespace drives via [xNVMe](https://github.com/OpenMPDK/xNVMe) (>= v0.0.3)
 
 ## Block-Based Access:
   ### Write:
     Applications provide a buffer and a buffer size. xZTL decides where to write in the ZNS drive and returns a list of physical addresses as a list (mapping pieces).
   ### Read:
     Applications read by providing the physical block address as standard block devices.
-  ### Info:
-    This design requires the recovery of mapping by the application side.
 
 We strongly believe that by centralizing the zone management into a single library, multiple applications will benefit from this design due to a simpler and thinner application backend design.
 
@@ -34,20 +32,20 @@ This repository contains:
      xztl-mempool.c    (lock-free memory pool support)
      xztl-prometheus.c (Prometheus support)
      xztl-stats.c      (Statistics support)
-     ztl.c	           (Zone translation layer development core)
+     ztl.c             (Zone translation layer development core)
      ztl-map.c         (In-memory mapping table)
      ztl-media.c       (access to xnvme functions and ZNS devices)
      ztl_metadata.c    (Zone metadata management)
      ztl-mpe.c         (Persistent mapping table TODO)
      ztl-pro-grp.c     (Per group zone provisioning only 1 group for now)
      ztl-pro.c         (Zone provisioning)
-     ztl-wca.c         (Write-cache aligned media I/Os from user I/Os)
+     ztl-io.c          (Write-cache aligned media I/Os from user I/Os)
      ztl-zmd.c         (Zone metadata management NOT IN USE)
 
 # libzrocks: RocksDB Target
 
-     zrocks.c            (target implementation)
-     include/libzrocks.h (interface to be used by RocksDB)
+     zrocks/src/zrocks.c         (target implementation)
+     zrocks/include/libzrocks.h  (interface to be used by RocksDB)
 
 # unit tests
      test-media-layer.c     (Test xapp media layer)
@@ -55,7 +53,8 @@ This repository contains:
      test-znd-media.c       (Test libztl media implementation)
      test-ztl.c             (Test libztl I/O and translation layer)
      test-append-mthread.c  (Test multi-threaded append command)
-     test-zrocks-rw.c       (Test ZRocks Write/Read Bandwidth)
+     test-zrocks.c          (NOT IN USE)
+     test-zrocks-rw.c       (Test ZRocks Write/Read)
      test-zrocks-metadata.c (Test ZRocks metadata)
 ```
 
