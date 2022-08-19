@@ -92,7 +92,7 @@ static void test_zrocks_buffer_read(uint64_t slba, void *buf_read,
 static void test_zrocks_file_metadata(void) {
     printf("\n");
     struct ztl_metadata *metadata;
-    void *               buf_write, *buf_read;
+    void                *buf_write, *buf_read;
     uint64_t             size, slba;
     metadata = get_ztl_metadata();
     slba     = metadata->file_slba;
@@ -122,8 +122,8 @@ FREE:
 static void test_zrocks_reset_file_metadata_zone(void) {
     printf("\n");
     struct ztl_metadata *metadata;
-    void *               buf_write, *buf_read;
-    struct xztl_core *   core;
+    void                *buf_write, *buf_read;
+    struct xztl_core    *core;
     get_xztl_core(&core);
     uint64_t slba, size, zone_size;
     metadata  = get_ztl_metadata();
@@ -158,6 +158,7 @@ FREE:
     zrocks_free(buf_write);
     zrocks_free(buf_read);
 }
+
 int main(int argc, const char **argv) {
     int failed = -1;
 
@@ -189,6 +190,8 @@ int main(int argc, const char **argv) {
                      test_zrocks_file_metadata) == NULL) ||
         (CU_add_test(pSuite, "reset file metadata zone",
                      test_zrocks_reset_file_metadata_zone) == NULL) ||
+        //|| (CU_add_test(pSuite, "Read  metadata failed",
+        //  test_zrocks_metadata_read_failed) == NULL)
         (CU_add_test(pSuite, "Close ZRocks", test_zrocks_metadata_exit) ==
          NULL)) {
         failed = 1;

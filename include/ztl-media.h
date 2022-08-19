@@ -39,7 +39,8 @@ enum znd_media_error {
 };
 
 struct znd_media {
-    struct xnvme_dev *      dev;
+    struct xnvme_dev       *dev;
+    struct xnvme_dev       *dev_read;
     const struct xnvme_geo *devgeo;
     struct xztl_media       media;
 };
@@ -47,7 +48,7 @@ struct znd_media {
 struct znd_log_cmd {
     uint8_t  opcode;
     uint8_t  rsv[7];
-    void *   buf;
+    void    *buf;
     uint64_t lba;
     uint32_t nlogs;
 };

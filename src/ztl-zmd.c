@@ -27,9 +27,9 @@
 static int ztl_zmd_create(struct app_group *grp) {
     uint64_t              zn_i;
     struct app_zmd_entry *zn;
-    struct app_zmd *      zmd = &grp->zmd;
-    struct xztl_mgeo *    g;
-    struct xztl_core *    core;
+    struct app_zmd       *zmd = &grp->zmd;
+    struct xztl_mgeo     *g;
+    struct xztl_core     *core;
     get_xztl_core(&core);
     g = &core->media->geo;
 
@@ -43,8 +43,6 @@ static int ztl_zmd_create(struct app_group *grp) {
 
         zn->flags |= XZTL_ZMD_AVLB;
         zn->level         = 0;
-        zn->npieces       = 0;
-        zn->ndeletes      = 0;
         zn->wptr_inflight = zn->wptr = zn->addr.g.sect;
     }
 
@@ -68,7 +66,7 @@ static int ztl_zmd_load_report(struct app_group *grp) {
     }
 
     if (ret) {
-        log_erra("zmd err report: %d", cmd.status);
+        log_erra("ztl_zmd_load_report: zmd err status [%d]\n", cmd.status);
     }
 
     return ret;
@@ -90,7 +88,7 @@ static int ztl_zmd_flush(struct app_group *grp) {
 
 static struct app_zmd_entry *ztl_zmd_get(struct app_group *grp, uint64_t zone,
                                          uint8_t by_offset) {
-    struct app_zmd *  zmd = &grp->zmd;
+    struct app_zmd   *zmd = &grp->zmd;
     struct xztl_core *core;
     get_xztl_core(&core);
 
