@@ -42,15 +42,15 @@ static int ztl_mpe_create(void) {
 
     app_map_new = 1;
 
-    return 0;
+    return XZTL_OK;
 }
 
 static int ztl_mpe_load(void) {
-    return 0;
+    return XZTL_OK;
 }
 
 static int ztl_mpe_flush(void) {
-    return 0;
+    return XZTL_OK;
 }
 
 static struct map_md_addr *ztl_mpe_get(uint32_t index) {

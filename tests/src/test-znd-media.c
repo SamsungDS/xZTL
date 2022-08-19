@@ -70,14 +70,14 @@ static void test_znd_media_exit(void) {
 
 static void test_znd_report(void) {
     struct xztl_zn_mcmd          cmd;
-    struct xnvme_znd_report *    report;
+    struct xnvme_znd_report     *report;
     struct xnvme_spec_znd_descr *zinfo;
     int                          ret, zi, zone, nzones;
     uint32_t                     znlbas;
-    struct xztl_core *           core;
+    struct xztl_core            *core;
     get_xztl_core(&core);
 
-    zone = 0;
+    zone            = 0;
     cmd.opcode      = XZTL_ZONE_MGMT_REPORT;
     cmd.addr.g.zone = 0;
     cmd.nzones = nzones = core->media->geo.zn_dev;
@@ -102,7 +102,7 @@ static void test_znd_report(void) {
 static void test_znd_manage_single(uint8_t op, uint8_t devop, uint32_t zone,
                                    char *name) {
     struct xztl_zn_mcmd          cmd;
-    struct xnvme_znd_report *    report;
+    struct xnvme_znd_report     *report;
     struct xnvme_spec_znd_descr *zinfo;
     int                          ret;
 
@@ -233,14 +233,14 @@ static void test_znd_poke_ctx(struct xztl_mthread_ctx *tctx) {
 }
 
 static void test_znd_append_zone(void) {
-    struct xztl_mp_entry *   mp_cmd;
-    struct xztl_io_mcmd *    cmd;
+    struct xztl_mp_entry    *mp_cmd;
+    struct xztl_io_mcmd     *cmd;
     struct xztl_mthread_ctx *tctx;
     uint16_t                 tid, ents, nlbas, zone;
     uint64_t                 bsize;
-    void *                   wbuf;
+    void                    *wbuf;
     int                      ret;
-    struct xztl_core *       core;
+    struct xztl_core        *core;
     get_xztl_core(&core);
 
     tid   = 0;
@@ -256,7 +256,6 @@ static void test_znd_append_zone(void) {
         return;
 
     /* Initialize thread media context */
-    //    tctx = xztl_ctx_media_init(tid, ents);
     tctx = xztl_ctx_media_init(ents);
     cunit_znd_assert_ptr("xztl_ctx_media_init", tctx);
     if (!tctx)
@@ -273,7 +272,8 @@ static void test_znd_append_zone(void) {
         goto CTX;
 
     /* Get media command entry */
-    xztl_mempool_create(XZTL_MEMPOOL_MCMD, 0, 16, sizeof (struct xztl_io_mcmd), NULL, NULL);
+    xztl_mempool_create(XZTL_MEMPOOL_MCMD, 0, 16, sizeof(struct xztl_io_mcmd),
+                        NULL, NULL);
     mp_cmd = xztl_mempool_get(XZTL_MEMPOOL_MCMD, tid);
     cunit_znd_assert_ptr("xztl_mempool_get", mp_cmd);
     if (!mp_cmd)
@@ -316,14 +316,14 @@ MP:
 }
 
 static void test_znd_read_zone(void) {
-    struct xztl_mp_entry *   mp_cmd;
-    struct xztl_io_mcmd *    cmd;
+    struct xztl_mp_entry    *mp_cmd;
+    struct xztl_io_mcmd     *cmd;
     struct xztl_mthread_ctx *tctx;
     uint16_t                 tid, ents, nlbas, zone;
     uint64_t                 bsize;
-    void *                   wbuf;
+    void                    *wbuf;
     int                      ret;
-    struct xztl_core *       core;
+    struct xztl_core        *core;
     get_xztl_core(&core);
 
     tid   = 0;

@@ -49,7 +49,7 @@ enum xztl_mp_status {
 };
 
 struct xztl_mp_entry {
-    void *   opaque;
+    void    *opaque;
     uint16_t tid;
     uint32_t entry_id;
     STAILQ_ENTRY(xztl_mp_entry) entry;
@@ -61,8 +61,8 @@ struct xztl_mp_pool_i {
     uint16_t           out_count;
     uint32_t           entries;
     pthread_spinlock_t spin;
-    xztl_mp_alloc *    alloc_fn;
-    xztl_mp_free *     free_fn;
+    xztl_mp_alloc     *alloc_fn;
+    xztl_mp_free      *free_fn;
     STAILQ_HEAD(mp_head, xztl_mp_entry) head;
 };
 

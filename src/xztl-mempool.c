@@ -27,7 +27,6 @@
 #include <xztl-mempool.h>
 #include <xztl.h>
 
-
 static struct xztl_mempool xztlmp;
 
 static void xztl_mempool_free(struct xztl_mp_pool_i *pool) {
@@ -53,8 +52,10 @@ static void xztl_mempool_free(struct xztl_mp_pool_i *pool) {
 int xztl_mempool_destroy(uint32_t type, uint16_t tid) {
     struct xztl_mp_pool_i *pool;
 
-    if (type >= XZTLMP_TYPES || tid >= XZTLMP_THREADS)
+    if (type >= XZTLMP_TYPES || tid >= XZTLMP_THREADS) {
+        log_erra("xztl_mempool_destroy: err type [%u] tid [%u]\n", type, tid);
         return XZTL_MP_OUTBOUNDS;
+    }
 
     pool = &xztlmp.mp[type].pool[tid];
 
@@ -74,39 +75,49 @@ int xztl_mempool_create(uint32_t type, uint16_t tid, uint32_t entries,
                         uint32_t ent_sz, xztl_mp_alloc *alloc,
                         xztl_mp_free *free) {
     struct xztl_mp_pool_i *pool;
-    struct xztl_mp_entry * ent;
-    void *                 opaque;
+    struct xztl_mp_entry  *ent;
+    void                  *opaque;
     uint32_t               ent_i;
 
-    if (type >= XZTLMP_TYPES || tid >= XZTLMP_THREADS)
+    if (type >= XZTLMP_TYPES || tid >= XZTLMP_THREADS) {
+        log_erra("xztl_mempool_create: err type [%u] tid [%u]\n", type, tid);
         return XZTL_MP_OUTBOUNDS;
+    }
 
     if (!entries || entries > XZTLMP_MAX_ENT || !ent_sz ||
-        ent_sz > XZTLMP_MAX_ENT_SZ)
+        ent_sz > XZTLMP_MAX_ENT_SZ) {
+        log_erra("xztl_mempool_create: err entries [%u] ent_sz [%u]\n", entries,
+                 ent_sz);
         return XZTL_MP_INVALID;
+    }
 
     pool = &xztlmp.mp[type].pool[tid];
 
-    if (pool->active)
+    if (pool->active) {
+        log_erra("xztl_mempool_create: err pool->active [%u]\n", pool->active);
         return XZTL_MP_ACTIVE;
-
-    if (pthread_spin_init(&pool->spin, 0))
+    }
+    if (pthread_spin_init(&pool->spin, 0)) {
+        log_err("xztl_mempool_create: err pthread_spin_init failed.\n");
         return XZTL_MP_MEMERROR;
+    }
 
     STAILQ_INIT(&pool->head);
 
     /* Allocate entries */
     for (ent_i = 0; ent_i < entries; ent_i++) {
         ent = aligned_alloc(64, sizeof(struct xztl_mp_entry));
-        if (!ent)
+        if (!ent) {
+            log_err("xztl_mempool_create: ent is NULL\n");
             goto MEMERR;
-
+        }
         if (!alloc || !free)
             opaque = aligned_alloc(64, ent_sz);
         else
             opaque = alloc(ent_sz);
 
         if (!opaque) {
+            log_err("xztl_mempool_create: opaque is NULL\n");
             if (free)
                 free(ent);
             goto MEMERR;
@@ -126,8 +137,8 @@ int xztl_mempool_create(uint32_t type, uint16_t tid, uint32_t entries,
     pool->active                     = 1;
 
     ZDEBUG(ZDEBUG_MP,
-           "mempool (create): type %d, tid %d, ents %d, "
-           "ent_sz %d\n",
+           "xztl_mempool_create: type [%d], tid [%d], ents [%d], "
+           "ent_sz [%d]\n",
            type, tid, entries, ent_sz);
 
     return XZTL_OK;
@@ -150,10 +161,10 @@ int xztl_mempool_left(uint32_t type, uint16_t tid) {
 /* Only 1 thread is allowed to remove but a concurrent thread may insert */
 struct xztl_mp_entry *xztl_mempool_get(uint32_t type, uint16_t tid) {
     struct xztl_mp_pool_i *pool;
-    struct xztl_mp_entry * ent;
+    struct xztl_mp_entry  *ent;
     uint16_t               tmp, old;
 
-    ZDEBUG(ZDEBUG_MP, "mempool (get): type %d, tid %d", type, tid);
+    ZDEBUG(ZDEBUG_MP, "xztl_mempool_get: type [%d], tid [%d]", type, tid);
 
     pool = &xztlmp.mp[type].pool[tid];
 #ifdef MP_LOCKFREE
@@ -178,6 +189,7 @@ RETRY:
 
 #ifndef MP_LOCKFREE
     if (!ent) {
+        log_err("xztl_mempool_get: ent is NULL\n");
         pthread_spin_unlock(&pool->spin);
         usleep(1);
         goto RETRY;
@@ -199,7 +211,7 @@ void xztl_mempool_put(struct xztl_mp_entry *ent, uint32_t type, uint16_t tid) {
     struct xztl_mp_pool_i *pool;
     uint16_t               old;
 
-    ZDEBUG(ZDEBUG_MP, "mempool (put): type %d, tid %d", type, tid);
+    ZDEBUG(ZDEBUG_MP, "xztl_mempool_put: type [%d], tid [%d]", type, tid);
 
     pool = &xztlmp.mp[type].pool[tid];
 

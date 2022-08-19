@@ -17,12 +17,11 @@
  * limitations under the License.
 */
 
+#include <CUnit/Basic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <xztl-media.h>
 #include <xztl.h>
-
-#include "CUnit/Basic.h"
 
 static int cunit_media_init(void) {
     return 0;

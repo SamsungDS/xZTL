@@ -5,12 +5,12 @@
 //
 //  Written by Ivan L. Picoli <i.picoli@samsung.com>
 
+#include <errno.h>
 #include <libzrocks.h>
-#include <unistd.h>
-
 #include <pthread.h>
 #include <signal.h>
-#include <errno.h>
+#include <unistd.h>
+
 #include <atomic>
 #include <iostream>
 #include <map>
@@ -22,26 +22,26 @@
 #include "rocksdb/env.h"
 #include "rocksdb/statistics.h"
 
-#define ZNS_DEBUG 0
-#define ZNS_DEBUG_R (ZNS_DEBUG && 1)  /* Read */
-#define ZNS_DEBUG_W (ZNS_DEBUG && 1)  /* Write and Sync */
-#define ZNS_DEBUG_AF (ZNS_DEBUG && 1) /* Append and Flush */
-#define ZNS_DEBUG_META 0              /* MetaData Flush and Recover */
-#define ZNS_META_SWITCH 1             /* MetaData Switch 0:Close   1:Open */
+#define ZNS_DEBUG       0
+#define ZNS_DEBUG_R     (ZNS_DEBUG && 1) /* Read */
+#define ZNS_DEBUG_W     (ZNS_DEBUG && 1) /* Write and Sync */
+#define ZNS_DEBUG_AF    (ZNS_DEBUG && 1) /* Append and Flush */
+#define ZNS_DEBUG_META  0                /* MetaData Flush and Recover */
+#define ZNS_META_SWITCH 1                /* MetaData Switch 0:Close   1:Open */
 
-#define ZNS_OBJ_STORE 0
-#define ZNS_PREFETCH 0
+#define ZNS_OBJ_STORE       0
+#define ZNS_PREFETCH        0
 #define ZNS_PREFETCH_BUF_SZ (1024 * 1024 * 1) /* 1MB */
-#define ZROCKS_MAX_READ_SZ (1024 * ZNS_ALIGMENT)
+#define ZROCKS_MAX_READ_SZ  (1024 * ZNS_ALIGMENT)
 
 #define ZNS_MAX_MAP_ENTS 64
 #define ZNS_MAX_NODE_NUM 6000
 
-#define METADATA_MAGIC 0x3D
+#define METADATA_MAGIC      0x3D
 #define FILE_METADATA_MAGIC 0x3E
-#define FILE_NAME_LEN 128
+#define FILE_NAME_LEN       128
 
-#define ZNS_FILE_TAIL_BUF (2 * 1024 * 1024) 
+#define ZNS_FILE_TAIL_BUF (2 * 1024 * 1024)
 #define GET_NANOSECONDS(ns, ts)                       \
   do {                                                \
     clock_gettime(CLOCK_REALTIME, &ts);               \
@@ -51,39 +51,41 @@
 namespace rocksdb {
 
 /* ### ZNS Environment ### */
-
-struct MetadataHead {
+struct MetaZoneHead {
   union {
     struct {
-      std::uint8_t magic;
-      std::uint32_t fileNum;
-      std::uint64_t time;
-      std::uint64_t dataLength;
-    } meta;
+      std::uint8_t  magic;
+      std::uint32_t sequence;
+    } info;
     char addr[ZNS_ALIGMENT];
   };
+  MetaZoneHead() {
+    info.magic    = METADATA_MAGIC;
+    info.sequence = 0;
+  }
+};
 
+struct MetadataHead {
+  std::uint32_t crc;
+  std::uint32_t dataLength;
+  std::uint8_t  tag;
   MetadataHead() {
-    meta.magic = 0;
-    meta.fileNum = 0;
-    meta.time = 0;
-    meta.dataLength = 0;
+    crc        = 0;
+    dataLength = 0;
+    tag        = 0;
   }
 };
 
 struct ZrocksFileMeta {
-  std::uint8_t magic;
-  int8_t level;
-  std::uint32_t filesize;
-  char filename[FILE_NAME_LEN];
-  int8_t node_num;
-
+  int8_t        level;
+  std::uint64_t filesize;
+  std::int32_t  pieceNum;
+  char          filename[FILE_NAME_LEN];
 
   ZrocksFileMeta() {
-    magic = 0;
+    level    = -1;
     filesize = 0;
-    level = -1;
-    node_num = 0;
+    pieceNum = 0;
     memset(filename, 0, sizeof(filename));
   }
 };
@@ -95,61 +97,67 @@ struct ZrocksMediaRes {
 
 class ZNSFile {
  public:
-  const std::string name;
-  port::Mutex readMutex;
-  size_t size;
-  size_t before_truncate_size;
-  std::uint64_t uuididx;
-  int level;
-  std::vector<std::int32_t> nodes;
-  std::int32_t znode_id;
-  char* cache;
-  uint64_t cache_size;
+  const std::string              name;
+  size_t                         size;
+  size_t                         before_truncate_size;
+  std::uint64_t                  uuididx;
+  int                            level;
+  std::vector<struct zrocks_map> map;
+  std::uint32_t                  startIndex;
 
+  char* wcache;
+  char* cache_off;
   ZNSFile(const std::string& fname, int lvl)
       : name(fname), uuididx(0), level(lvl) {
     before_truncate_size = 0;
-    size = 0;
-    znode_id = -1;
-    cache = reinterpret_cast<char*> (zrocks_alloc(ZNS_FILE_TAIL_BUF));
-    cache_size = 0;
+    size                 = 0;
+    startIndex           = 0;
+    wcache = reinterpret_cast<char*>(zrocks_alloc(ZNS_MAX_BUF));
+    if (!wcache) {
+      std::cout << " ZRocks (alloc) error." << std::endl;
+      cache_off = nullptr;
+    }
+    cache_off = wcache;
   }
 
-  ~ZNSFile() {}
+  ~ZNSFile() {
+    if (wcache) {
+      zrocks_free(wcache);
+      wcache = NULL;
+      cache_off = NULL;
+    }
+  }
 
   std::uint32_t GetFileMetaLen();
 
-  std::uint32_t WriteMetaToBuf(unsigned char* buf);
+  std::uint32_t WriteMetaToBuf(unsigned char* buf, bool update = false);
 
   void PrintMetaData();
 };
 
 class ZNSEnv : public Env {
  public:
-  port::Mutex filesMutex;
+  port::Mutex                     filesMutex;
   std::map<std::string, ZNSFile*> files;
-  uint64_t read_bytes[ZNS_MAX_NODE_NUM];
-  bool alloc_flag[ZNS_MAX_NODE_NUM];
+  uint64_t                        sequence;
+  uint64_t                        read_bytes[ZNS_MAX_NODE_NUM];
+  bool                            alloc_flag[ZNS_MAX_NODE_NUM];
 
-  port::Mutex xztlResMutext;
-  std::map<std::uint64_t, struct ZrocksMediaRes*> tidmap;
-
-  port::Mutex envStartMutex;
-  bool isEnvStart;
+  port::Mutex   envStartMutex;
+  bool          isEnvStart;
   std::uint64_t uuididx;
+  port::Mutex   metaMutex;
 
-  struct timespec ts_s;
-  struct timespec ts_e;
-  uint64_t start_ns;
-  uint64_t end_ns;
-
+  unsigned char* metaBuf;
   explicit ZNSEnv(const std::string& dname) : dev_name(dname) {
-    posixEnv = Env::Default();
+    posixEnv              = Env::Default();
     writable_file_leveled = true;
-    isFlushRuning = false;
-    isEnvStart = false;
-    uuididx = 0;
-    flushThread = 0;
+    isFlushRuning         = false;
+    isEnvStart            = false;
+    uuididx               = 0;
+    flushThread           = 0;
+    sequence              = 0;
+    metaBuf               = NULL;
     std::cout << "Initializing ZNS Environment" << std::endl;
 
     if (zrocks_init(dev_name.data())) {
@@ -161,42 +169,53 @@ class ZNSEnv : public Env {
       read_bytes[i] = 0;
       alloc_flag[i] = false;
     }
-
-    start_ns = 0;
-    end_ns = 0;
   }
 
   virtual ~ZNSEnv() {
-#if !ZNS_OBJ_STORE
-    FlushMetaData();
-#endif
+    if (ZNS_META_SWITCH) {
+       zrocks_free(metaBuf);
+    }
+    // FlushMetaData();
+    PrintMetaData();
     zrocks_exit();
     std::cout << "Destroying ZNS Environment" << std::endl;
   }
 
   Status FlushMetaData();
 
+  Status FlushUpdateMetaData(ZNSFile* zfile);
+
+  Status FlushDelMetaData(const std::string& fileName);
+
+  Status FlushReplaceMetaData(std::string& srcName, std::string& destName);
+
   void RecoverFileFromBuf(unsigned char* buf, std::uint32_t& praseLen);
 
   Status LoadMetaData();
 
+  void ClearMetaData();
+
+  void PrintMetaData();
+
+  void SetNodesInfo();
+
   /* ### Implemented at env_zns.cc ### */
 
-  void NodeSta(std::int32_t znode_id, size_t n);
+  // void NodeSta(std::int32_t znode_id, size_t n);
 
-  Status NewSequentialFile(const std::string& fname,
+  Status NewSequentialFile(const std::string&               fname,
                            std::unique_ptr<SequentialFile>* result,
-                           const EnvOptions& options) override;
+                           const EnvOptions&                options) override;
 
-  Status NewRandomAccessFile(const std::string& fname,
+  Status NewRandomAccessFile(const std::string&                 fname,
                              std::unique_ptr<RandomAccessFile>* result,
                              const EnvOptions& options) override;
 
-  Status NewWritableFile(const std::string& fname,
+  Status NewWritableFile(const std::string&             fname,
                          std::unique_ptr<WritableFile>* result,
-                         const EnvOptions& options) override;
+                         const EnvOptions&              options) override;
 
-  Status NewWritableLeveledFile(const std::string& fname,
+  Status NewWritableLeveledFile(const std::string&             fname,
                                 std::unique_ptr<WritableFile>* result,
                                 const EnvOptions& options, int level) override;
 
@@ -205,7 +224,7 @@ class ZNSEnv : public Env {
   Status GetFileSize(const std::string& fname, std::uint64_t* size) override;
 
   Status GetFileModificationTime(const std::string& fname,
-                                 std::uint64_t* file_mtime) override;
+                                 std::uint64_t*     file_mtime) override;
 
   /* ### Implemented here ### */
 
@@ -219,89 +238,47 @@ class ZNSEnv : public Env {
     return (std::uint64_t)pthread_self();
   }
 
-  int updateMediaResource() {
-    int rid;
-    uint64_t tid;
-    struct ZrocksMediaRes* resptr = NULL;
-
-    tid = gettid();
-
-    std::map<std::uint64_t, struct ZrocksMediaRes*>::iterator iter =
-        tidmap.find(tid);
-    if (iter != tidmap.end()) {
-      resptr = iter->second;
-      rid = resptr->rid;
-    } else {
-      resptr = (struct ZrocksMediaRes*)malloc(sizeof(struct ZrocksMediaRes));
-      if (!resptr) {
-          printf("zrocks media resource alloc failed.\n");
-          zrocks_exit();
-          return -1;
-      }
-      xztlResMutext.Lock();
-      resptr->rid = zrocks_get_resource();
-
-      if (resptr->rid == -1) {
-          int kret = 0;
-          for (iter = tidmap.begin(); iter != tidmap.end(); iter++) {
-              kret =  pthread_kill((pthread_t)iter->first, 0);
-              if (kret == ESRCH) {
-                   zrocksk_put_resource(iter->second->rid);
-                   free((struct ZrocksMediaRes*)iter->second);
-                   tidmap.erase(iter);
-              }
-          }
-
-         // After release the source, apply again
-         resptr->rid = zrocks_get_resource();
-      }
-
-      // Try to get resource again
-      if (resptr->rid == -1) {
-          printf("No resource again.\n");
-      }
-      resptr->cnt = 1;
-      tidmap[tid] = resptr;
-      rid = resptr->rid;
-      xztlResMutext.Unlock();
-    }
-
-    return rid;
+  std::uint64_t GetThreadID() const override {
+    return ZNSEnv::gettid();
   }
-
-  std::uint64_t GetThreadID() const override { return ZNSEnv::gettid(); }
 
   /* ### Posix inherited functions ### */
 
-  Status NewDirectory(const std::string& name,
+  Status NewDirectory(const std::string&          name,
                       std::unique_ptr<Directory>* result) override {
-    if (ZNS_DEBUG) std::cout << __func__ << ":" << name << std::endl;
+    if (ZNS_DEBUG)
+      std::cout << __func__ << ":" << name << std::endl;
     return posixEnv->NewDirectory(name, result);
   }
 
   Status FileExists(const std::string& fname) override {
-    if (ZNS_DEBUG) std::cout << __func__ << ":" << fname << std::endl;
+    if (ZNS_DEBUG)
+      std::cout << __func__ << ":" << fname << std::endl;
     return posixEnv->FileExists(fname);
   }
 
-  Status GetChildren(const std::string& path,
+  Status GetChildren(const std::string&        path,
                      std::vector<std::string>* result) override {
-    if (ZNS_DEBUG) std::cout << __func__ << ":" << path << std::endl;
+    if (ZNS_DEBUG)
+      std::cout << __func__ << ":" << path << std::endl;
     return posixEnv->GetChildren(path, result);
   }
 
   Status CreateDir(const std::string& name) override {
-    if (ZNS_DEBUG) std::cout << __func__ << ":" << name << std::endl;
+    if (ZNS_DEBUG)
+      std::cout << __func__ << ":" << name << std::endl;
     return posixEnv->CreateDir(name);
   }
 
   Status CreateDirIfMissing(const std::string& name) override {
-    if (ZNS_DEBUG) std::cout << __func__ << ":" << name << std::endl;
+    if (ZNS_DEBUG)
+      std::cout << __func__ << ":" << name << std::endl;
     return posixEnv->CreateDirIfMissing(name);
   }
 
   Status DeleteDir(const std::string& name) override {
-    if (ZNS_DEBUG) std::cout << __func__ << ":" << name << std::endl;
+    if (ZNS_DEBUG)
+      std::cout << __func__ << ":" << name << std::endl;
     return posixEnv->DeleteDir(name);
   }
 
@@ -313,23 +290,32 @@ class ZNSEnv : public Env {
   };
 
   Status LockFile(const std::string& fname, FileLock** lock) override {
-    if (ZNS_DEBUG) std::cout << __func__ << ":" << fname << std::endl;
+    if (ZNS_DEBUG)
+      std::cout << __func__ << ":" << fname << std::endl;
     return posixEnv->LockFile(fname, lock);
   }
 
   Status UnlockFile(FileLock* lock) override {
-    if (ZNS_DEBUG) std::cout << __func__ << std::endl;
+    if (ZNS_DEBUG)
+      std::cout << __func__ << std::endl;
     return posixEnv->UnlockFile(lock);
   }
 
-  Status NewLogger(const std::string& fname,
+  Status IsDirectory(const std::string& path, bool* is_dir) override {
+    if (ZNS_DEBUG)
+      std::cout << __func__ << ":" << path << std::endl;
+    return posixEnv->IsDirectory(path, is_dir);
+  }
+
+  Status NewLogger(const std::string&       fname,
                    std::shared_ptr<Logger>* result) override {
-    if (ZNS_DEBUG) std::cout << __func__ << ":" << fname << std::endl;
+    if (ZNS_DEBUG)
+      std::cout << __func__ << ":" << fname << std::endl;
     return posixEnv->NewLogger(fname, result);
   }
 
   void Schedule(void (*function)(void* arg), void* arg, Priority pri = LOW,
-                void* tag = nullptr,
+                void* tag                          = nullptr,
                 void (*unschedFunction)(void* arg) = 0) override {
     posixEnv->Schedule(function, arg, pri, tag, unschedFunction);
   }
@@ -342,7 +328,9 @@ class ZNSEnv : public Env {
     posixEnv->StartThread(function, arg);
   }
 
-  void WaitForJoin() override { posixEnv->WaitForJoin(); }
+  void WaitForJoin() override {
+    posixEnv->WaitForJoin();
+  }
 
   unsigned int GetThreadPoolQueueLen(Priority pri = LOW) const override {
     return posixEnv->GetThreadPoolQueueLen(pri);
@@ -352,7 +340,9 @@ class ZNSEnv : public Env {
     return posixEnv->GetTestDirectory(path);
   }
 
-  std::uint64_t NowMicros() override { return posixEnv->NowMicros(); }
+  std::uint64_t NowMicros() override {
+    return posixEnv->NowMicros();
+  }
 
   void SleepForMicroseconds(int micros) override {
     posixEnv->SleepForMicroseconds(micros);
@@ -367,7 +357,7 @@ class ZNSEnv : public Env {
   }
 
   Status GetAbsolutePath(const std::string& db_path,
-                         std::string* output_path) override {
+                         std::string*       output_path) override {
     return posixEnv->GetAbsolutePath(db_path, output_path);
   }
 
@@ -401,9 +391,9 @@ class ZNSEnv : public Env {
                   // object here so that we can use posix timers,
                   // posix threads, etc.
   const std::string dev_name;
-  pthread_t flushThread;
-  bool isFlushRuning;
-  bool IsFilePosix(const std::string& fname) {
+  pthread_t         flushThread;
+  bool              isFlushRuning;
+  bool              IsFilePosix(const std::string& fname) {
     return (fname.find("uuid") != std::string::npos ||
             fname.find("CURRENT") != std::string::npos ||
             fname.find("IDENTITY") != std::string::npos ||
@@ -412,7 +402,7 @@ class ZNSEnv : public Env {
             fname.find("LOG") != std::string::npos ||
             fname.find("LOCK") != std::string::npos ||
             fname.find(".dbtmp") != std::string::npos ||
-            fname.find(".log") != std::string::npos ||
+            // fname.find(".log") != std::string::npos ||
             fname.find(".trace") != std::string::npos);
   }
 };
@@ -421,14 +411,13 @@ class ZNSEnv : public Env {
 
 class ZNSSequentialFile : public SequentialFile {
  private:
-  std::string filename_;
-  bool use_direct_io_;
-  size_t logical_sector_size_;
+  std::string   filename_;
+  bool          use_direct_io_;
+  size_t        logical_sector_size_;
   std::uint64_t ztl_id;
-  ZNSFile* znsfile;
-  ZNSEnv* env_zns;
-  uint64_t read_off;
-  int xztlrid;
+  ZNSFile*      znsfile;
+  ZNSEnv*       env_zns;
+  uint64_t      read_off;
 
  public:
   ZNSSequentialFile(const std::string& fname, ZNSEnv* zns,
@@ -436,14 +425,13 @@ class ZNSSequentialFile : public SequentialFile {
       : filename_(fname),
         use_direct_io_(options.use_direct_reads),
         logical_sector_size_(ZNS_ALIGMENT) {
-    env_zns = zns;
+    env_zns  = zns;
     read_off = 0;
-    znsfile = env_zns->files[fname];
-    xztlrid = env_zns->updateMediaResource();
+    znsfile  = env_zns->files[fname];
+    ztl_id = 0;
   }
 
   virtual ~ZNSSequentialFile() {
-    // env_zns->updateMediaResource(false);
   }
 
   /* ### Implemented at env_zns_io.cc ### */
@@ -462,7 +450,9 @@ class ZNSSequentialFile : public SequentialFile {
 
   /* ### Implemented here ### */
 
-  bool use_direct_io() const override { return use_direct_io_; }
+  bool use_direct_io() const override {
+    return use_direct_io_;
+  }
 
   size_t GetRequiredBufferAlignment() const override {
     return logical_sector_size_;
@@ -471,23 +461,18 @@ class ZNSSequentialFile : public SequentialFile {
 
 class ZNSRandomAccessFile : public RandomAccessFile {
  private:
-  std::string filename_;
-  bool use_direct_io_;
-  size_t logical_sector_size_;
-  std::uint64_t ztl_id;
+  std::string   filename_;
+  bool          use_direct_io_;
+  size_t        logical_sector_size_;
   std::uint64_t uuididx;
 
-  ZNSEnv* env_zns;
+  ZNSEnv*  env_zns;
   ZNSFile* znsfile;
 
-  size_t size;
-  std::int32_t znode_id;
-  bool readflag;
-
 #if ZNS_PREFETCH
-  char* prefetch;
-  size_t prefetch_sz;
-  std::uint64_t prefetch_off;
+  char*            prefetch;
+  size_t           prefetch_sz;
+  std::uint64_t    prefetch_off;
   std::atomic_flag prefetch_lock = ATOMIC_FLAG_INIT;
 #endif
 
@@ -505,7 +490,6 @@ class ZNSRandomAccessFile : public RandomAccessFile {
     env_zns->filesMutex.Lock();
     znsfile = env_zns->files[filename_];
     env_zns->filesMutex.Unlock();
-    size = znsfile->size;
 
 #if ZNS_PREFETCH
     prefetch = reinterpret_cast<char*>(zrocks_alloc(ZNS_PREFETCH_BUF_SZ));
@@ -542,7 +526,9 @@ class ZNSRandomAccessFile : public RandomAccessFile {
 
   /* ### Implemented here ### */
 
-  bool use_direct_io() const override { return use_direct_io_; }
+  bool use_direct_io() const override {
+    return use_direct_io_;
+  }
 
   size_t GetRequiredBufferAlignment() const override {
     return logical_sector_size_;
@@ -552,21 +538,19 @@ class ZNSRandomAccessFile : public RandomAccessFile {
 class ZNSWritableFile : public WritableFile {
  private:
   const std::string filename_;
-  const bool use_direct_io_;
-  int fd_;
-  std::uint64_t filesize_;
-  std::uint64_t ztl_id;
-  ZNSFile* znsfile;
-  size_t logical_sector_size_;
+  const bool        use_direct_io_;
+  int               fd_;
+  std::uint64_t     filesize_;
+  ZNSFile*          znsfile;
+  size_t            logical_sector_size_;
 #ifdef ROCKSDB_FALLOCATE_PRESENT
   bool allow_fallocate_;
   bool fallocate_with_keep_size_;
 #endif
-  char* wcache;
-  char* cache_off;
-  int level;
 
-  ZNSEnv* env_zns;
+  int   level;
+
+  ZNSEnv*       env_zns;
   std::uint64_t map_off;
 
  public:
@@ -581,24 +565,18 @@ class ZNSWritableFile : public WritableFile {
         level(lvl),
         env_zns(zns) {
 #ifdef ROCKSDB_FALLOCATE_PRESENT
-    allow_fallocate_ = options.allow_fallocate;
+    allow_fallocate_          = options.allow_fallocate;
     fallocate_with_keep_size_ = options.fallocate_with_keep_size;
 #endif
 
-    wcache = reinterpret_cast<char*>(zrocks_alloc(ZNS_MAX_BUF));
-    if (!wcache) {
-      std::cout << " ZRocks (alloc) error." << std::endl;
-      cache_off = nullptr;
-    }
+    map_off   = 0;
 
-    cache_off = wcache;
-    map_off = 0;
-
+    zns->filesMutex.Lock();
     znsfile = env_zns->files[fname];
+    zns->filesMutex.Unlock();
   }
 
   virtual ~ZNSWritableFile() {
-    zrocks_free(wcache);
   }
 
   /* ### Implemented at env_zns_io.cc ### */
@@ -607,7 +585,8 @@ class ZNSWritableFile : public WritableFile {
 
   Status PositionedAppend(const Slice& data, std::uint64_t offset) override;
   Status Append(const rocksdb::Slice&, const rocksdb::DataVerificationInfo&);
-  Status PositionedAppend(const rocksdb::Slice&, uint64_t, const rocksdb::DataVerificationInfo&);
+  Status PositionedAppend(const rocksdb::Slice&, uint64_t,
+                          const rocksdb::DataVerificationInfo&);
 
   Status Truncate(std::uint64_t size) override;
 
@@ -631,12 +610,17 @@ class ZNSWritableFile : public WritableFile {
 
   /* ### Implemented here ### */
 
-  bool IsSyncThreadSafe() const override { return true; }
+  bool IsSyncThreadSafe() const override {
+    return true;
+  }
 
-  bool use_direct_io() const override { return use_direct_io_; }
+  bool use_direct_io() const override {
+    return use_direct_io_;
+  }
 
   void SetWriteLifeTimeHint(Env::WriteLifeTimeHint hint) override {
-    if (ZNS_DEBUG) std::cout << __func__ << " : " << hint << std::endl;
+    if (ZNS_DEBUG)
+      std::cout << __func__ << " : " << hint << std::endl;
   }
 
   size_t GetRequiredBufferAlignment() const override {

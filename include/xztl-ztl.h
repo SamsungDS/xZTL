@@ -23,12 +23,13 @@
 #include <xztl-mempool.h>
 #include <xztl.h>
 
-#define APP_MOD_COUNT 9
+#define APP_MOD_COUNT 10
 #define APP_FN_SLOTS  32
 
 #define APP_MAX_GRPS 32
 
 #define APP_PRO_MAX_OFFS 128
+// #define APP_PRO_MAX_OFFS XZTL_IO_MAX_MCMD
 
 /* Minimum number of bytes provisioned in a single piece in a zone */
 #define APP_PRO_MIN_PIECE_SZ 1
@@ -39,56 +40,52 @@
 /* Small mapping always follows this granularity */
 #define ZTL_MPE_CPGS 256
 
-/* Media minimum/maximum write size in sectors */
-#define ZTL_WCA_SEC_MCMD     16
-#define ZTL_WCA_SEC_MCMD_MIN 1
-
-/* Media maximum read size in sectors */
-#define ZTL_READ_SEC_MCMD ZTL_WCA_SEC_MCMD
-
 /* Set ZTL_WRITE_AFFINITY to 1 to enable thread affinity to a single core */
 #define ZTL_WRITE_AFFINITY 0
 #define ZTL_WRITE_CORE     0
 
-#define ZTL_ALLOC_NODE_NUM 16
-#define ZNS_ALIGMENT 4096
-#define ZNA_1M_BUF   (ZNS_ALIGMENT * 256)
+#define ZNS_ALIGMENT  4096
+#define ZNA_1M_BUF    (ZNS_ALIGMENT * 256)
 #define ZNS_MAX_M_BUF 32
-#define ZNS_MAX_BUF  (ZNS_MAX_M_BUF * ZNA_1M_BUF)
-#define ZTL_TH_NUM          128
-//#define ZTL_TH_RC_NUM   (ZNS_MAX_BUF / (ZTL_WCA_SEC_MCMD * ZNS_ALIGMENT)) 
-#define ZTL_TH_RC_NUM 1024
+#define ZNS_MAX_BUF   (ZNS_MAX_M_BUF * ZNA_1M_BUF)
+/* Media minimum/maximum read/write size in sectors */
+#define ZTL_IO_SEC_MCMD  8
+#define ZTL_IO_RC_NUM    (ZNS_MAX_BUF / (ZTL_IO_SEC_MCMD * ZNS_ALIGMENT))
+#define ZROCKS_LEVEL_NUM 5
 
-struct xztl_thread {
-    struct xztl_mthread_ctx *tctx[2];//-----------??1024
-    struct xztl_io_mcmd *    mcmd[ZTL_TH_RC_NUM];
-    void *                   prov;
-    char *prp[ZTL_TH_RC_NUM];
-
-    STAILQ_HEAD(, xztl_io_ucmd) ucmd_head;
-    STAILQ_HEAD(, ztl_pro_node) free_head;
-    uint16_t           nfree;
+struct ztl_queue_pool {
     pthread_spinlock_t ucmd_spin;
-    pthread_t          wca_thread;
-    uint8_t            wca_running;
-    uint8_t            tid;
+    STAILQ_HEAD(, xztl_io_ucmd) ucmd_head;
 
-    uint64_t node_id;
+    /* Resource pre-alloc */
+    struct xztl_mthread_ctx *tctx;
+    struct xztl_io_mcmd     *mcmd[ZTL_IO_RC_NUM];
+    void                    *prov;
+    struct ztl_pro_node     *node;
+
+    pthread_t w_thread;
+    uint8_t   flag_running;
+};
+
+struct ztl_read_rs {
+    /* Resource pre-alloc */
+    struct xztl_mthread_ctx *tctx;
+    struct xztl_io_mcmd     *mcmd[ZTL_IO_RC_NUM];
+    char                    *prp[ZTL_IO_RC_NUM];
 
     bool usedflag;
 };
-struct xztl_thread xtd[ZTL_TH_NUM];
 
 enum xztl_mod_types {
-    ZTLMOD_BAD = 0x0,
-    ZTLMOD_ZMD = 0x1,
-    ZTLMOD_PRO = 0x2,
-    ZTLMOD_MPE = 0x3,
-    ZTLMOD_MAP = 0x4,
-    ZTLMOD_LOG = 0x5,
-    ZTLMOD_REC = 0x6,
-    ZTLMOD_GC  = 0x7,
-    ZTLMOD_WCA = 0x8,
+    ZTLMOD_BAD  = 0x0,
+    ZTLMOD_ZMD  = 0x1,
+    ZTLMOD_PRO  = 0x2,
+    ZTLMOD_MPE  = 0x3,
+    ZTLMOD_MAP  = 0x4,
+    ZTLMOD_LOG  = 0x5,
+    ZTLMOD_REC  = 0x6,
+    ZTLMOD_IO   = 0x7,
+    ZTLMOD_MGMT = 0x8,
 };
 
 /* BAD (Bad Block Info) modules - NOT USED */
@@ -99,6 +96,12 @@ enum xztl_mod_types {
 /* PRO (Provisioning) modules */
 #define LIBZTL_PRO 0x2
 
+/* MGMT (Management command) modules */
+#define LIBZTL_MGMT 0x2
+
+/* THD (Thread resource) modules */
+#define LIBZTL_THD 0x2
+
 /* MPE (Persistent Mapping) modules */
 #define LIBZTL_MPE 0x4
 
@@ -106,10 +109,7 @@ enum xztl_mod_types {
 #define LIBZTL_MAP 0x2
 
 /* WCA (Write-cache) modules */
-#define LIBZTL_WCA 0x3
-
-/* GC (Garbage collection) modules */
-#define LIBZTL_GC 0x2
+#define LIBZTL_IO 0x3
 
 /* LOG (Write-ahead logging) modules */
 #define LIBZTL_LOG 0x2
@@ -128,7 +128,11 @@ enum xztl_zmd_flags {
     XZTL_ZMD_META = (1 << 5)  /* Contains metadata, such as log for recovery*/
 };
 
-enum xztl_zmd_node_status { XZTL_ZMD_NODE_FREE = 0, XZTL_ZMD_NODE_USED, XZTL_ZMD_NODE_FULL };
+enum xztl_zmd_node_status {
+    XZTL_ZMD_NODE_FREE = 0,
+    XZTL_ZMD_NODE_USED,
+    XZTL_ZMD_NODE_FULL
+};
 
 struct app_magic {
     uint8_t magic;
@@ -141,8 +145,6 @@ struct app_zmd_entry {
     struct xztl_maddr addr;
     uint64_t          wptr;
     uint64_t wptr_inflight; /* In-flight writing LBAs (not completed yet) */
-    uint32_t ndeletes;
-    uint32_t npieces;
 
     /* If we implement recovery at the ZTL, we need to decide how to store
      * mapping pieces information here as a list */
@@ -155,7 +157,7 @@ struct app_tiny_entry {
 
 struct app_tiny_tbl {
     struct app_tiny_entry *tbl;
-    uint8_t *              dirty;
+    uint8_t               *dirty;
     uint32_t               entries;
     uint32_t               entry_sz;
 };
@@ -186,10 +188,10 @@ struct app_mpe {
     uint32_t         entries;
     uint32_t         entry_sz;
 
-    uint8_t *           tbl;
+    uint8_t            *tbl;
     uint32_t            ent_per_pg;
     struct app_tiny_tbl tiny; /* This is the 'tiny' table for checkpoint */
-    pthread_mutex_t *   entry_mutex;
+    pthread_mutex_t    *entry_mutex;
 } __attribute__((packed));
 
 struct app_zmd {
@@ -197,7 +199,7 @@ struct app_zmd {
     uint32_t         entries;
     uint32_t         entry_sz;
 
-    uint8_t *                tbl; /* This is the 'small' fixed table */
+    uint8_t                 *tbl; /* This is the 'small' fixed table */
     uint32_t                 ent_per_pg;
     struct app_tiny_tbl      tiny; /* This is the 'tiny' table for checkpoint */
     struct xnvme_znd_report *report;
@@ -214,7 +216,7 @@ struct app_group {
     struct app_grp_flags flags;
     struct app_zmd       zmd;
 
-    void *   pro;
+    void    *pro;
     uint16_t cp_zone; /* Rsvd zone ID for checkpoint */
     LIST_ENTRY(app_group) entry;
 };
@@ -248,19 +250,10 @@ typedef void(app_zmd_invalidate)(struct app_group *grp, struct xztl_maddr *addr,
 
 typedef int(app_pro_init)(void);
 typedef void(app_pro_exit)(void);
-typedef void(app_pro_check_gc)(struct app_group *grp);
-typedef int(app_pro_finish_zone)(struct app_group *grp, uint32_t zid,
-                                 uint8_t type);
-typedef int(app_pro_put_zone)(struct app_group *grp, uint32_t zid);
-typedef struct app_pro_addr *(app_pro_new)(uint32_t nsec, int32_t *node_id);
+typedef int(app_pro_new)(uint32_t nsec, int32_t node_id,
+                         struct app_pro_addr *ctx, uint32_t start);
 typedef void(app_pro_free)(struct app_pro_addr *ctx);
-typedef int(app_pro_reset_node)(struct app_group *   grp,
-                                struct ztl_pro_node *node);
-typedef int(app_pro_finish_node)(struct app_group *   grp,
-                                 struct ztl_pro_node *node);
-typedef int(app_pro_submit_node)(struct app_group *   grp,
-                                 struct ztl_pro_node *node, int32_t op_code);
-typedef char(app_pro_get_node) (struct app_group *grp, uint32_t nodeid);
+typedef int(app_pro_get_node)(struct ztl_queue_pool *q);
 
 typedef int(app_mpe_create)(void);
 typedef int(app_mpe_load)(void);
@@ -277,85 +270,121 @@ typedef uint64_t(app_map_read)(uint64_t id);
 typedef int(app_map_upsert_md)(uint64_t index, uint64_t addr,
                                uint64_t old_addr);
 
-typedef int(app_wca_init)(void);
-typedef void(app_wca_exit)(void);
-typedef int(app_wca_submit)(struct xztl_io_ucmd *ucmd);
-typedef void(app_wca_callback)(struct xztl_io_mcmd *mcmd);
+typedef int(app_io_init)(void);
+typedef void(app_io_exit)(void);
+typedef void(app_io_submit)(struct xztl_io_ucmd *ucmd);
+typedef int(app_io_read)(struct xztl_io_ucmd *ucmd);
+typedef int(app_io_nodeset)(int32_t node_id, int32_t level, int32_t num);
+
+typedef int(app_thd_init)(void);
+typedef void(app_thd_exit)(void);
+typedef int(app_thd_get)(void);
+typedef void(app_thd_put)(int tid);
+typedef uint32_t(app_thd_get_nid)(struct xztl_thread *tdinfo);
+typedef struct xztl_thread *(app_thd_get_xtd)(int tid);
+
+typedef int(app_mgmt_init)(void);
+typedef void(app_mgmt_exit)(void);
+typedef int(app_mgmt_reset)(struct app_group *grp, struct ztl_pro_node *node,
+                            int32_t op_code);
+typedef int(app_mgmt_finish)(struct app_group *grp, struct ztl_pro_node *node,
+                             int32_t op_code);
+
+typedef void(app_mgmt_clear_invalid_node)(struct app_group *grp);
 
 struct app_groups {
-    app_grp_init *    init_fn;
-    app_grp_exit *    exit_fn;
-    app_grp_get *     get_fn;
+    app_grp_init     *init_fn;
+    app_grp_exit     *exit_fn;
+    app_grp_get      *get_fn;
     app_grp_get_list *get_list_fn;
 };
 
 struct app_zmd_mod {
     uint8_t             mod_id;
-    char *              name;
-    app_zmd_create *    create_fn;
-    app_zmd_flush *     flush_fn;
-    app_zmd_load *      load_fn;
-    app_zmd_get *       get_fn;
+    char               *name;
+    app_zmd_create     *create_fn;
+    app_zmd_flush      *flush_fn;
+    app_zmd_load       *load_fn;
+    app_zmd_get        *get_fn;
     app_zmd_invalidate *invalidate_fn;
-    app_zmd_mark *      mark_fn;
+    app_zmd_mark       *mark_fn;
 };
 
 struct app_pro_mod {
-    uint8_t              mod_id;
-    char *               name;
-    app_pro_init *       init_fn;
-    app_pro_exit *       exit_fn;
-    app_pro_check_gc *   check_gc_fn;
-    app_pro_finish_zone *finish_zn_fn;
-    app_pro_put_zone *   put_zone_fn;
-    app_pro_new *        new_fn;
-    app_pro_free *       free_fn;
-    app_pro_reset_node * reset_node_fn;
-    app_pro_finish_node *finish_node_fn;
-    app_pro_submit_node *submit_node_fn;
-    app_pro_get_node    *is_node_full_fn;
+    uint8_t           mod_id;
+    char             *name;
+    app_pro_init     *init_fn;
+    app_pro_exit     *exit_fn;
+    app_pro_new      *new_fn;
+    app_pro_free     *free_fn;
+    app_pro_get_node *get_node_fn;
 };
 
 struct app_mpe_mod {
     uint8_t         mod_id;
-    char *          name;
+    char           *name;
     app_mpe_create *create_fn;
-    app_mpe_load *  load_fn;
-    app_mpe_flush * flush_fn;
-    app_mpe_mark *  mark_fn;
-    app_mpe_get *   get_fn;
+    app_mpe_load   *load_fn;
+    app_mpe_flush  *flush_fn;
+    app_mpe_mark   *mark_fn;
+    app_mpe_get    *get_fn;
 };
 
 struct app_map_mod {
     uint8_t            mod_id;
-    char *             name;
-    app_map_init *     init_fn;
-    app_map_exit *     exit_fn;
-    app_map_persist *  persist_fn;
-    app_map_upsert *   upsert_fn;
-    app_map_read *     read_fn;
+    char              *name;
+    app_map_init      *init_fn;
+    app_map_exit      *exit_fn;
+    app_map_persist   *persist_fn;
+    app_map_upsert    *upsert_fn;
+    app_map_read      *read_fn;
     app_map_upsert_md *upsert_md_fn;
 };
 
-struct app_wca_mod {
-    uint8_t           mod_id;
-    char *            name;
-    app_wca_init *    init_fn;
-    app_wca_exit *    exit_fn;
-    app_wca_submit *  submit_fn;
-    app_wca_callback *callback_fn;
+struct app_io_mod {
+    uint8_t         mod_id;
+    char           *name;
+    app_io_init    *init_fn;
+    app_io_exit    *exit_fn;
+    app_io_submit  *submit_fn;
+    app_io_read    *read_fn;
+    app_io_nodeset *nodeset_fn;
+};
+
+struct app_thd_mod {
+    uint8_t          mod_id;
+    char            *name;
+    app_thd_init    *init_fn;
+    app_thd_exit    *exit_fn;
+    app_thd_get     *get_fn;
+    app_thd_put     *put_fn;
+    app_thd_get_nid *get_nid_fn;
+    app_thd_get_xtd *get_xtd_fn;
+};
+
+struct app_mgmt_mod {
+    uint8_t        mod_id;
+    char          *name;
+    app_mgmt_init *init_fn;
+    app_mgmt_exit *exit_fn;
+    // app_mgmt_open*    open_fn;
+    // app_mgmt_close*   close_fn;
+    app_mgmt_reset  *reset_fn;
+    app_mgmt_finish *finish_fn;
+    app_mgmt_clear_invalid_node* clear_fn;
 };
 
 struct app_global {
     struct app_groups groups;
     struct app_mpe    smap;
 
-    void *              mod_list[APP_MOD_COUNT][APP_FN_SLOTS];
-    struct app_zmd_mod *zmd;
-    struct app_pro_mod *pro;
-    struct app_mpe_mod *mpe;
-    struct app_map_mod *map;
-    struct app_wca_mod *wca;
+    void                *mod_list[APP_MOD_COUNT][APP_FN_SLOTS];
+    struct app_zmd_mod  *zmd;
+    struct app_pro_mod  *pro;
+    struct app_mpe_mod  *mpe;
+    struct app_map_mod  *map;
+    struct app_io_mod   *io;
+    struct app_mgmt_mod *mgmt;
 };
 
 /* Built-in group functions */
@@ -429,6 +458,6 @@ void ztl_zmd_register(void);
 void ztl_pro_register(void);
 void ztl_mpe_register(void);
 void ztl_map_register(void);
-void ztl_wca_register(void);
+void ztl_io_register(void);
 
 #endif /* XZTL_ZTL_H */
