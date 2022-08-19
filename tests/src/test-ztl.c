@@ -63,7 +63,7 @@ static void test_ztl_init(void) {
     ztl_pro_register();
     ztl_mpe_register();
     ztl_map_register();
-    ztl_wca_register();
+    ztl_io_register();
 
     ret = ztl_init();
     cunit_ztl_assert_int("ztl_init", ret);

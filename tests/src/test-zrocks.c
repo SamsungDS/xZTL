@@ -88,7 +88,7 @@ static int test_zrocks_check_buffer(uint32_t id, uint32_t off, uint32_t size) {
             printf (" %x/%x", wbuf[id][i], rbuf[id][i]);
     }
     printf("\n");
-*/
+  */
     return memcmp(wbuf[id], rbuf[id], size);
 }
 
@@ -201,8 +201,7 @@ static void test_zrocks_random_read(void) {
 
     xztl_media_dma_free(buf);
 
-    for (int i = 0; i < TEST_N_BUFFERS; i++)
-	    xztl_media_dma_free(wbuf[i]);
+    for (int i = 0; i < TEST_N_BUFFERS; i++) xztl_media_dma_free(wbuf[i]);
 }
 
 int main(int argc, const char **argv) {

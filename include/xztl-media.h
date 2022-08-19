@@ -82,7 +82,7 @@ enum xztl_media_opcodes {
 
 struct xztl_mthread_ctx {
     uint16_t            is_busy;
-    xztl_thread *       comp_th;
+    xztl_thread        *comp_th;
     int                 tid;
     int                 comp_active;
     pthread_spinlock_t  qpair_spin;
@@ -93,6 +93,7 @@ struct xztl_io_mcmd {
     uint8_t                  opcode;
     uint8_t                  submitted;
     uint8_t                  synch;
+    uint8_t                  callback_err_cnt;
     uint32_t                 sequence;
     uint32_t                 sequence_zn;
     uint64_t                 buf_off;
@@ -103,11 +104,11 @@ struct xztl_io_mcmd {
     struct xztl_maddr        addr[XZTL_MAX_MADDR];
     uint64_t                 prp[XZTL_MAX_MADDR];
     uint64_t                 paddr[XZTL_MAX_MADDR];
-    xztl_callback *          callback;
-    void *                   opaque;
+    xztl_callback           *callback;
+    void                    *opaque;
     struct xztl_mthread_ctx *async_ctx;
-    struct xztl_mp_entry *   mp_cmd;
-    struct xztl_mp_entry *   mp_entry;
+    struct xztl_mp_entry    *mp_cmd;
+    struct xztl_mp_entry    *mp_entry;
 
     /* For latency */
     uint64_t us_start;
@@ -125,7 +126,7 @@ struct xztl_zn_mcmd {
     uint8_t           status;
     struct xztl_maddr addr;
     uint32_t          nzones;
-    void *            opaque;
+    void             *opaque;
 };
 
 struct xztl_misc_cmd {
@@ -177,13 +178,13 @@ typedef int(xztl_media_cmd_fn)(struct xztl_misc_cmd *cmd);
 
 struct xztl_media {
     struct xztl_mgeo         geo;
-    xztl_init_fn *           init_fn;
-    xztl_exit_fn *           exit_fn;
-    xztl_media_io_fn *       submit_io;
-    xztl_media_zn_fn *       zone_fn;
+    xztl_init_fn            *init_fn;
+    xztl_exit_fn            *exit_fn;
+    xztl_media_io_fn        *submit_io;
+    xztl_media_zn_fn        *zone_fn;
     xztl_media_dma_alloc_fn *dma_alloc;
-    xztl_media_dma_free_fn * dma_free;
-    xztl_media_cmd_fn *      cmd_exec;
+    xztl_media_dma_free_fn  *dma_free;
+    xztl_media_cmd_fn       *cmd_exec;
 };
 
 #endif /* XZTL_MEDIA_H */

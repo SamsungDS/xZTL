@@ -56,7 +56,7 @@ static uint8_t                      xztl_flush_l_running, xztl_flush_running;
 
 struct latency_entry {
     uint64_t usec;
-    void *   mp_entry;
+    void    *mp_entry;
     STAILQ_ENTRY(latency_entry) entry;
 };
 
@@ -103,7 +103,8 @@ static void xztl_prometheus_reset(void) {
     thput   = thput_w + thput_r;
 
     if (pr_stats.user_write_bytes) {
-        wa = (double)pr_stats.zns_write_bytes / (double)pr_stats.user_write_bytes;  // NOLINT
+        wa = (double)pr_stats.zns_write_bytes /
+             (double)pr_stats.user_write_bytes;  // NOLINT
     } else {
         wa = 1;
     }
@@ -167,7 +168,7 @@ void xztl_prometheus_add_wa(uint64_t user_writes, uint64_t zns_writes) {
 }
 
 static void xztl_prometheus_flush_latency(void) {
-    FILE *                fp;
+    FILE                 *fp;
     int                   dequeued = 0;
     struct latency_entry *ent;
     uint64_t              lat;
@@ -226,11 +227,17 @@ void xztl_prometheus_add_read_latency(uint64_t usec) {
 
     /* Discard latency if queue is full */
     if (xztl_mempool_left(XZTL_PROMETHEUS_LAT, 0) == 0) {
+        log_err(
+            "xztl_prometheus_add_read_latency: xztl_mempool_left "
+            "XZTL_PROMETHEUS_LAT 0.\n");
         pthread_spin_unlock(&lat_spin);
         return;
     }
     mp_ent = xztl_mempool_get(XZTL_PROMETHEUS_LAT, 0);
     if (!mp_ent) {
+        log_err(
+            "xztl_prometheus_add_read_latency: xztl_mempool_get "
+            "XZTL_PROMETHEUS_LAT is NULL.\n");
         pthread_spin_unlock(&lat_spin);
         return;
     }
@@ -264,31 +271,31 @@ int xztl_prometheus_init(void) {
     STAILQ_INIT(&lat_head);
 
     if (pthread_spin_init(&lat_spin, 0))
-        return -1;
+        return XZTL_ZTL_PROMETHEUS_ERR;
 
     ret = xztl_mempool_create(XZTL_PROMETHEUS_LAT, 0, MAX_LATENCY_ENTS,
                               sizeof(struct latency_entry), NULL, NULL);
     if (ret) {
-        log_err("xztl-prometheus: Latency memory pool not started.");
+        log_err("xztl_prometheus_init: Latency memory pool not started.");
         goto SPIN;
     }
 
     xztl_flush_l_running = 0;
     if (pthread_create(&latency_tid, NULL, xztl_prometheus_latency_th, NULL)) {
-        log_err("xztl-prometheus: Flushing latency thread not started.");
+        log_err("xztl_prometheus_init: Flushing latency thread not started.");
         goto MP;
     }
 
     xztl_flush_running = 0;
     if (pthread_create(&th_flush, NULL, xztl_prometheus_flush, NULL)) {
-        log_err("xztl-prometheus: Flushing thread not started.");
+        log_err("xztl_prometheus_init: Flushing thread not started.");
         goto LAT_TH;
     }
 
     while (!xztl_flush_running || !xztl_flush_l_running) {
     }
 
-    return 0;
+    return XZTL_OK;
 
 LAT_TH:
     while (!xztl_flush_l_running) {
@@ -299,5 +306,5 @@ MP:
     xztl_mempool_destroy(XZTL_PROMETHEUS_LAT, 0);
 SPIN:
     pthread_spin_destroy(&lat_spin);
-    return -1;
+    return XZTL_ZTL_PROMETHEUS_ERR;
 }
