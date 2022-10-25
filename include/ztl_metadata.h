@@ -37,6 +37,7 @@ struct ztl_metadata {
     struct ztl_pro_zone *metadata_zone;
     int                  zone_num;
     uint64_t             file_slba;
+    int                  curr_zone_index;
     int                  nlb_max;
     pthread_mutex_t      page_spin;
 };
@@ -53,6 +54,8 @@ struct obj_meta_data_head {
 
 struct ztl_metadata *get_ztl_metadata();
 uint64_t             zrocks_get_metadata_slba();
+void                 zrocks_get_metadata_slbas(uint64_t *slbas, uint8_t *num);
+void                 zrocks_set_metadata_slba(uint64_t slbas);
 int                  ztl_metadata_init(struct app_group *grp);
 int                  get_metadata_zone_num();
 

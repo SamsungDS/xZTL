@@ -201,7 +201,7 @@ int xztl_exit(void) {
 
     ret = xztl_media_exit();
     if (ret)
-        log_err("core: Could not exit media.");
+        log_err("xztl_exit: Could not exit media.");
 
     xztl_mempool_exit();
 
@@ -210,7 +210,7 @@ int xztl_exit(void) {
         core.media = NULL;
     }
 
-    log_info("core: xZTL is closed succesfully.");
+    log_info("xztl_exit: xZTL is closed succesfully.");
 
     xztl_stats_print_io_simple();
     return ret;
@@ -221,7 +221,7 @@ int xztl_init(const char *dev_name) {
 
     openlog("ztl", LOG_CONS | LOG_PID | LOG_NDELAY, LOG_LOCAL0);
 
-    log_info("core: Starting xZTL...");
+    log_info("xztl_init: Starting xZTL...");
 
     if (!media_fn)
         return XZTL_NOMEDIA;
@@ -246,7 +246,7 @@ int xztl_init(const char *dev_name) {
     if (ret)
         goto ZTL;
 
-    log_info("core: xZTL started successfully.");
+    log_info("xztl_init: xZTL started successfully.");
     return XZTL_OK;
 
 ZTL:

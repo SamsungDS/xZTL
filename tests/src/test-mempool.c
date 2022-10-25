@@ -17,13 +17,12 @@
  * limitations under the License.
 */
 
+#include <CUnit/Basic.h>
 #include <omp.h>
 #include <pthread.h>
 #include <xztl-mempool.h>
 #include <xztl.h>
 #include <ztl-media.h>
-
-#include "CUnit/Basic.h"
 
 static const char **devname;
 
