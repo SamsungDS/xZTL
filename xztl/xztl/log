@@ -1,0 +1,46 @@
+## meta: make info
+cc: cc
+platform: Linux
+ptarget: linux
+make: make
+ctags: ctags
+nproc: 8
+build_dir: build
+## meta: make zrocks
+-- The C compiler identification is GNU 8.3.1
+-- Check for working C compiler: /opt/rh/devtoolset-8/root/usr/bin/cc
+-- Check for working C compiler: /opt/rh/devtoolset-8/root/usr/bin/cc -- works
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Performing Test flag_supported
+-- Performing Test flag_supported - Success
+-- Bundling libraries
+-- system_deps(ztl)
+-- adding to bundle: libzrocks_slim.a
+-- adding to bundle: /home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/ztl/libztl.a
+-- bundle_zrocks(SUCCESS)
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks
+cd build/zrocks && $( case $( uname -s ) in ( Linux ) echo "make" ;; ( FreeBSD | OpenBSD | NetBSD ) echo "gmake" ;; ( * ) echo Unrecognized ;; esac)
+make[1]: Entering directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+make[2]: Entering directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+make[3]: Entering directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+Scanning dependencies of target zrocks
+make[3]: Leaving directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+make[3]: Entering directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+[ 33%] Building C object CMakeFiles/zrocks.dir/src/zrocks.c.o
+[ 66%] Linking C static library libzrocks_slim.a
+make[3]: Leaving directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+[ 66%] Built target zrocks
+make[3]: Entering directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+Scanning dependencies of target bundling_target
+make[3]: Leaving directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+make[3]: Entering directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+[100%] Bundling zrocks_bundle
+make[3]: Leaving directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+[100%] Built target bundling_target
+make[2]: Leaving directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
+make[1]: Leaving directory '/home/hqi/packages/rocksdb-7.4.3/plugin/xztl/xztl/build/zrocks'
