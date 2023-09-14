@@ -29,6 +29,13 @@
 #define ZNS_DEBUG_AF    (ZNS_DEBUG && 1) /* Append and Flush */
 #define ZNS_DEBUG_META  0                /* MetaData Flush and Recover */
 #define ZNS_META_SWITCH 1                /* MetaData Switch 0:Close   1:Open */
+#define ZNS_GC_SWITCH   1                /* GC Switch 0:Close   1:Open */
+#define ZNS_DEBUG_GC    (ZNS_GC_SWITCH && 0)
+
+
+#define ZNS_GC_NODE_IVD_MAX_PERCENT 95
+#define ZNS_GC_NODE_IVD_MIN_PERCENT 85
+#define ZNS_GC_NODES_PERCENT        28
 
 #define ZNS_OBJ_STORE       0
 #define ZNS_PREFETCH        0
@@ -106,14 +113,43 @@ class ZNSFile {
   std::vector<struct zrocks_map> map;
   std::uint32_t                  startIndex;
 
-  ZNSFile(const std::string& fname, int lvl)
+  char* wcache;
+  char* cache_off;
+  bool is_writing;
+  bool is_reading;
+  int current_nid;
+
+  std::mutex fMutex;
+  std::mutex writer_mtx_;
+  std::atomic<int> readers_{0};
+
+  ZNSFile(const std::string& fname, int lvl, bool createbuf = true)
       : name(fname), uuididx(0), level(lvl) {
     before_truncate_size = 0;
     size                 = 0;
     startIndex           = 0;
+    wcache               = nullptr;
+    cache_off            = nullptr;
+
+    if (createbuf) {
+      wcache = reinterpret_cast<char*>(zrocks_alloc(ZNS_MAX_BUF));
+      if (!wcache) {
+        std::cout << "ZRocks (alloc) error." << std::endl;
+        cache_off = nullptr;
+      }
+      cache_off = wcache;
+    }
+    is_writing            = false;
+    is_reading           = false;
+    current_nid          = -1;
   }
 
-  ~ZNSFile() {
+  virtual ~ZNSFile() {
+    if (wcache) {
+      zrocks_free(wcache);
+      wcache = nullptr;
+      cache_off = nullptr;
+    }
   }
 
   std::uint32_t GetFileMetaLen();
@@ -121,7 +157,40 @@ class ZNSFile {
   std::uint32_t WriteMetaToBuf(unsigned char* buf, bool update = false);
 
   void PrintMetaData();
+
+  void GetWRLock();
+  bool TryGetWRLock();
+  void ReleaseWRLock();
+  bool IsWR();
 };
+
+class ZNSReadLock {
+ public:
+  explicit ZNSReadLock(ZNSFile* zfile) : zfile_(zfile) {
+    zfile_->writer_mtx_.lock();
+    zfile_->readers_++;
+    zfile_->writer_mtx_.unlock();
+  }
+  ~ZNSReadLock() { zfile_->readers_--; }
+
+ private:
+  ZNSFile* zfile_;
+};
+
+class ZNSWriteLock {
+ public:
+  explicit ZNSWriteLock(ZNSFile* zfile) : zfile_(zfile) {
+    zfile_->writer_mtx_.lock();
+    /* For map change, waiting for read finished*/
+    while (zfile_->readers_ > 0) {
+    }
+  }
+  ~ZNSWriteLock() { zfile_->writer_mtx_.unlock(); }
+
+ private:
+  ZNSFile* zfile_;
+};
+
 
 class ZNSEnv : public Env {
  public:
@@ -137,28 +206,50 @@ class ZNSEnv : public Env {
   port::Mutex   metaMutex;
 
   unsigned char* metaBuf;
+
+  std::map<int, std::vector<std::string>> nid_file_map;// <nid, filename>
+  char *gc_buffer;
+  std::unique_ptr<std::thread> gc_worker_ = nullptr;
+
   explicit ZNSEnv(const std::string& dname): dev_name(dname) {
       posixEnv              = Env::Default();
-      isFlushRuning         = false;
       isEnvStart            = false;
       uuididx               = 0;
-      flushThread           = 0;
       sequence              = 0;
       metaBuf               = NULL;
+
       std::cout << "Initializing ZNS Environment" << std::endl;
       if (zrocks_init(dev_name.data())) {
         std::cout << "ZRocks failed to initialize." << std::endl;
         exit(1);
-    }
+      }
+
+      gc_nodes_threshold = (zrocks_gc_get_nodes_num() * ZNS_GC_NODES_PERCENT) / 100;
+
+      if (ZNS_GC_SWITCH) {
+        run_gc_worker_ = true;
+        gc_buffer = reinterpret_cast<char*>(zrocks_alloc(ZNS_MAX_BUF));
+        if (!gc_buffer) {
+          std::cout << " ZRocks (alloc) error." << std::endl;
+          exit(1);
+        }
+        gc_worker_.reset(new std::thread(&ZNSEnv::GCWorker, this));
+        std::cout << "Starting GC worker." << std::endl;
+      }
   }
 
-
   virtual ~ZNSEnv() {
+    if (ZNS_GC_SWITCH) {
+        run_gc_worker_ = false;
+        gc_worker_->join();
+        zrocks_free(gc_buffer);
+        std::cout << "Destroying GC worker." << std::endl;
+    }
+
     if (ZNS_META_SWITCH) {
        zrocks_free(metaBuf);
     }
-    // FlushMetaData();
-    // PrintMetaData();
+
     zrocks_exit();
     std::cout << "Destroying ZNS Environment" << std::endl;
   }
@@ -167,11 +258,13 @@ class ZNSEnv : public Env {
 
   Status FlushUpdateMetaData(ZNSFile* zfile);
 
+  Status FlushGCChangeMetaData(ZNSFile* zfile);
+
   Status FlushDelMetaData(const std::string& fileName);
 
   Status FlushReplaceMetaData(const std::string& srcName, const std::string& destName);
 
-  void RecoverFileFromBuf(unsigned char* buf, std::uint32_t& praseLen);
+  void RecoverFileFromBuf(unsigned char* buf, std::uint32_t& praseLen, bool replace);
 
   Status LoadMetaData();
 
@@ -233,11 +326,7 @@ class ZNSEnv : public Env {
     return posixEnv->NewDirectory(name, result);
   }
 
-  Status FileExists(const std::string& fname) override {
-    if (ZNS_DEBUG)
-      std::cout << __func__ << ":" << fname << std::endl;
-    return posixEnv->FileExists(fname);
-  }
+  Status FileExists(const std::string& fname) override;
 
   Status GetChildren(const std::string&        path,
                      std::vector<std::string>* result) override {
@@ -360,25 +449,22 @@ class ZNSEnv : public Env {
     return posixEnv->GetThreadStatusUpdater();
   }
 
+  void MigrateNodeFile(const std::uint32_t nid, const std::string file_name);
+
  private:
   Env* posixEnv;  // This object is derived from Env, but not from
                   // posixEnv. We have posixnv as an encapsulated
                   // object here so that we can use posix timers,
                   // posix threads, etc.
   const std::string dev_name;
-  pthread_t         flushThread;
-  bool              isFlushRuning;
-  bool              IsFilePosix(const std::string& fname) {
-    return (fname.find("uuid") != std::string::npos ||
-            fname.find("CURRENT") != std::string::npos ||
-            fname.find("IDENTITY") != std::string::npos ||
-            fname.find("MANIFEST") != std::string::npos ||
-            fname.find("OPTIONS") != std::string::npos ||
-            fname.find("LOG") != std::string::npos ||
-            fname.find("LOCK") != std::string::npos ||
-            fname.find(".dbtmp") != std::string::npos ||
-            // fname.find(".log") != std::string::npos ||
-            fname.find(".trace") != std::string::npos);
+  uint32_t gc_nodes_threshold;
+  bool run_gc_worker_ = false;
+
+  void GCWorker();
+
+  bool IsFilePosix(const std::string& fname) {
+     // For optimal space utilization
+     return (fname.find("MANIFEST") != std::string::npos);
   }
 };
 
@@ -523,8 +609,6 @@ class ZNSWritableFile : public WritableFile {
   bool fallocate_with_keep_size_;
 #endif
 
-  char* wcache;
-  char* cache_off;
 
   ZNSEnv*       env_zns;
   std::uint64_t map_off;
@@ -544,23 +628,14 @@ class ZNSWritableFile : public WritableFile {
     fallocate_with_keep_size_ = options.fallocate_with_keep_size;
 #endif
 
-    wcache = reinterpret_cast<char*>(zrocks_alloc(ZNS_MAX_BUF));
-    if (!wcache) {
-      std::cout << " ZRocks (alloc) error." << std::endl;
-      cache_off = nullptr;
-    }
 
-    cache_off = wcache;
     map_off   = 0;
 
-    zns->filesMutex.Lock();
     znsfile = env_zns->files[fname];
-    zns->filesMutex.Unlock();
+    znsfile->GetWRLock();
   }
 
   virtual ~ZNSWritableFile() {
-    if (wcache)
-      zrocks_free(wcache);
   }
 
   /* ### Implemented at env_zns_io.cc ### */

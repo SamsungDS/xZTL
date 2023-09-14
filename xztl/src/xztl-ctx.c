@@ -22,8 +22,6 @@
 #include <xztl-mempool.h>
 #include <xztl.h>
 
-static pthread_spinlock_t ctxs_spin;
-
 struct xztl_mthread_ctx *xztl_ctx_media_init(uint32_t depth) {
     struct xztl_misc_cmd     cmd;
     struct xztl_mthread_ctx *tctx;

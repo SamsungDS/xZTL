@@ -24,7 +24,7 @@
 #include <xztl.h>
 #include <xztl-stats.h>
 
-#define XZTL_STATS_IO_TYPES 18
+#define XZTL_STATS_IO_TYPES 22
 
 struct xztl_stats_data {
     uint64_t io[XZTL_STATS_IO_TYPES];
@@ -54,7 +54,7 @@ void xztl_stats_print_err(void) {
 }
 
 void xztl_stats_print_io(void) {
-    uint64_t tot_b, tot_b_w, tot_b_r;
+    uint64_t tot_b, tot_b_w, tot_b_r, tot_gc_r, tot_gc_w;
     double   wa;
 
     printf("\n User I/O commands\n");
@@ -74,10 +74,18 @@ void xztl_stats_print_io(void) {
 
     printf("\n Data transferred (Application->ZTL): %.2f MB (%lu bytes)\n",
            tot_b / (double)1048576, (uint64_t)tot_b);  // NOLINT
-    printf("   data written     : %10.2lf MB (%lu bytes)\n",
+    printf("   user written     : %10.2lf MB (%lu bytes)\n",
            (double)tot_b_w / (double)1048576, (uint64_t)tot_b_w);  // NOLINT
-    printf("   data read        : %10.2lf MB (%lu bytes)\n",
+    printf("   user read        : %10.2lf MB (%lu bytes)\n",
            (double)tot_b_r / (double)1048576, (uint64_t)tot_b_r);  // NOLINT
+
+    tot_gc_r = xztl_stats.io[XZTL_STATS_READ_BYTES_GC];
+    tot_gc_w = xztl_stats.io[XZTL_STATS_APPEND_BYTES_GC];
+
+    printf("   gc written     : %10.2lf MB (%lu bytes)\n",
+           (double)tot_gc_w / (double)1048576, (uint64_t)tot_gc_w);  // NOLINT
+    printf("   gc read        : %10.2lf MB (%lu bytes)\n",
+           (double)tot_gc_r / (double)1048576, (uint64_t)tot_gc_r);  // NOLINT
 
     tot_b_r = xztl_stats.io[XZTL_STATS_READ_BYTES];
     tot_b_w = xztl_stats.io[XZTL_STATS_APPEND_BYTES];
@@ -96,22 +104,29 @@ void xztl_stats_print_io(void) {
 }
 
 void xztl_stats_print_io_simple(void) {
-    uint64_t flush_w, app_w, padding_w;
+    uint64_t flush_w, app_w, padding_w, gc_w;
     FILE    *fp;
 
     flush_w   = xztl_stats.io[XZTL_STATS_APPEND_BYTES];
     app_w     = xztl_stats.io[XZTL_STATS_APPEND_BYTES_U];
-    padding_w = flush_w - app_w;
+    gc_w      = xztl_stats.io[XZTL_STATS_APPEND_BYTES_GC];
+    padding_w = flush_w - app_w - gc_w;
 
     printf("\nZTL Application Writes : %.2f MB (%lu bytes)\n",
            app_w / (double)1048576, app_w);  // NOLINT
+    printf("ZTL GC Writes          : %.2f MB (%lu bytes)\n",
+           gc_w / (double)1048576, gc_w);  // NOLINT
     printf("ZTL Padding            : %.2f MB (%lu bytes)\n",
            padding_w / (double)1048576, padding_w);  // NOLINT
     printf("ZTL Total Writes       : %.2f MB (%lu bytes)\n",
            flush_w / (double)1048576, flush_w);  // NOLINT
     printf("ZTL write-amplification: %.6lf\n",
            (double)flush_w / (double)app_w);  // NOLINT
+    uint64_t total_valid = 0;
+    uint64_t total_used = 0;
     for (int level = 0; level < ZROCKS_LEVEL_NUM; level++) {
+        total_valid += xztl_node_stats.data[level][XZTL_CMD_ENTRY_VALID];
+        total_used += xztl_node_stats.data[level][XZTL_CMD_ENTRY_USED];
         printf("\nLevel %d Entry Valid: %-8lu Entry Used : %-8lu Space Used Ratio : %.6lf",
             level, xztl_node_stats.data[level][XZTL_CMD_ENTRY_VALID],
             xztl_node_stats.data[level][XZTL_CMD_ENTRY_USED],
@@ -119,6 +134,11 @@ void xztl_stats_print_io_simple(void) {
             (xztl_node_stats.data[level][XZTL_CMD_ENTRY_VALID] * 1.0 /
             xztl_node_stats.data[level][XZTL_CMD_ENTRY_USED]) : 0.0);
     }
+    const uint64_t GB_L = 1000000000;
+    printf("\nTotal Valid: %.2lf GB Total Used: %.2lf GB Used Ratio: %.6lf",
+            total_valid*1.0*ZTL_IO_SEC_MCMD*ZNS_ALIGMENT/GB_L,
+            total_used*1.0*ZTL_IO_SEC_MCMD*ZNS_ALIGMENT/GB_L,
+            total_used !=0 ? (total_valid*1.0/total_used):0.0);
     printf(
         "\nRecycled Zones: %lu (%.2f MB, %lu bytes)\n",
         xztl_stats.io[XZTL_STATS_RECYCLED_ZONES],

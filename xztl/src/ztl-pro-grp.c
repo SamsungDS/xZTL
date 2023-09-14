@@ -38,26 +38,29 @@ static struct ztl_pro_node_grp *_ztl_pro_grp_new_pro(int32_t  node_num,
     }
 
     pro->nnodes = node_num;
-    pro->vnodes = calloc(node_num, sizeof(struct ztl_pro_node));  // node资源池
+    pro->vnodes = calloc(node_num, sizeof(struct ztl_pro_node));
     if (!pro->vnodes) {
         log_err("Mem wrong: Calloc ztl_pro_node error!\n");
         goto free_pro;
     }
 
     pro->nzones = entries;
-    pro->vzones = calloc(entries, sizeof(struct ztl_pro_zone));  // zone资源池
+    pro->vzones = calloc(entries, sizeof(struct ztl_pro_zone));
     if (!pro->vzones) {
         log_err("Mem wrong: Calloc ztl_pro_zone error!\n");
         goto free_nodes;
     }
 
-    if (pthread_spin_init(&pro->spin, 0)) {
+    if (pthread_spin_init(&pro->spin_free, 0) ||
+        pthread_spin_init(&pro->spin_full, 0) ||
+        pthread_spin_init(&pro->spin_used, 0)) {
         log_err("ztl_pro_grp_node_init: pthread_spin_init failed\n");
         goto free_all;
     }
 
     TAILQ_INIT(&pro->free_head);
     TAILQ_INIT(&pro->used_head);
+    TAILQ_INIT(&pro->full_head);
 
     pro->nfree = 0;
     return pro;
@@ -73,7 +76,9 @@ free_pro:
 }
 
 static void _ztl_pro_grp_destroy_pro(struct ztl_pro_node_grp *pro) {
-    pthread_spin_destroy(&pro->spin);
+    pthread_spin_destroy(&pro->spin_free);
+    pthread_spin_destroy(&pro->spin_full);
+    pthread_spin_destroy(&pro->spin_used);
 
     free(pro->vzones);
     free(pro->vnodes);
@@ -135,16 +140,36 @@ void ztl_pro_grp_free(struct app_group *grp, uint32_t zone_i, uint32_t nsec) {
 int ztl_pro_grp_get_node(struct ztl_queue_pool   *q,
                          struct ztl_pro_node_grp *pro) {
     if (!q->node || q->node->optimal_write_sec_left == 0) {
-        pthread_spin_lock(&pro->spin);
+        if (q->node) {
+            struct ztl_pro_node *tmp = &pro->vnodes[q->node->id];
+            pthread_spin_lock(&pro->spin_used);
+            TAILQ_REMOVE(&pro->used_head, tmp, fentry);
+            pthread_spin_unlock(&pro->spin_used);
+
+            pthread_spin_lock(&pro->spin_full);
+            TAILQ_INSERT_TAIL(&pro->full_head, tmp, fentry);
+            pthread_spin_unlock(&pro->spin_full);
+        }
+
+        pthread_spin_lock(&pro->spin_free);
         q->node = TAILQ_FIRST(&pro->free_head);
+
         if (!q->node) {
             log_erra("_ztl_io_get_node: error! No more nodes!");
-            pthread_spin_unlock(&pro->spin);
+            pthread_spin_unlock(&pro->spin_free);
             return XZTL_ZTL_PROV_ERR;
         }
+        pthread_spin_unlock(&pro->spin_free);
+
+        pthread_spin_lock(&pro->spin_free);
         TAILQ_REMOVE(&pro->free_head, q->node, fentry);
+        pthread_spin_unlock(&pro->spin_free);
+
+        pthread_spin_lock(&pro->spin_used);
         TAILQ_INSERT_TAIL(&pro->used_head, q->node, fentry);
-        pthread_spin_unlock(&pro->spin);
+
+        q->node->status = XZTL_ZMD_NODE_USED;
+        pthread_spin_unlock(&pro->spin_used);
         ATOMIC_SUB(&pro->nfree, 1);
     }
     return XZTL_OK;
@@ -178,18 +203,19 @@ int ztl_pro_grp_node_init(struct app_group *grp) {
 
     int full_count = 0;
     int sec_num    = 0;
+
     for (zone_i = metadata_zone_num; zone_i < grp->zmd.entries; zone_i++) {
         if (zone_num_in_node == ZTL_PRO_ZONE_NUM_INNODE) {
             pro->vnodes[node_i].id       = node_i;
             pro->vnodes[node_i].nr_valid = 0;
-            pro->vnodes[node_i].level = -1;
+            pro->vnodes[node_i].level    = -1;
 
             if (full_count == ZTL_PRO_ZONE_NUM_INNODE) {
                 pro->vnodes[node_i].status                 = XZTL_ZMD_NODE_FULL;
                 pro->vnodes[node_i].optimal_write_sec_left = 0;
                 pro->vnodes[node_i].optimal_write_sec_used =
                     ZTL_PRO_OPT_SEC_NUM_INNODE;
-                TAILQ_INSERT_TAIL(&pro->used_head, &pro->vnodes[node_i],
+                TAILQ_INSERT_TAIL(&pro->full_head, &pro->vnodes[node_i],
                                   fentry);
             } else if (sec_num == 0) {
                 pro->vnodes[node_i].status = XZTL_ZMD_NODE_FREE;
@@ -209,17 +235,10 @@ int ztl_pro_grp_node_init(struct app_group *grp) {
                                   fentry);
             }
 
-            // printf("node[%d] status [%d] cmd_used[%d] cmd_left[%d]
-            // full_count[%d]\n", node_i, pro->vnodes[node_i].status,
-            // pro->vnodes[node_i].optimal_write_sec_used,
-            // pro->vnodes[node_i].optimal_write_sec_left, full_count);
             node_i++;
             zone_num_in_node = 0;
             sec_num          = 0;
-            // printf("node[%d] zone[%d] status[%d]\n", node_i, zone_i,
-            // pro->vnodes[node_i].status);
 
-            /* 剩余zone不够一个node，直接退出 */
             if (grp->zmd.entries - zone_i + 1 < ZTL_PRO_ZONE_NUM_INNODE) {
                 log_infoa("ztl_pro_grp_node_init: Left %d zones\n",
                           grp->zmd.entries - zone_i + 1);
@@ -277,14 +296,14 @@ int ztl_pro_grp_node_init(struct app_group *grp) {
             case XNVME_SPEC_ZND_STATE_IOPEN:
             case XNVME_SPEC_ZND_STATE_CLOSED:
             case XNVME_SPEC_ZND_STATE_FULL:
-                /* 默认每次启动zone顺序一致，因此被写过的zone也是在一个node中 */
+
                 if (zinfo->zs == XNVME_SPEC_ZND_STATE_FULL) {
                     full_count++;
                     sec_num += zinfo->zcap;
                 } else {
                     sec_num += zinfo->wp - zone->addr.g.sect;
                 }
-                // pro->vnodes[node_i].status = XZTL_ZMD_NODE_USED;
+
                 ZDEBUG(ZDEBUG_PRO_GRP,
                        " ztl_pro_grp_node_init: ZINFO NOT CORRECT [%d/%d] , "
                        "status [%d]\n",
@@ -300,7 +319,6 @@ int ztl_pro_grp_node_init(struct app_group *grp) {
 
         zmde->wptr = zmde->wptr_inflight = zinfo->wp;
     }
-
     log_infoa("ztl_pro_grp_node_init: Started. Group [%d].", grp->id);
     return XZTL_OK;
 }

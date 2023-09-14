@@ -103,10 +103,14 @@ static int ztl_mgmt_node_reset(struct app_group    *grp,
     node->optimal_write_sec_used = 0;
     node->nr_valid               = 0;
     node->level                  = -1;
-    pthread_spin_lock(&node_grp->spin);
-    TAILQ_REMOVE(&node_grp->used_head, node, fentry);
+
+    pthread_spin_lock(&node_grp->spin_full);
+    TAILQ_REMOVE(&node_grp->full_head, node, fentry);
+    pthread_spin_unlock(&node_grp->spin_full);
+
+    pthread_spin_lock(&node_grp->spin_free);
     TAILQ_INSERT_TAIL(&node_grp->free_head, node, fentry);
-    pthread_spin_unlock(&node_grp->spin);
+    pthread_spin_unlock(&node_grp->spin_free);
 
     ATOMIC_ADD(&node_grp->nfree, 1);
 
