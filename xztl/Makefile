@@ -84,7 +84,7 @@ tests: info
 	cd $(BUILD_DIR)/tests && ${MAKE}
 
 .PHONY: lib-only
-lib-only: info ztl zrocks tests
+lib-only: info ztl zrocks
 	@echo "### Congrats! Your library is ready!"
 
 .PHONY: all

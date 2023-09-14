@@ -13,14 +13,16 @@
 #include "rocksdb/options.h"
 #include "rocksdb/slice.h"
 #include "rocksdb/file_system.h"
+#include "file/filename.h"
 
 #define FILE_METADATA_BUF_SIZE (80 * 1024 * 1024)
 #define FLUSH_INTERVAL         (60 * 60)
 #define SLEEP_TIME             5
 #define MAX_META_ZONE          2
 #define MD_WRITE_FULL          0x1d
+#define GC_DETECTION_TIME      (1000 * 1000 * 10)
 
-enum Operation { Base, Update, Replace, Delete };
+enum Operation { Base, Update, Replace, Delete, GCChange };
 
 namespace rocksdb {
 
@@ -66,7 +68,27 @@ void ZNSFile::PrintMetaData() {
   }
 }
 
-/* ### ZNS Environment method implementation ### 
+void ZNSFile::GetWRLock() {
+  fMutex.lock();
+  is_writing = true;
+}
+
+bool ZNSFile::TryGetWRLock() {
+  if (!fMutex.try_lock()) return false;
+  is_writing = true;
+  return true;
+}
+
+void ZNSFile::ReleaseWRLock() {
+  assert(is_writing);
+  is_writing = false;
+  fMutex.unlock();
+}
+
+bool ZNSFile::IsWR() { return is_writing; }
+
+
+/* ### ZNS Environment method implementation ###
 void ZNSEnv::NodeSta(std::int32_t znode_id, size_t n) {
   double seconds;
 
@@ -100,16 +122,17 @@ void ZNSEnv::NodeSta(std::int32_t znode_id, size_t n) {
 Status ZNSEnv::NewSequentialFile(const std::string&               fname,
                                  std::unique_ptr<SequentialFile>* result,
                                  const EnvOptions&                options) {
+  std::string nfname = NormalizePath(fname);
   if (ZNS_DEBUG)
-    std::cout << __func__ << ":" << fname << std::endl;
+    std::cout << __func__ << ":" << nfname << std::endl;
 
-  if (IsFilePosix(fname) || files[fname] == NULL) {
-    return posixEnv->NewSequentialFile(fname, result, options);
+  if (IsFilePosix(nfname) || files[nfname] == NULL) {
+    return posixEnv->NewSequentialFile(nfname, result, options);
   }
 
   result->reset();
 
-  ZNSSequentialFile* f = new ZNSSequentialFile(fname, this, options);
+  ZNSSequentialFile* f = new ZNSSequentialFile(nfname, this, options);
   result->reset(dynamic_cast<SequentialFile*>(f));
 
   return Status::OK();
@@ -118,14 +141,15 @@ Status ZNSEnv::NewSequentialFile(const std::string&               fname,
 Status ZNSEnv::NewRandomAccessFile(const std::string&                 fname,
                                    std::unique_ptr<RandomAccessFile>* result,
                                    const EnvOptions&                  options) {
+  std::string nfname = NormalizePath(fname);
   if (ZNS_DEBUG)
-    std::cout << __func__ << ":" << fname << std::endl;
+    std::cout << __func__ << ":" << nfname << std::endl;
 
-  if (IsFilePosix(fname)) {
-    return posixEnv->NewRandomAccessFile(fname, result, options);
+  if (IsFilePosix(nfname)) {
+    return posixEnv->NewRandomAccessFile(nfname, result, options);
   }
 
-  ZNSRandomAccessFile* f = new ZNSRandomAccessFile(fname, this, options);
+  ZNSRandomAccessFile* f = new ZNSRandomAccessFile(nfname, this, options);
   result->reset(dynamic_cast<RandomAccessFile*>(f));
 
   return Status::OK();
@@ -134,88 +158,88 @@ Status ZNSEnv::NewRandomAccessFile(const std::string&                 fname,
 Status ZNSEnv::NewWritableFile(const std::string&             fname,
                                std::unique_ptr<WritableFile>* result,
                                const EnvOptions&              options) {
+  std::string nfname = NormalizePath(fname);
   if (ZNS_DEBUG)
-    std::cout << __func__ << ":" << fname << std::endl;
+    std::cout << __func__ << ":" << nfname << std::endl;
 
   uint32_t fileNum = 0;
 
-  if (IsFilePosix(fname)) {
-    return posixEnv->NewWritableFile(fname, result, options);
+  if (IsFilePosix(nfname)) {
+    return posixEnv->NewWritableFile(nfname, result, options);
   } else {
-    posixEnv->NewWritableFile(fname, result, options);
+    posixEnv->NewWritableFile(nfname, result, options);
   }
 
   filesMutex.Lock();
-  fileNum = files.count(fname);
-  filesMutex.Unlock();
-
+  fileNum = files.count(nfname);
   if (fileNum != 0) {
-    delete files[fname];
-    files.erase(fname);
+    delete files[nfname];
+    files.erase(nfname);
   }
 
-  filesMutex.Lock();
-  files[fname]          = new ZNSFile(fname, -1);
-  files[fname]->uuididx = uuididx++;
-  filesMutex.Unlock();
+  files[nfname]          = new ZNSFile(nfname, 0);
+  files[nfname]->uuididx = uuididx++;
 
-  ZNSWritableFile* f = new ZNSWritableFile(fname, this, options);
+  ZNSWritableFile* f = new ZNSWritableFile(nfname, this, options);
   result->reset(dynamic_cast<WritableFile*>(f));
+  filesMutex.Unlock();
 
   return Status::OK();
 }
 
 
 Status ZNSEnv::DeleteFile(const std::string& fname) {
+  std::string nfname = NormalizePath(fname);
   if (ZNS_DEBUG)
-    std::cout << __func__ << ":" << fname << std::endl;
+    std::cout << __func__ << ":" << nfname << std::endl;
 
   unsigned           i;
   struct zrocks_map* map;
 
-  if (IsFilePosix(fname)) {
-    return posixEnv->DeleteFile(fname);
+  if (IsFilePosix(nfname)) {
+    return posixEnv->DeleteFile(nfname);
   }
-  posixEnv->DeleteFile(fname);
+  posixEnv->DeleteFile(nfname);
 
   filesMutex.Lock();
-  if (files.find(fname) == files.end() || files[fname] == NULL) {
+  if (files.find(nfname) == files.end() || files[nfname] == NULL) {
     filesMutex.Unlock();
     return Status::OK();
   }
 
-  ZNSFile* znsfile = files[fname];
+  ZNSFile* znsfile = files[nfname];
   for (i = 0; i < znsfile->map.size(); i++) {
-    map = &files[fname]->map.at(i);
-    zrocks_trim(map);
+    map = &files[nfname]->map.at(i);
+    zrocks_trim(map, false);
   }
 
-  delete files[fname];
-  files.erase(fname);
-  filesMutex.Unlock();
+  delete files[nfname];
+  files.erase(nfname);
 
-  FlushDelMetaData(fname);
+  FlushDelMetaData(nfname);
+  filesMutex.Unlock();
   return Status::OK();
 }
 
 Status ZNSEnv::GetFileSize(const std::string& fname, std::uint64_t* size) {
-  if (IsFilePosix(fname)) {
+  std::string nfname = NormalizePath(fname);
+  if (IsFilePosix(nfname)) {
     if (ZNS_DEBUG)
-      std::cout << __func__ << ":" << fname << std::endl;
-    return posixEnv->GetFileSize(fname, size);
+      std::cout << __func__ << ":" << nfname << std::endl;
+    return posixEnv->GetFileSize(nfname, size);
   }
 
   filesMutex.Lock();
-  if (files.find(fname) == files.end() || files[fname] == NULL) {
+  if (files.find(nfname) == files.end() || files[nfname] == NULL) {
     filesMutex.Unlock();
     return Status::OK();
   }
 
   if (ZNS_DEBUG)
-    std::cout << __func__ << ":" << fname << "size: " << files[fname]->size
+    std::cout << __func__ << ":" << nfname << "size: " << files[nfname]->size
               << std::endl;
 
-  *size = files[fname]->size;
+  *size = files[nfname]->size;
   filesMutex.Unlock();
 
   return Status::OK();
@@ -223,11 +247,12 @@ Status ZNSEnv::GetFileSize(const std::string& fname, std::uint64_t* size) {
 
 Status ZNSEnv::GetFileModificationTime(const std::string& fname,
                                        std::uint64_t*     file_mtime) {
+  std::string nfname = NormalizePath(fname);
   if (ZNS_DEBUG)
-    std::cout << __func__ << ":" << fname << std::endl;
+    std::cout << __func__ << ":" << nfname << std::endl;
 
-  if (IsFilePosix(fname)) {
-    return posixEnv->GetFileModificationTime(fname, file_mtime);
+  if (IsFilePosix(nfname)) {
+    return posixEnv->GetFileModificationTime(nfname, file_mtime);
   }
 
   /* TODO: Get SST files modification time from ZNS */
@@ -238,30 +263,48 @@ Status ZNSEnv::GetFileModificationTime(const std::string& fname,
 
 Status ZNSEnv::RenameFile(const std::string& src,
                     const std::string& target) {
+  std::string nsrc = NormalizePath(src);
+  std::string ntarget = NormalizePath(target);
   if (ZNS_DEBUG) {
-    std::cout << __func__ << ": src " << src << " target: " << target << std::endl;
+    std::cout << __func__ << ": src " << nsrc << " target: " << ntarget << std::endl;
   }
 
-  if (IsFilePosix(src)) {
-    return posixEnv->RenameFile(src, target);
+  if (IsFilePosix(nsrc)) {
+    return posixEnv->RenameFile(nsrc, ntarget);
   }
 
-  posixEnv->RenameFile(src, target);
+  posixEnv->RenameFile(nsrc, ntarget);
   filesMutex.Lock();
-  if (files.find(src) == files.end() || files[src] == NULL) {
+  if (files.find(nsrc) == files.end() || files[nsrc] == NULL) {
     filesMutex.Unlock();
     return Status::OK();
   }
 
-  ZNSFile* zns = files[src];
-  zns->name = target;
-  files[target] = zns;
-  files.erase(src);
+  ZNSFile* zns = files[nsrc];
+  zns->name = ntarget;
+  files[ntarget] = zns;
+  files.erase(nsrc);
+
+  FlushReplaceMetaData(nsrc, ntarget);
   filesMutex.Unlock();
 
-  FlushReplaceMetaData(src, target);
-
   return Status::OK();
+}
+
+Status ZNSEnv::FileExists(const std::string& fname) {
+  std::string nfname = NormalizePath(fname);
+  if (ZNS_DEBUG)
+    std::cout << __func__ << ":" << nfname << std::endl;
+  // return posixEnv->FileExists(fname); // for percona current not find
+
+  filesMutex.Lock();
+  if (files.find(nfname) != files.end() && files[nfname] != nullptr) {
+    filesMutex.Unlock();
+    return Status::OK();
+  }
+
+  filesMutex.Unlock();
+  return posixEnv->FileExists(nfname);
 }
 
 Status ZNSEnv::FlushMetaData() {
@@ -269,7 +312,6 @@ Status ZNSEnv::FlushMetaData() {
     return Status::OK();
   }
 
-  filesMutex.Lock();
   memset(metaBuf, 0, FILE_METADATA_BUF_SIZE);
   // reserved head position
   std::uint32_t fileNum = 0;
@@ -293,14 +335,12 @@ Status ZNSEnv::FlushMetaData() {
       zfile->PrintMetaData();
     if (dataLen + zfile->GetFileMetaLen() >= FILE_METADATA_BUF_SIZE) {
       std::cout << __func__ << ": buf over flow" << std::endl;
-      filesMutex.Unlock();
       return Status::MemoryLimit();
     }
 
     int length = zfile->WriteMetaToBuf(metaBuf + dataLen);
     dataLen += length;
   }
-  filesMutex.Unlock();
 
   memcpy(metaBuf + sizeof(struct MetaZoneHead) + sizeof(MetadataHead), &fileNum,
          sizeof(fileNum));
@@ -313,16 +353,6 @@ Status ZNSEnv::FlushMetaData() {
   MetadataHead metadataHead;
   metadataHead.dataLength = dataLen - sizeof(MetadataHead) - sizeof(MetaZoneHead);
   metadataHead.tag        = Base;
-
-  /* std::uint32_t crc = 0;
-  crc               = crc32c::Extend(
-                    crc, (const char*)metaBuf + sizeof(SuperBlock) +
-  sizeof(MetadataHead), metadataHead.dataLength);
-  // std::cout << __func__ << ": crc " << crc << " crc32c::Mask(crc) " <<
-  // crc32c::Mask(crc) << " metadataHead.dataLength " << metadataHead.dataLength
-  // << std::endl;
-  crc              = crc32c::Mask(crc);
-  metadataHead.crc = crc; */
 
   memcpy(metaBuf + sizeof(MetaZoneHead), &metadataHead, sizeof(MetadataHead));
   int ret = zrocks_write_file_metadata(metaBuf, dataLen);
@@ -387,6 +417,65 @@ Status ZNSEnv::FlushUpdateMetaData(ZNSFile* zfile) {
   metadataHead.crc = crc; */
 
   memcpy(buf, &metadataHead, sizeof(MetadataHead));
+  metaMutex.Lock();
+  int ret = zrocks_write_file_metadata(buf, dataLen);
+  if (ret == MD_WRITE_FULL) {
+    std::cout << __func__ << ": zrocks_write_metadata FULL " << ret
+              << std::endl;
+    FlushMetaData();
+  } else if (ret != 0) {
+    std::cout << __func__ << ": zrocks_write_metadata error ret " << ret
+              << std::endl;
+  }
+  metaMutex.Unlock();
+
+  if (ZNS_DEBUG_META)
+    std::cout << __func__ << " End FlushUpdateMetaData " << std::endl;
+  zrocks_free(buf);
+
+  return Status::OK();
+}
+
+Status ZNSEnv::FlushGCChangeMetaData(ZNSFile* zfile) {
+  if (!ZNS_META_SWITCH) {
+    return Status::OK();
+  }
+
+  unsigned char* buf = NULL;
+  buf = reinterpret_cast<unsigned char*>(zrocks_alloc(ZNS_ALIGMENT));
+  if (buf == NULL) {
+    return Status::MemoryLimit();
+  }
+
+  memset(buf, 0, ZNS_ALIGMENT);
+
+  // reserved head position
+  int dataLen = sizeof(MetadataHead);
+  if (ZNS_DEBUG_META) {
+    std::cout << __func__ << " Start FlushUpdateMetaData " << zfile->name
+              << " level: " << zfile->level << " size: " << zfile->size
+              << std::endl;
+    for (std::uint32_t i = zfile->startIndex; i < zfile->map.size(); i++) {
+      struct zrocks_map& pInfo = zfile->map[i];
+      std::cout << " nodeId: " << pInfo.g.node_id << " start: " << pInfo.g.start
+                << " num: " << pInfo.g.num << std::endl;
+    }
+  }
+
+  int length = zfile->WriteMetaToBuf(buf + dataLen);
+  dataLen += length;
+
+  // sector align
+  if (dataLen % ZNS_ALIGMENT != 0) {
+    dataLen = (dataLen / ZNS_ALIGMENT + 1) * ZNS_ALIGMENT;
+  }
+
+  MetadataHead metadataHead;
+  metadataHead.tag        = GCChange;
+  metadataHead.dataLength = dataLen - sizeof(MetadataHead);
+
+  memcpy(buf, &metadataHead, sizeof(MetadataHead));
+
   metaMutex.Lock();
   int ret = zrocks_write_file_metadata(buf, dataLen);
   if (ret == MD_WRITE_FULL) {
@@ -521,12 +610,16 @@ Status ZNSEnv::FlushReplaceMetaData(const std::string& srcName,
   return Status::OK();
 }
 
-void ZNSEnv::RecoverFileFromBuf(unsigned char* buf, std::uint32_t& praseLen) {
+void ZNSEnv::RecoverFileFromBuf(unsigned char* buf,
+                        std::uint32_t& praseLen, bool replace) {
   praseLen                    = 0;
   ZrocksFileMeta fileMetaData = *(reinterpret_cast<ZrocksFileMeta*>(buf));
-  // std::cout << " filename: " << fileMetaData.filename <<std::endl;
 
   ZNSFile* znsFile = files[fileMetaData.filename];
+  if (znsFile && replace) {
+    znsFile->map.clear();
+  }
+
   if (znsFile == NULL) {
     znsFile = new ZNSFile(fileMetaData.filename, -1);
   }
@@ -539,11 +632,9 @@ void ZNSEnv::RecoverFileFromBuf(unsigned char* buf, std::uint32_t& praseLen) {
   znsFile->level = fileMetaData.level;
 
   std::uint32_t len = sizeof(ZrocksFileMeta);
-  for (std::uint16_t i = 0; i < fileMetaData.pieceNum; i++) {
+  for (std::int32_t i = 0; i < fileMetaData.pieceNum; i++) {
     struct zrocks_map p = *(reinterpret_cast<struct zrocks_map*>(buf + len));
     znsFile->map.push_back(p);
-    // std::cout << " nodeId: " << p.g.node_id << " start: " << p.g.start <<  "
-    // num: " << p.g.num <<std::endl;
     len += sizeof(struct zrocks_map);
   }
 
@@ -570,6 +661,9 @@ void ZNSEnv::SetNodesInfo() {
   std::map<std::string, ZNSFile*>::iterator iter;
   for (iter = files.begin(); iter != files.end(); ++iter) {
     ZNSFile* znsfile = iter->second;
+    if (!znsfile) {
+      continue;
+    }
     for (uint32_t i = 0; i < znsfile->map.size(); i++) {
       struct zrocks_map& pInfo = znsfile->map[i];
       zrocks_node_set(pInfo.g.node_id, znsfile->level, pInfo.g.num);
@@ -584,7 +678,7 @@ void ZNSEnv::PrintMetaData() {
   for (iter = files.begin(); iter != files.end(); ++iter) {
     ZNSFile* znsfile = iter->second;
     if (znsfile != NULL) {
-        znsfile->PrintMetaData();
+      znsfile->PrintMetaData();
     }
   }
 }
@@ -665,13 +759,13 @@ Status ZNSEnv::LoadMetaData() {
           praseLen += sizeof(fileNum);
           for (std::uint16_t i = 0; i < fileNum; i++) {
             std::uint32_t fileMetaLen = 0;
-            RecoverFileFromBuf(metaBuf + praseLen, fileMetaLen);
+            RecoverFileFromBuf(metaBuf + praseLen, fileMetaLen, false);
             praseLen += fileMetaLen;
           }
         } break;
         case Update: {
           std::uint32_t fileMetaLen = 0;
-          RecoverFileFromBuf(metaBuf + praseLen, fileMetaLen);
+          RecoverFileFromBuf(metaBuf + praseLen, fileMetaLen, false);
         } break;
         case Replace: {
           std::string srcFileName = (char*)metaBuf + praseLen;
@@ -684,6 +778,10 @@ Status ZNSEnv::LoadMetaData() {
         case Delete: {
           std::string fileName = (char*)metaBuf + praseLen;
           files.erase(fileName);
+        } break;
+        case GCChange: {
+          std::uint32_t fileMetaLen = 0;
+          RecoverFileFromBuf(metaBuf + praseLen, fileMetaLen, true);
         } break;
         default:
           break;
@@ -699,16 +797,211 @@ LOAD_END:
 
   zrocks_clear_invalid_nodes();
 
+  filesMutex.Lock();
   FlushMetaData();
+  filesMutex.Unlock();
 
   std::cout << __func__ << " End LoadMetaData " << std::endl;
   return Status::OK();
 }
 
+void ZNSEnv::GCWorker() {
+  uint32_t id;
+
+  while (run_gc_worker_) {
+    usleep(GC_DETECTION_TIME);
+    if (ZNS_DEBUG_GC) {
+      std::cout << __func__ << " free nodes: " << zrocks_gc_get_free_nodes_num()
+                << " threshold: " << gc_nodes_threshold << std::endl;
+    }
+
+    if (zrocks_gc_get_free_nodes_num() >= gc_nodes_threshold) {
+      continue;
+    }
+
+    /* Get invalid percent of sst full nodes. */
+    uint32_t nr_nodes = zrocks_gc_get_nodes_num();
+    if (ZNS_DEBUG_GC) {
+      std::cout << __func__ << " Total nr_nodes: " << nr_nodes << std::endl;
+    }
+
+    uint32_t* invalid_percent = new uint32_t[nr_nodes]();
+    zrocks_gc_get_full_nodes(invalid_percent);
+
+    /* Sort by descending invalid percent. */
+    std::vector<std::pair<uint32_t, uint32_t>> invalid_nid_map;
+    for (id = 0; id < nr_nodes; id++) {
+      if (invalid_percent[id] == 100 ||
+          invalid_percent[id] < ZNS_GC_NODE_IVD_MIN_PERCENT)
+        continue;
+      invalid_nid_map.push_back(std::make_pair(invalid_percent[id], id));
+    }
+
+    if (ZNS_DEBUG_GC) {
+      std::cout << __func__
+                << " invalid_nid_map.size(): " << invalid_nid_map.size()
+                << std::endl;
+    }
+
+    if (!invalid_nid_map.size()) {
+      if (ZNS_DEBUG_GC) {
+        std::cout << __func__
+                  << " There is no node with an inefficiency higher than 80%. "
+                  << std::endl;
+      }
+      continue;
+    }
+    std::sort(invalid_nid_map.begin(), invalid_nid_map.end(),
+              std::greater<std::pair<uint32_t, uint32_t>>());
+
+    for (auto& point : invalid_nid_map) {
+      if (zrocks_gc_get_free_nodes_num() >= gc_nodes_threshold) {
+        if (ZNS_DEBUG_GC) {
+          std::cout << __func__ << " There are enough free nodes. "
+                    << std::endl;
+        }
+        break;
+      }
+
+      if (ZNS_DEBUG_GC) {
+        std::cout << __func__ << " node : " << point.second
+                  << "  invalid percent : " << point.first << std::endl;
+      }
+
+      uint32_t node_id = point.second;
+      auto     iter    = nid_file_map.find(node_id);
+      if (iter != nid_file_map.end()) {
+        std::vector<std::string> fn_list = iter->second;
+        for (auto& fn : fn_list) {
+          MigrateNodeFile(node_id, fn);
+        }
+      }
+    }
+  }
+}
+
+/* Return OK if migration is successful. */
+void ZNSEnv::MigrateNodeFile(const std::uint32_t nid,
+                             const std::string   file_name) {
+  struct zrocks_map               maps[2];
+  uint16_t                        pieces = 0;
+  int                             ret;
+  uint16_t                        i;
+  std::vector<struct zrocks_map*> map_change;
+  ZNSFile*                        znsfile;
+  int                             cnid, clvl;
+
+  filesMutex.Lock();
+  if (files.find(file_name) == files.end()) {
+    filesMutex.Unlock();
+    if (ZNS_DEBUG_GC) {
+      std::cout << __func__ << " File [" << file_name << "] has been deleted!"
+                << std::endl;
+    }
+    return;
+  }
+
+  znsfile = files[file_name];
+  if (znsfile->IsWR()) {
+    filesMutex.Unlock();
+    if (ZNS_DEBUG_GC) {
+      std::cout << __func__ << " File [" << file_name
+                << "] can not be migrated [ writing ] !" << std::endl;
+    }
+    return;
+  }
+
+  std::vector<struct zrocks_map> map_copy(znsfile->map);
+  cnid = znsfile->current_nid;
+  clvl = znsfile->level;
+
+  filesMutex.Unlock();
+
+  if (ZNS_DEBUG_GC) {
+    std::cout << __func__ << " Migrate file [" << file_name << "] start!"
+              << std::endl;
+  }
+
+  auto m = map_copy.begin();
+  while (m != map_copy.end() && run_gc_worker_) {
+    struct zrocks_map* value = &(*m);
+
+    if (value->g.node_id != nid) {
+      m++;
+      continue;
+    }
+
+    uint64_t tmp   = value->g.start;
+    uint64_t off   = tmp * ZNS_ALIGMENT * ZTL_IO_SEC_MCMD;
+    size_t   msize = value->g.num * ZNS_ALIGMENT * ZTL_IO_SEC_MCMD;
+
+    if (ZNS_DEBUG_GC) {
+      std::cout << __func__ << " SRC file: " << file_name
+                << " DONE. node_id: " << nid << " start: " << value->g.start
+                << " len: " << value->g.num << std::endl;
+    }
+
+    ret = zrocks_read(nid, off, gc_buffer, msize, true);
+    if (ret) {
+      m++;
+      continue;
+    }
+    ret = zrocks_write(gc_buffer, msize, clvl, maps, &pieces, true);
+    if (ret || !pieces) {
+      m++;
+      continue;
+    }
+
+    /* Update the map. */
+    m = map_copy.erase(m);
+
+    for (std::uint16_t p = 0; p < pieces; p++) {
+      m = map_copy.emplace(m, maps[p]);
+      m++;
+
+      if (ZNS_DEBUG_GC) {
+        std::cout << __func__ << " DST file: " << file_name
+                  << " DONE. node_id: " << maps[p].g.node_id
+                  << " start: " << maps[p].g.start << " len: " << maps[p].g.num
+                  << std::endl;
+      }
+
+      if (cnid != maps[p].g.node_id) {
+        cnid = maps[p].g.node_id;
+        filesMutex.Lock();
+        nid_file_map[cnid].emplace_back(file_name);
+        filesMutex.Unlock();
+      }
+
+      map_change.emplace_back(&maps[p]);
+    }
+  }
+
+  filesMutex.Lock();
+  if (files.find(file_name) == files.end()) {
+    filesMutex.Unlock();
+    for (i = 0; i < map_change.size(); i++) {
+      zrocks_trim(map_change[i], true);
+    }
+    return;
+  }
+
+  /* Waiting for read lock release. */
+  ZNSWriteLock rl(znsfile);
+  for (i = 0; i < znsfile->map.size(); i++) {
+    if (znsfile->map[i].g.node_id == nid) {
+      zrocks_trim(&znsfile->map[i], true);
+    }
+  }
+  znsfile->map.assign(map_copy.begin(), map_copy.end());
+  FlushGCChangeMetaData(znsfile);
+  filesMutex.Unlock();
+}
+
 /* ### The factory method for creating a ZNS Env ### */
 Status NewZNSEnv(Env** zns_env, const std::string& dev_name) {
-  ZNSEnv *znsEnv = new ZNSEnv(dev_name);
-  *zns_env             = znsEnv;
+  ZNSEnv* znsEnv = new ZNSEnv(dev_name);
+  *zns_env       = znsEnv;
 
   znsEnv->envStartMutex.Lock();
   if (znsEnv->isEnvStart) {

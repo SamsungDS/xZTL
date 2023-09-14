@@ -61,7 +61,7 @@ int zrocks_new(uint64_t id, void *buf, size_t size, uint16_t level) {
 }
 
 int zrocks_write(void *buf, size_t size, int level, struct zrocks_map maps[],
-                 uint16_t *pieces) {
+                 uint16_t *pieces, bool is_gc) {
     struct xztl_io_ucmd ucmd;
     uint32_t            misalign;
     size_t              new_sz, alignment;
@@ -105,13 +105,24 @@ int zrocks_write(void *buf, size_t size, int level, struct zrocks_map maps[],
         maps[i].g.node_id = ucmd.node_id[i];
         maps[i].g.start   = ucmd.start[i];
         maps[i].g.num     = ucmd.num[i];
+        if (i < ucmd.pieces - 1) {
+            maps[i].g.padding = 0;
+        } else {
+            maps[i].g.padding = new_sz - size;
+        }
     }
 
     *pieces = ucmd.pieces;
 
-    xztl_stats_inc(XZTL_STATS_APPEND_BYTES_U, size);
+    if (is_gc) {
+        xztl_stats_inc(XZTL_STATS_APPEND_BYTES_GC, size);
+        xztl_stats_inc(XZTL_STATS_APPEND_GC_CMD, 1);
+    } else {
+        xztl_stats_inc(XZTL_STATS_APPEND_BYTES_U, size);
+        xztl_stats_inc(XZTL_STATS_APPEND_UCMD, 1);
+    }
     xztl_stats_inc(XZTL_STATS_APPEND_BYTES, new_sz);
-    xztl_stats_inc(XZTL_STATS_APPEND_UCMD, 1);
+
 
     return XZTL_OK;
 }
@@ -133,7 +144,8 @@ int zrocks_read_obj(uint64_t id, uint64_t offset, void *buf, size_t size) {
     return XZTL_OK;
 }
 
-int zrocks_read(uint32_t node_id, uint64_t offset, void *buf, uint64_t size) {
+int zrocks_read(uint32_t node_id, uint64_t offset, void *buf, uint64_t size,
+                    bool is_gc) {
     int                 ret;
     struct xztl_io_ucmd ucmd;
 
@@ -177,8 +189,13 @@ READ_FAIL:
         usleep(1);
     }
 
-    xztl_stats_inc(XZTL_STATS_READ_BYTES_U, size);
-    xztl_stats_inc(XZTL_STATS_READ_UCMD, 1);
+    if (is_gc) {
+        xztl_stats_inc(XZTL_STATS_READ_BYTES_GC, size);
+        xztl_stats_inc(XZTL_STATS_READ_GC_CMD, 1);
+    } else {
+        xztl_stats_inc(XZTL_STATS_READ_BYTES_U, size);
+        xztl_stats_inc(XZTL_STATS_READ_UCMD, 1);
+    }
 
     return XZTL_OK;
 }
@@ -189,7 +206,7 @@ int zrocks_delete(uint64_t id) {
     return ztl()->map->upsert_fn(id, 0, &old, 0);
 }
 
-int zrocks_trim(struct zrocks_map *map) {
+int zrocks_trim(struct zrocks_map *map, bool is_gc) {
     struct app_group        *grp      = ztl()->groups.get_fn(0);
     struct ztl_pro_node_grp *node_grp = grp->pro;
     struct ztl_pro_node     *node =
@@ -205,10 +222,12 @@ int zrocks_trim(struct zrocks_map *map) {
                   node->nr_valid);
 
     if (node->nr_valid == 0 && node->status == XZTL_ZMD_NODE_FULL) {
-        log_infoa("zrocks_trim: node ID [%u] need to reset\n", node->id);
+        log_infoa("zrocks_trim - %d : node ID [%u] need to reset\n", is_gc, node->id);
+
+        node->status = XZTL_ZMD_NODE_RESET;
         ret = ztl()->mgmt->reset_fn(grp, node, ZTL_MGMG_RESET_ZONE);
         if (ret) {
-            log_erra("zrocks_trim: node ID [%u], ret [%d]\n", node->id, ret);
+            log_erra("zrocks_trim - %d : node ID [%u], ret [%d]\n", is_gc, node->id, ret);
         }
     }
 
@@ -243,6 +262,36 @@ int zrocks_node_finish(uint32_t node_id) {
 void zrocks_clear_invalid_nodes() {
     struct app_group *grp = ztl()->groups.get_fn(0);
     ztl()->mgmt->clear_fn(grp);
+}
+
+uint32_t zrocks_gc_get_nodes_num() {
+    /* Get node numbers of zns ssd */
+    struct app_group        *grp      = ztl()->groups.get_fn(0);
+    struct ztl_pro_node_grp *node_grp = grp->pro;
+    return node_grp->nnodes;
+}
+
+uint32_t zrocks_gc_get_free_nodes_num() {
+    /* Get free node numbers from free list */
+    struct app_group        *grp      = ztl()->groups.get_fn(0);
+    struct ztl_pro_node_grp *node_grp = grp->pro;
+    return node_grp->nfree;
+}
+
+void zrocks_gc_get_full_nodes(uint32_t invalid_percent[]) {
+    struct ztl_pro_node     *node;
+    struct app_group        *grp      = ztl()->groups.get_fn(0);
+    struct ztl_pro_node_grp *node_grp = grp->pro;
+
+    pthread_spin_lock(&node_grp->spin_full);
+
+    TAILQ_FOREACH(node, &node_grp->full_head, fentry) {
+        if (node->level >= 1 && node->status == XZTL_ZMD_NODE_FULL) {/* sst nodes*/
+            invalid_percent[node->id] = 100  - (100 * node->nr_valid) / ZTL_PRO_OPT_SEC_NUM_INNODE;
+        }
+    }
+
+    pthread_spin_unlock(&node_grp->spin_full);
 }
 
 int zrocks_init(const char *dev_name) {

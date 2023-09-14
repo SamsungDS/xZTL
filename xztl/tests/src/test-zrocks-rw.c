@@ -111,7 +111,7 @@ static void *test_write_th(void *th_i) {
     for (i = 0; i < nwrites; i++) {
         ret = zrocks_write(th_param[th].buf, th_param[th].size,
                            th_param[th].level, th_param[th].maps,
-                           &th_param[th].map_len);
+                           &th_param[th].map_len, false);
         cunit_zrocksrw_assert_int("zrocksrw_write:write", ret);
         // printf("\rWriting... th:%d  node:%d\r\n", th_i,
         // th_param[th_i].maps[0].g.node_id);
@@ -199,7 +199,7 @@ static void *test_read_th(void *th_i) {
         offset = 0;
         for (int i = 0; i < buffer_sz / th_param[th].size; i++) {
             ret = zrocks_read(th_param[th].maps[0].g.node_id, 0,
-                              th_param[th].buf, th_param[th].size);
+                              th_param[th].buf, th_param[th].size, false);
             cunit_zrocksrw_assert_int("zrocks_read:read", ret);
             offset += th_param[th].size;
             // printf("\rReading... th:%d  node:%d\r\n", th_i,
