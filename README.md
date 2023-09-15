@@ -1,7 +1,8 @@
+
 xZTL: Zone Translation Layer User-space Library
 ===============================================
 
-This library provides an easier access to zoned namespace drives via [xNVMe](https://github.com/OpenMPDK/xNVMe) (>= v0.3)
+This library provides an easier access to zoned namespace drives via [xNVMe](https://github.com/OpenMPDK/xNVMe) (>= v0.4)
 
 ## Block-Based Access:
   ### Write:
