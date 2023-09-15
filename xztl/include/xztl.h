@@ -159,17 +159,17 @@ struct xztl_io_ucmd {
 
     struct app_pro_addr *prov;
     struct xztl_io_mcmd *mcmd[XZTL_WIO_MAX_MCMD];
-
-    uint64_t node_id[2];
-    uint64_t start[2];
-    uint64_t num[2];
-    uint16_t pieces;
-
-    uint16_t nmcmd;
-    uint64_t moffset[XZTL_WIO_MAX_MCMD];
-    uint32_t msec[XZTL_WIO_MAX_MCMD];
-    uint16_t ncb;
-    uint16_t completed;
+    uint64_t             node_id[2];
+    uint64_t             start[2];
+    uint64_t             num[2];
+    uint16_t             pieces;
+    uint32_t             unit_index;
+    uint32_t             ret;
+    uint16_t             nmcmd;
+    uint64_t             moffset[XZTL_WIO_MAX_MCMD];
+    uint32_t             msec[XZTL_WIO_MAX_MCMD];
+    uint16_t             ncb;
+    uint16_t             completed;
 
     pthread_spinlock_t inflight_spin;
     volatile uint8_t   minflight[256];

@@ -308,6 +308,8 @@ int ztl_io_read_ucmd(struct xztl_io_ucmd *ucmd, struct ztl_read_rs *r) {
     if (ZROCKS_DEBUG)
         log_infoa("ztl_io_read_ucmd: total mcmd [%u]\n", total_cmd);
 
+    xztl_stats_inc(XZTL_STATS_READ_BYTES, sec_size * ZNS_ALIGMENT);
+
     if (total_cmd == 1) {
         ucmd->mcmd[0]->synch = 1;
         ret                  = xztl_media_submit_io(ucmd->mcmd[0]);
@@ -612,7 +614,6 @@ static void *ztl_io_write_th(void *arg) {
 
 static void ztl_io_submit(struct xztl_io_ucmd *ucmd) {
     struct ztl_queue_pool *q = &qp[ucmd->prov_type];
-
     pthread_spin_lock(&q->ucmd_spin);
     STAILQ_INSERT_TAIL(&q->ucmd_head, ucmd, entry);
     pthread_spin_unlock(&q->ucmd_spin);
@@ -680,7 +681,6 @@ static void ztl_io_exit(void) {
 }
 
 static int ztl_io_init(void) {
-    /* 创建以level为下标的队列数组并绑定处理线程 */
     int level, rn, ret;
 
     for (level = 0; level < ZROCKS_LEVEL_NUM; level++) {

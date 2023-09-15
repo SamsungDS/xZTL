@@ -54,8 +54,9 @@ struct zrocks_map {
             uint64_t start : 22;
 
             /* Offset in node(media maximum write size in sectors: 8 or 16) */
-            uint64_t num     : 16;
-            uint64_t reserve : 12;
+            uint64_t num     : 11;
+            uint64_t padding : 16; // 64k
+            uint64_t reserve : 1;
         } g;
 
         uint64_t addr;
@@ -154,7 +155,7 @@ int zrocks_read_obj(uint64_t id, uint64_t offset, void *buf, size_t size);
  * @return Returns zero if the calls succeed, or a negative value
  *      if the call fails
  */
-int zrocks_trim(struct zrocks_map *map);
+int zrocks_trim(struct zrocks_map *map, bool is_gc);
 
 /**
  * Write to ZNS device and return the mapping multi-piece list
@@ -175,7 +176,7 @@ int zrocks_trim(struct zrocks_map *map);
  * 	   parameter. A negative value is return in case of failure.
  */
 int zrocks_write(void *buf, size_t size, int level, struct zrocks_map maps[],
-                 uint16_t *pieces);
+                 uint16_t *pieces, bool is_gc);
 
 /**
  * Read from the ZNS drive using physical offsets
@@ -187,14 +188,15 @@ int zrocks_write(void *buf, size_t size, int level, struct zrocks_map maps[],
  * @return Returns zero if the calls succeed, or a negative value
  *      if the call fails
  */
-int zrocks_read(uint32_t node_id, uint64_t offset, void *buf, uint64_t size);
+int zrocks_read(uint32_t node_id, uint64_t offset, void *buf, uint64_t size,
+                bool is_gc);
 
 /**
  * Get metadata zone's start lba from the ZNS device
  *
  * @return Returns the metadata zone's start lba
  */
-uint64_t zrocks_get_metadata_slba();
+uint64_t zrocks_get_metadata_slba(void);
 
 void zrocks_get_metadata_slbas(uint64_t *slbas, uint8_t *num);
 
@@ -227,7 +229,31 @@ int zrocks_node_finish(uint32_t node_id);
 
 void zrocks_node_set(int32_t node_id, int32_t level, int32_t num);
 
-void zrocks_clear_invalid_nodes();
+void zrocks_clear_invalid_nodes(void);
+
+/**
+ * Get the total number of nodes.
+ * 
+ * @param[in]   void  
+ * @return      Nodes number
+ */
+uint32_t zrocks_gc_get_nodes_num(void);
+
+/**
+ * Get free nodes number from free list.
+ * 
+ * @param[in]   void  
+ * @return      Free nodes number
+ */
+uint32_t zrocks_gc_get_free_nodes_num(void);
+
+/**
+ * Scan full node list and get nodes' invalid percent.
+ * 
+ * @param[out]   uint32_t invalid_percent[]
+ * @return      void
+ */
+void zrocks_gc_get_full_nodes(uint32_t invalid_percent[]);
 
 #ifdef __cplusplus
 };  // closing brace for extern "C"
