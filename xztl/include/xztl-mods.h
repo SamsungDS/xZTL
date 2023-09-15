@@ -47,9 +47,8 @@ struct ztl_queue_pool {
     struct xztl_io_mcmd     *mcmd[ZTL_IO_RC_NUM];
     void                    *prov;
     struct ztl_pro_node     *node;
-
-    pthread_t w_thread;
-    uint8_t   flag_running;
+    pthread_t                w_thread;
+    uint8_t                  flag_running;
 };
 
 struct ztl_read_rs {
@@ -116,7 +115,8 @@ enum xztl_zmd_flags {
 enum xztl_zmd_node_status {
     XZTL_ZMD_NODE_FREE = 0,
     XZTL_ZMD_NODE_USED,
-    XZTL_ZMD_NODE_FULL
+    XZTL_ZMD_NODE_FULL,
+    XZTL_ZMD_NODE_RESET
 };
 
 struct app_zmd_entry {

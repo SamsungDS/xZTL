@@ -24,9 +24,8 @@
 #include <xztl.h>
 #include <xztl-mods.h>
 
-#define ZTL_PRO_TYPES 64 /* Number of provisioning types */
-#define ZTL_PRO_MP_SZ 32 /* Mempool size per thread */
-
+#define ZTL_PRO_TYPES    64 /* Number of provisioning types */
+#define ZTL_PRO_MP_SZ    32 /* Mempool size per thread */
 #define APP_PRO_MAX_OFFS 128
 // #define APP_PRO_MAX_OFFS XZTL_IO_MAX_MCMD
 
@@ -66,8 +65,7 @@ struct ztl_pro_zone {
 };
 
 struct ztl_pro_node {
-    uint32_t id;
-
+    uint32_t             id;
     struct ztl_pro_zone *vzones[ZTL_PRO_ZONE_NUM_INNODE];
 
     TAILQ_ENTRY(ztl_pro_node) fentry;
@@ -85,14 +83,18 @@ struct ztl_pro_node {
 struct ztl_pro_node_grp {
     struct ztl_pro_node *vnodes;
     struct ztl_pro_zone *vzones;
-
-    uint32_t nfree;  /* # of free nodes */
-    uint32_t nzones; /* zone num */
-    uint32_t nnodes; /* node num */
+    uint32_t             nfree;  /* # of free nodes */
+    uint32_t             nzones; /* zone num */
+    uint32_t             nnodes; /* node num */
 
     TAILQ_HEAD(free_list, ztl_pro_node) free_head;
+    pthread_spinlock_t spin_free;
+
     TAILQ_HEAD(used_list, ztl_pro_node) used_head;
-    pthread_spinlock_t spin;
+    pthread_spinlock_t spin_used;
+
+    TAILQ_HEAD(full_list, ztl_pro_node) full_head;
+    pthread_spinlock_t spin_full;
 };
 
 typedef int(app_pro_init)(void);

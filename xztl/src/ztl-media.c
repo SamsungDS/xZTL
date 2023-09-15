@@ -252,6 +252,7 @@ static int znd_media_submit_io(struct xztl_io_mcmd *cmd) {
         case XZTL_CMD_WRITE:
             return (cmd->synch) ? znd_media_submit_write_synch(cmd)
                                 : znd_media_submit_write_asynch(cmd);
+
         default:
             return ZND_INVALID_OPCODE;
     }
@@ -474,7 +475,7 @@ int znd_opt_parse(const char *dev_name,  struct znd_opt_info* opt_info) {
         if (!strcmp(be_info, "")) {
             opt_info->opt_async = OPT_BE_THRPOOL;
         } else {
-            sscanf(be_info, "\?be=%64s", opt_end_name);
+            sscanf(be_info, "\?be:%64s", opt_end_name);
 
             int i = OPT_BE_THRPOOL;
             for (; i <= OPT_BE_IOURING_CMD; i++) {
@@ -494,7 +495,7 @@ int znd_opt_parse(const char *dev_name,  struct znd_opt_info* opt_info) {
         opt_info->opt_dev_type = OPT_DEV_SPDK;
         opt_info->opt_async    = OPT_BE_SPDK;
         sscanf(dev_info, "pci:%64s", opt_info->opt_dev_name);
-        sscanf(be_info, "\?nsid=%64d", &opt_info->opt_nsid);
+        sscanf(be_info, "\?nsid:%64d", &opt_info->opt_nsid);
     } else {
         log_erra("znd_opt_parse : err param '%s'", dev_name);
         return ZND_MEDIA_NODEVICE;

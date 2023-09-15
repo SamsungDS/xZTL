@@ -167,6 +167,7 @@ struct xztl_io_mcmd {
     struct xztl_mp_entry    *mp_cmd;
     struct xztl_mp_entry    *mp_entry;
 
+    uint64_t start_addr;
     /* For latency */
     uint64_t us_start;
     uint64_t us_end;
